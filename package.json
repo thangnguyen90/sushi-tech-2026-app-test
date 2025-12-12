@@ -4,14 +4,50 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
-        "dev": "vite"
+        "dev": "vite",
+        "lint": "eslint \"resources/js/**/*.{ts,vue}\"",
+        "lint:fix": "eslint \"resources/js/**/*.{ts,vue}\" --fix"
     },
     "devDependencies": {
         "@tailwindcss/vite": "^4.0.0",
-        "axios": "^1.11.0",
+        "axios": "^1.13.2",
         "concurrently": "^9.0.1",
         "laravel-vite-plugin": "^2.0.0",
+        "sass": "^1.96.0",
         "tailwindcss": "^4.0.0",
         "vite": "^7.0.7"
+    },
+    "dependencies": {
+        "@eslint/js": "^9.39.1",
+        "@fullcalendar/core": "^6.1.19",
+        "@fullcalendar/timegrid": "^6.1.19",
+        "@fullcalendar/vue3": "^6.1.19",
+        "@popperjs/core": "^2.11.8",
+        "@typescript-eslint/eslint-plugin": "^8.49.0",
+        "@typescript-eslint/parser": "^8.49.0",
+        "@vee-validate/i18n": "^4.15.1",
+        "@vee-validate/rules": "^4.15.1",
+        "@vitejs/plugin-vue": "^6.0.2",
+        "@vueuse/core": "^14.1.0",
+        "bootstrap": "^5.3.8",
+        "date-fns": "^4.1.0",
+        "eslint": "^9.39.1",
+        "eslint-config-prettier": "^10.1.8",
+        "eslint-import-resolver-alias": "^1.1.2",
+        "eslint-plugin-import": "^2.32.0",
+        "eslint-plugin-prettier": "^5.5.4",
+        "eslint-plugin-vue": "^10.6.2",
+        "pinia": "^3.0.4",
+        "typescript": "^5.9.3",
+        "typescript-eslint": "^8.49.0",
+        "vee-validate": "^4.15.1",
+        "vite-plugin-eslint": "^1.8.1",
+        "vue": "^3.5.25",
+        "vue-eslint-parser": "^10.2.0",
+        "vue-final-modal": "^4.5.5",
+        "vue-i18n": "^11.2.2",
+        "vue-qrcode-reader": "^5.7.3",
+        "vue-router": "^4.6.4",
+        "vue3-toastify": "^0.2.8"
     }
 }

@@ -1,0 +1,609 @@
+@import "bootstrap/scss/bootstrap";
+@import "./_variables.scss";
+
+@font-face {
+    font-family: "PingFang SC";     /* internal name you will use */
+    src: url("@/assets/fonts/PingFang SC.ttf") format("truetype");
+    font-weight: 400; /* adjust if your TTF is a different weight */
+    font-style: normal;
+    font-display: swap; /* avoid render blocking */
+}
+
+@font-face {
+    font-family: "Noto Sans JP", serif;
+    src: url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@100..900&family=Noto+Sans:ital,wght@0,100..900;1,100..900&display=swap');
+}
+
+@font-face {
+    font-family: "Noto Sans SC", sans-serif;
+    src: url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@100..900&display=swap');
+}
+
+@font-face {
+    font-family: "SF Pro Text";
+    font-weight: 400;
+    src: url("@/assets/fonts/SF-Pro-Text-Light.otf") format("opentype");
+}
+
+@font-face {
+    font-family: "SF Pro Text";
+    font-weight: 400;
+    src: url("@/assets/fonts/SF-Pro-Text-Regular.otf") format("opentype");
+}
+
+@font-face {
+    font-family: "SF Pro Text";
+    font-weight: 500;
+    src: url("@/assets/fonts/SF-Pro-Text-Medium.otf") format("opentype");
+}
+
+@font-face {
+    font-family: "SF Pro Text";
+    font-weight: 600;
+    src: url("@/assets/fonts/SF-Pro-Text-Semibold.otf") format("opentype");
+}
+
+@font-face {
+    font-family: "SF Pro Text";
+    font-weight: 700;
+    src: url("@/assets/fonts/SF-Pro-Text-Bold.otf") format("opentype");
+}
+
+@font-face {
+    font-family: "SF Pro Text";
+    font-weight: 800;
+    src: url("@/assets/fonts/SF-Pro-Text-Heavy.otf") format("opentype");
+}
+
+:root {
+    --toastify-toast-min-height: 34px !important;
+    --FontFamily-Body: "SF Pro Text";
+}
+
+/* ----- Chinese ----- */
+html.locale-chi {
+    font-family: "Noto Sans SC", sans-serif;
+    &:root {
+        --bs-font-sans-serif: "Noto Sans SC", sans-serif;
+    }
+}
+
+/* ----- Other locale ----- */
+html.locale-other {
+    font-family: system-ui, -apple-system, "Roboto", sans-serif;
+    &:root {
+        --bs-font-sans-serif: system-ui, -apple-system, "Roboto", sans-serif;
+    }
+}
+
+.vfm--overlay {
+    background-color: rgba(0, 0, 0, 0.60) !important;
+}
+
+.wrapper-pin-input {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 24px;
+    height: 32px;
+}
+
+.pinInput {
+    width: 24px;
+    background: inherit;
+    border: unset;
+    border-bottom: 2px solid $primaryTextColor;
+    color: #000;
+    text-align: center;
+    font-size: 30px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 30px;
+    border-radius: 0;
+}
+
+.pinInput.valid {
+    border-bottom: none;
+}
+
+.pinInput:focus {
+    outline: none;
+}
+
+input.common-input {
+    padding: 11px 12px;
+    border-radius: var(--rounded-base, 8px);
+    border: 1px solid var(--Ink-700, #E3E5E5);
+    background: var(--Ink-999, #FFF);
+    color: var(--Ink-000, #000);
+    font-size: var(--FontSize-text-base, 16px);
+    font-style: normal;
+    font-weight: 400;
+    line-height: var(--LineHeight-text-base_Normal, 24px);
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.common-btn {
+    font-family: "Noto Sans JP", serif;
+    border-radius: var(--lv99_999, 999px);
+    color: #fff;
+    background-color: $primaryColor;
+    text-align: center;
+    font-size: var(--FontSize-md_L, 14px);
+    font-style: normal;
+    font-weight: 700;
+    line-height: 100%;
+    padding: 13px;
+    border: unset;
+    transition:
+        background-color 0.25s ease,
+        border-color 0.25s ease,
+        color 0.25s ease,
+        box-shadow 0.25s ease;
+}
+
+.common-btn.danger {
+    border: 1px solid #EB0A1E;
+    background-color: #EB0A1E;
+    color: #FFFFFF;
+    border-radius: 8px;
+    padding: 13px;
+    font-size: 16px;
+    font-style: normal;
+    font-weight: 600;
+    &:disabled {
+        border: 1px solid #EEE;
+        background-color: #EEE;
+        color: #FFF;
+    }
+}
+
+.common-btn.cancel {
+    border: 1px solid $primaryColor;
+    background-color: #ffffff;
+    color: $primaryColor;
+    padding: 13px;
+}
+
+.common-btn.cancel:disabled {
+    border: 1px solid #cdcfd0;
+    background-color: inherit;
+}
+
+.common-btn.loadmore {
+    color: $primaryColor;
+    border: 2px solid #004bdd;
+    background-color: #fff;
+}
+
+.common-btn:disabled {
+    color: #cdcfd0;
+    background-color: #f2f4f5;
+}
+
+.common-btn.alert {
+    border-radius: 8px;
+    border: 1px solid #EB0A1E;
+    background-color: #FFFFFF;
+    color: #EB0A1E;
+    font-size: 14px;
+    font-style: normal;
+    font-weight: 600;
+    padding: 12px;
+}
+
+.common-modal {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+    animation: opacityIn 0.5s forwards;
+}
+
+@keyframes opacityIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.common-modal.hidden-background {
+    display: none;
+}
+
+.common-modal .common-modal-content {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 90%;
+    border-radius: 16px;
+    background-color: #fff;
+    padding: 24px;
+    gap: 16px;
+    box-shadow: 0px var(--size-1, 1px) var(--size-4, 4px) 0px rgba(0, 0, 0, 0.30);
+}
+
+.common-modal .title {
+    font-family: "Noto Sans JP", serif;
+    color: var(--Ink-300, #404446);
+    text-align: center;
+    font-size: 18px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 150%;
+}
+
+.common-modal .message {
+    color: #4b4b4b;
+    text-align: center;
+    font-size: var(--FontSize-md_L, 16px);
+    font-style: normal;
+    font-weight: 400;
+    line-height: 150%;
+}
+
+.common-modal {
+    .common-btn {
+        font-size: var(--FontSize-sm_L, 14px);
+        font-style: normal;
+        font-weight: 700;
+        line-height: 100%;
+        width: calc(100% - 19px);
+    }
+}
+
+.common-modal img {
+    position: absolute;
+    right: 19.5px;
+    top: 21px;
+}
+
+.page__header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    padding: 10px;
+    flex-direction: column;
+    align-items: center;
+    gap: 21px;
+    align-self: stretch;
+    border-bottom: 1px solid #E3E5E5;
+    background: #FFF;
+}
+
+.page__title {
+    color: #161717;
+    font-family: "Noto Sans JP";
+    text-align: center;
+    font-size: 18px;
+    font-style: normal;
+    font-weight: 400;
+    line-height: 150%;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+// Checkbox style
+input[type="checkbox"] {
+    -webkit-appearance: none;
+    appearance: none;
+    margin: 0;
+    width: 24px;
+    height: 24px;
+    background-color: #F3F3F5;
+    display: grid;
+    place-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease-in-out;
+    border-radius: 4px;
+    border: 1px solid rgba(0, 0, 0, 0.10);
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+
+    // &:before {
+    //     content: "";
+    //     width: 16px;
+    //     height: 12px;
+    //     transform: scale(0);
+    //     transition: 120ms transform ease-in-out;
+    //     box-shadow: inset 1em 1em #FFF;
+    //     transform-origin: bottom left;
+    //     clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+    // }
+    &:before {
+        content: "";
+        width: 16px;
+        height: 16px;
+        transform: scale(0);
+        transition: 120ms transform ease-in-out;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='15' height='12' viewBox='0 0 15 12' fill='none'%3E%3Cpath d='M1.73242 5.82524L5.57719 10.0195L13.2667 1.98047' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+    }
+
+    &:checked {
+        background-color: #EB0A1E;
+        border-color: #EB0A1E;
+    }
+
+    &:checked:before {
+        transform: scale(1);
+    }
+
+    &:focus {
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(235, 10, 30, 0.2);
+    }
+}
+
+// Confirm ticket layout
+.revervation-confirm {
+    &__layout {
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+    }
+
+    &__info {
+        border-radius: 4px;
+        background-color: #fff;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+
+        &:first-child {
+            padding-bottom: 12px;
+        }
+
+        &__title {
+            font-family: "Noto Sans JP", serif;
+            color: #C80120;
+            font-size: 16px;
+            font-style: normal;
+            font-weight: 600;
+            line-height: 150%;
+            padding-top: 24px;
+            border-top: 1px solid #D9D9D9;
+        }
+
+        &__header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+
+            .title {
+                font-family: "Noto Sans JP", serif;
+                color: #000;
+                font-size: 16px;
+                font-style: normal;
+                font-weight: 600;
+                line-height: 150%;
+                flex: 0 0 126px;
+            }
+        }
+
+        &__description {
+            font-family: "Noto Sans JP", serif;
+            color: #000;
+            font-size: 14px;
+            font-style: normal;
+            font-weight: 400;
+            line-height: 150%;
+            word-break: break-word;
+            text-align: end;
+        }
+
+        &__explain-text {
+            font-family: "Noto Sans JP", serif;
+            color: #000;
+            font-size: 14px;
+            font-style: normal;
+            font-weight: 400;
+            line-height: 150%;
+            white-space: pre-line;
+        }
+    }
+
+    &__submit {
+        &__checkbox {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #101828;
+            font-size: 16px;
+            font-style: normal;
+            font-weight: 400;
+            line-height: 150%;
+            >span {
+                font-family: "Noto Sans JP", serif;
+                font-size: 16px;
+                font-style: normal;
+                font-weight: 400;
+            }
+        }
+
+        &__note {
+            font-family: "Noto Sans JP", serif;
+            color: #6A7282;
+            font-size: 14px;
+            font-style: normal;
+            font-weight: 400;
+            line-height: 160%;
+        }
+
+        .common-btn {
+            margin-top: 16px;
+            margin-bottom: 12px;
+        }
+    }
+}
+// Calendar layout
+.timetable {
+    .calendar-container {
+        width: 100%;
+        height: 100%;
+    }
+
+    .fc-timegrid-event,
+    .fc-v-event,
+    .fc-event-main-frame,
+    .fc-event-main {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: 0 2px 5px 0 rgba(39, 63, 128, 0.40) !important;
+        padding: 0;
+    }
+
+    /* Căn chỉnh wrapper của event để không chèn padding mặc định */
+    .fc-timegrid-event-harness,
+    .fc-timegrid-event {
+        padding: 0 !important;
+    }
+    .fc-timegrid-event-harness {
+        margin-left: 8px;
+    }
+
+    .fc .fc-timegrid-slot-label {
+        vertical-align: text-top;
+    }
+
+    .fc-timegrid-slot-label-frame.fc-scrollgrid-shrink-frame {
+        text-align: center;
+        .fc-timegrid-slot-label-cushion.fc-scrollgrid-shrink-cushion {
+            color: #516682;
+            font-size: 14px;
+            font-style: normal;
+            font-weight: 400;
+            line-height: normal;
+        }
+    }
+
+    /* Header */
+    .event-header {
+        display: flex;
+        align-items: center;
+        font-weight: 600;
+        gap: 4px;
+    }
+
+    .event-id {
+        background: #4A90E2;
+        color: white;
+        border-radius: 50%;
+        width: 18px;
+        height: 18px;
+        font-size: 11px;
+        text-align: center;
+        line-height: 18px;
+    }
+
+    .event-title {
+        flex: 1;
+    }
+
+    .event-time {
+        font-size: 16px;
+        color: #000000;
+        font-weight: 400;
+    }
+
+    .event-location {
+        font-size: 12px;
+        color: #666;
+    }
+
+    /* Thẻ custom event bạn render */
+    .custom-event {
+        min-height: 80px;
+        width: 100%;
+        height: 100%;
+        border-radius: 12px;
+        padding: 8px 10px;
+        font-size: 13px;
+        color: #333;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        overflow: hidden;
+        &.notice {
+            background: #EBFDFF;
+            box-shadow: unset;
+            .event__badge {
+                font-size: 12px !important;
+                padding: 3px 8px !important;
+                border-radius: unset !important;
+                background: #84C6E2 !important;
+            }
+        }
+
+        .event__badge {
+            display: inline-block;
+            background: #EB0A1E;
+            color: #FFFFFF;
+            font-size: 12px;
+            padding: 3px 8px;
+            margin-bottom: 6px;
+            font-weight: 600;
+            width: fit-content;
+            &.special {
+                background: #4A60AF;
+            }
+        }
+
+        .event__desc {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: #273F80;
+            font-size: 16px;
+            font-style: normal;
+            font-weight: 400;
+
+            &.js-location-pin {
+                width: fit-content
+            }
+
+            img {
+                flex-shrink: 0;
+            }
+        }
+
+        .event__title {
+            margin-bottom: 4px;
+            color: #000000;
+            font-size: 20px;
+            font-style: normal;
+            font-weight: 700;
+            word-break: break-all;
+
+            &--short {
+                display: -webkit-box;
+                word-break: break-word;
+                overflow: hidden;
+                -webkit-line-clamp: 1;
+                -webkit-box-orient: vertical;
+            }
+
+            &--overlap {
+                overflow: hidden;
+                color: #C80120;
+                text-overflow: ellipsis;
+            }
+        }
+    }
+}

@@ -1,0 +1,28 @@
+{
+    "compilerOptions": {
+        "target": "ESNext",
+        "module": "ESNext",
+        "moduleResolution": "node",
+        "strict": true,
+        "jsx": "preserve",
+        "resolveJsonModule": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "lib": ["ESNext", "DOM"],
+        "baseUrl": "./",
+        "paths": {
+            "@/*": ["resources/js/*"],
+            "@/constants/*": ["resources/js/shared/constants/*"],
+            "@/enums/*": ["resources/js/shared/enums/*"],
+            "@/interfaces/": ["resources/js/shared/interfaces/*"],
+            "@/types/*": ["resources/js/shared/types/*"],
+            "@/stores/*": ["resources/js/stores/*"]
+        }
+    },
+    "include": [
+        "resources/js/**/*",
+        "resources/js/env.d.ts",
+        "node_modules/pinia/**/*"
+    ],
+    "exclude": ["node_modules"]
+}
