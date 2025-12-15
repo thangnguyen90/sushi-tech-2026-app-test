@@ -23,6 +23,7 @@
         "@fullcalendar/timegrid": "^6.1.19",
         "@fullcalendar/vue3": "^6.1.19",
         "@popperjs/core": "^2.11.8",
+        "@tanstack/vue-query": "^5.92.1",
         "@typescript-eslint/eslint-plugin": "^8.49.0",
         "@typescript-eslint/parser": "^8.49.0",
         "@vee-validate/i18n": "^4.15.1",

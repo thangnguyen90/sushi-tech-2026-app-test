@@ -1,5 +1,6 @@
 import { createApp } from 'vue';
 import { createPinia } from "pinia";
+import { VueQueryPlugin } from '@tanstack/vue-query'
 import { createVfm, VueFinalModal } from "vue-final-modal";
 import App from './App.vue';
 import router from "@/router";
@@ -15,6 +16,7 @@ const pinia = createPinia();
 
 const app = createApp(App);
 app.use(pinia);
+app.use(VueQueryPlugin);
 app.use(router);
 app.use(i18n);
 app.use(createVfm);
