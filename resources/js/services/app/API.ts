@@ -11,7 +11,6 @@ import type {
     InternalAxiosRequestConfig,
 } from 'axios';
 import { getLanguage } from '@/utils/commonFunction';
-import { useI18n } from 'vue-i18n';
 
 const apiClient = axios.create({
     baseURL: `/api`,
@@ -49,11 +48,6 @@ apiClient.interceptors.response.use(
         const storeError = useErrorStore();
         toggleLoading();
         if (error?.response?.data) {
-            if (error?.response?.data?.result?.code === TicketErrorCode.Order) {
-                const { t: translate } = useI18n();
-                storeError.error.message = translate('errorMessages.ticketError');
-                return;
-            }
             storeError.error = error?.response?.data?.result
                 ? error?.response?.data?.result
                 : error?.response?.data;

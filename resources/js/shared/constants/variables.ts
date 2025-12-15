@@ -1,15 +1,11 @@
 export const LOCALE_CODE = {
     JPN: 'jpn',
     ENG: 'eng',
-    CHI: 'chi',
-    TW: 'zhtw',
 } as const;
 
 export const LOCALES = [
     LOCALE_CODE.JPN,
     LOCALE_CODE.ENG,
-    LOCALE_CODE.CHI,
-    LOCALE_CODE.TW,
 ] as const;
 
 export const CROWD_STATUS = {

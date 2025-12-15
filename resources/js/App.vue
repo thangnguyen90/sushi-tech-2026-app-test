@@ -5,10 +5,12 @@
     </div>
 </template>
 <script setup lang="ts">
-import { watch } from 'vue';
-import LoadingComponent from './components/LoadingComponent.vue';
+import { defineAsyncComponent, watch } from 'vue';
 import { useAuthStore } from './stores/AuthStore';
 import { useErrorStore } from './stores/ErrorStore';
+
+// Components
+const LoadingComponent = defineAsyncComponent(() => import('@/components/LoadingComponent.vue'));
 
 const storeAuth = useAuthStore();
 const storeError = useErrorStore();
