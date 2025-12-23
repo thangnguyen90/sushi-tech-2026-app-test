@@ -1,13 +1,16 @@
 export const PAGE_NAME = {
     HOME: 'Home',
+    MATCHING_LIST: 'MatchingList',
 } as const;
 
 export const PAGE_PATH = {
     HOME: '/',
+    MATCHING_LIST: 'matching-list',
 } as const;
 
 export const PAGE_TITLE = {
-    HOME: 'Home',
+    HOME: 'home',
+    MATCHING_LIST: 'home',
 } as const;
 
 export const ROUTE = {

@@ -6,12 +6,31 @@ import { useAuthStore } from "@/stores/AuthStore";
 import { createRouter, createWebHistory } from "vue-router";
 import type { RouteRecordRaw } from "vue-router";
 import i18n from "@/i18n";
+import language from "@/middlewares/language";
 
 const routes: RouteRecordRaw[] = [
     {
         path: ROUTE.PATH.HOME,
-        component: () => import("@/views/HomeView.vue"),
-    }
+        children: [
+            {
+                path: ROUTE.PATH.HOME,
+                component: () => import("@/views/HomeView.vue"),
+                meta: {
+                    title: ROUTE.TITLE.HOME,
+                }
+            },
+            {
+                path: ROUTE.PATH.MATCHING_LIST,
+                component: () => import("@/views/MatchingList.vue"),
+                meta: {
+                    title: ROUTE.TITLE.MATCHING_LIST,
+                }
+            },
+        ],
+        meta: {
+            middleware: [language],
+        }
+    },
 ];
 
 const router = createRouter({
