@@ -111,15 +111,19 @@ html.locale-other {
 }
 
 input.common-input {
-    padding: 11px 12px;
-    border-radius: var(--rounded-base, 8px);
-    border: 1px solid var(--Ink-700, #E3E5E5);
-    background: var(--Ink-999, #FFF);
+    padding: 15px 11px;
+    border-radius: 8px;
+    border: 1px solid #CCC;
+    background: #FFFFFF;
     color: var(--Ink-000, #000);
-    font-size: var(--FontSize-text-base, 16px);
+    font-size: 14px;
     font-style: normal;
     font-weight: 400;
-    line-height: var(--LineHeight-text-base_Normal, 24px);
+    line-height: normal;
+    font-family: Arial;
+    &::placeholder {
+        color: var(--Darkblue-600, #8D9EB9);
+    }
 }
 
 .switch input {
@@ -129,12 +133,12 @@ input.common-input {
 }
 
 .common-btn {
-    font-family: "Noto Sans JP", serif;
-    border-radius: var(--lv99_999, 999px);
+    font-family: Roboto, serif;
+    border-radius: 12px;
     color: #fff;
     background-color: $primaryColor;
     text-align: center;
-    font-size: var(--FontSize-md_L, 14px);
+    font-size: 16px;
     font-style: normal;
     font-weight: 700;
     line-height: 100%;
@@ -260,12 +264,6 @@ input.common-input {
         line-height: 100%;
         width: calc(100% - 19px);
     }
-}
-
-.common-modal img {
-    position: absolute;
-    right: 19.5px;
-    top: 21px;
 }
 
 .page__header {

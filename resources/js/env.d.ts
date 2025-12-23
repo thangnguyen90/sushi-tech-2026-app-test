@@ -6,3 +6,9 @@ declare module "@vue/runtime-core" {
         $t: I18n["t"];
     }
 }
+
+declare module "@laravel/echo-vue" {
+    interface Window {
+        Echo: Echo;
+    }
+}

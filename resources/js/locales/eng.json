@@ -16,51 +16,41 @@
         "viewSchedule": "View Schedule",
         "toReservationTop": "Back to Reservation Top"
     },
-    "booking": {
-        "backToList": "To List",
-        "testDriveReservation": "Test Drive Reservation",
-        "bookingDrive": "Booking on Behalf",
-        "program": "Program",
-        "meetingTime": "Meeting Time",
-        "endTime": "End Time",
-        "reservationHolder": "Reservation Holder",
-        "receptionLocation": "Reception Location",
-        "testDriveNumber": "CAR No.",
-        "shuttleBusNumber": "Shuttle Bus No.",
-        "reserveCompleted": "Reservation Complete",
-        "bookingCompleted": "Proxy booking completed",
-        "reserveNote": "Enjoy a safe and fun test drive experience!",
-        "reserveDescription": "You can check your reservation status in Schedule.",
-        "carModel": "Vehicle Model",
-        "numberOfTickets": "Reservation Holder",
-        "numberOfCompanies": "Companion",
-        "companions": "Companion",
-        "makeReservation": "Make a Reservation",
-        "confirmNext": "Proceed to Confirmation",
-        "numberOfSheet": "Number of sheets",
-        "reservationCompleted": "Reservation completed",
-        "scanQrCode": "Scan QR code",
-        "confirmReservation": "Make a reservation",
-        "testDriveRide": "Experience Type",
-        "testDriveType": "Test Drive / Ride-Along",
-        "time": "Time",
-        "vehicle": "Vehicle Model",
-        "noteExplain": "*Important Notice",
-        "travelTime": "Duration",
-        "travelTimeNote": "Approximately 20 minutes",
-        "holdDriverLicense": "Driver’s License Requirement",
-        "holdDriverLicenseNote": "Only those holding a valid driver’s license from their country of residence may participate in the test drive.",
-        "prohibitDrinking": "No Drinking and Driving",
-        "prohibitDrinkingNote": "Driving under the influence of alcohol is strictly prohibited.",
-        "aboutDriving": "About Driving Skills",
-        "aboutDrivingNote": "Some test drive programs require specific driving skills. Please check the difficulty level indicated in the program details.",
-        "aboutClothing": "About Clothing",
-        "aboutClothingNote": "Please wear comfortable clothing and shoes suitable for driving.",
-        "upToLimitPerson": "Up to {number} companions allowed",
-        "selectTime": "Select Time",
-        "programDetails": "View Program Details",
-        "detailsQAnote": "If you have any questions, please ask a staff member.",
-        "confirmAboveNotes": "I have checked the Important Notice above."
+    "matching": {
+        "findPartner": "Find Matching Partner",
+        "status": {
+            "pending": "Pending",
+            "request": "Matching Requests",
+            "matched": "Matched List",
+            "done": "Completed Meetings"
+        }
+    },
+    "search": {
+        "placeholder": "Search by company name, person name, or keyword",
+        "button": "Search"
+    },
+    "tabs": {
+        "networking": "Networking",
+        "exhibitor": "Exhibitors",
+        "visitor": "Visitors"
+    },
+    "actions": {
+        "talk": "Start Chat",
+        "scheduleNotice": "You can schedule a business meeting.",
+        "schedule": "Schedule Meeting",
+        "markAsDone": "Mark participant as completed meeting"
+    },
+    "profile": {
+        "title": "<Profile Information>",
+        "department": "Department",
+        "position": "Position",
+        "email": "Email Address",
+        "phone": "Phone Number",
+        "gender": "Gender",
+        "birthday": "Date of Birth",
+        "snsUrl": "SNS URL",
+        "purpose": "Purpose of Participation",
+        "category": "Category"
     },
     "emptyMessages": {
         "program": "This field becomes available after selecting program.",
@@ -83,52 +73,6 @@
         "qrTitle": "An error occurred while scanning",
         "qrMessage": "Please try again."
     },
-    "mySchedule": {
-        "nameMeeting": "Conference Name",
-        "seatLocation": "Seat Location",
-        "seat": "Seat",
-        "multipleTicketTitle": "Multiple tickets are reserved at the same time",
-        "multipleTicketNote": "Please cancel any tickets that you will not be using.",
-        "cancelTicketTitle": "Do you want to cancel your reservation?",
-        "cancelTicketMessage": "This action cannot be undone.",
-        "cancelThisTicket": "Cancel this ticket",
-        "cancel": "Cancel",
-        "hotelInfo": "Hotel Information",
-        "isSpecialInvite": "Special Invitation",
-        "isCommon": "Programs",
-        "isAllDay": "All Day"
-    },
-    "qrCode": {
-        "howToUse": "How to Use",
-        "scanInstruction": "Scan the QR code at the experience spot to view detailed information on the spot.",
-        "startCamera": "Start Camera",
-        "errorTitle": "An error occurred while reading",
-        "errorMessage": "Please try again.",
-        "errorClose": "Close",
-        "cameraErrorTitle": "An error has occurred",
-        "cameraErrorMessage": "Please try again.",
-        "cameraErrorReturnToScan": "Return to scan",
-        "cameraPermissionErrorTitle": "Camera Error",
-        "cameraPermissionErrorMessage": "Camera permission is not available. Please allow camera usage from browser settings."
-    },
-    "myProgramDetail": {
-        "details": "Details",
-        "eventTime": "Event Hours",
-        "area": "Area",
-        "access": "Venue",
-        "meals": "Dining",
-        "progress": "Experience Form",
-        "guide": "Driving Guide",
-        "rainyDay": "Rainy Weather",
-        "reserve": "Make a Reservation",
-        "commonBadge": "Programs",
-        "specialInvitationBadge": "Special Invitation",
-        "techExperienceBadge": "Technology Experience",
-        "experienceType": "Experience Type",
-        "receptionLocation": "Reception Location",
-        "duration": "Duration",
-        "notes": "Important Notice"
-    },
     "weekdays": {
         "mon": "MON",
         "tue": "TUE",
@@ -139,30 +83,6 @@
         "sun": "SUN"
     },
     "pageTitles": {
-        "callingManagement": "Call Management",
-        "ticket": "Ticket",
-        "passcode": "Passcode",
-        "bookingManagement": "Booking Management",
-        "reservationConfirm": "Reservation Confirmation",
-        "reservation": "BOOKING",
-        "reservationCompleted": "Reservation Complete",
-        "programListCrowded": "Program Availability",
-        "signageCreation": "LEXUS FLAGSHIP YACHT Test Drive",
-        "programSeparate": "By Program",
-        "programSeparateInformation": "Lexus Boat - Boarding Information",
-        "programSeparateFinished": "Session Ended",
-        "programSeparatePaused": "Paused",
-        "programCross": "ALL PROGRAMS - STANDARD DISPLAY",
-        "programOverview": "ALL PROGRAMS",
-        "programOverviewFinished": "TODAY'S SESSIONS HAVE ENDED",
-        "mySchedule": "SCHEDULE",
-        "scheduleDetails": "SCHEDULE DETAILS",
-        "qrCodeDisplay": "Guest QR",
-        "qrCodeScanner": "QR Scan",
-        "myProgram": "PROGRAM LIST",
-        "myProgramDetail": "Program Details",
-        "ticketDetails": "Confirm Experience Program Reservation",
-        "confirmBooking": "Confirm proxy booking"
+        "home": "SUSHI TECH TOKYO 2026"
     }
-
 }

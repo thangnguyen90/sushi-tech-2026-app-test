@@ -6,11 +6,16 @@ import App from './App.vue';
 import router from "@/router";
 import i18n from '@/i18n';
 import { VueQrcodeReader } from 'vue-qrcode-reader'
+import { configureEcho } from '@laravel/echo-vue';
 
 // import Bootstrap JS
 import "bootstrap";
 import "vue-final-modal/style.css";
 import 'vue3-toastify/dist/index.css';
+
+configureEcho({
+    broadcaster: 'reverb',
+});
 
 const pinia = createPinia();
 

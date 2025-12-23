@@ -1,6 +1,7 @@
 import Auth from '@/services/app/Auth'
 import { LOCALE_CODE } from '@/shared/constants/variables'
-import { ApiResponse, UserInfo } from '@/shared/interfaces'
+import { UserInfo } from '@/shared/interfaces'
+import { ApiResponse } from '@/shared/interfaces/response'
 import { defineStore } from 'pinia'
 
 export const useAuthStore = defineStore('auth', {
