@@ -25,20 +25,26 @@ class UserController extends Controller
         if (!$user) {
             $this->userRepository->create([
                 'uuid' => $request->header('user-uuid'),
-                'is_agreed' => false,
+                'policy_agreed' => false,
             ]);
         }else{
             $isFirstLogin = false;
-            $isAgreed = $user->is_agreed;
+            $isAgreed = $user->policy_agreed;
         }
 
         return $this->responseService->success(
             data: [
-                'first_login' => $isFirstLogin,
+                'is_first_login' => $isFirstLogin,
                 'policy_agreed' => $isAgreed,
             ],
         );
+    }
 
-
+    public function userAgreement( Request $request): \Illuminate\Http\JsonResponse
+    {
+        $user = $this->userRepository->firstWhere('uuid', $request->header('user-uuid'));
+        $user->policy_agreed = true;
+        $user->save();
+        return $this->responseService->success();
     }
 }

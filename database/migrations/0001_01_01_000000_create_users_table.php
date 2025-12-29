@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('users', function (Blueprint $table) {
             $table->string('uuid',36)->primary();
-            $table->boolean('is_agreed')->default(false);
+            $table->boolean('policy_agreed')->default(false);
             $table->rememberToken();
             $table->timestamps();
         });
