@@ -9,7 +9,7 @@ const reverbScheme = (import.meta.env.VITE_REVERB_SCHEME as string) || 'https';
 const reverbHost = (import.meta.env.VITE_REVERB_HOST as string) || window.location.hostname;
 const reverbPort = Number(import.meta.env.VITE_REVERB_PORT) || 6001;
 
-export const echo: Echo = new Echo({
+export const echo: Echo<'reverb'> = new Echo({
     broadcaster: 'reverb',
     key: reverbAppKey,
     wsHost: reverbHost,

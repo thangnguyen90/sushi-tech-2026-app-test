@@ -18,12 +18,11 @@
     },
     "matching": {
         "findPartner": "Find Matching Partner",
-        "status": {
-            "pending": "Pending",
-            "request": "Matching Requests",
-            "matched": "Matched List",
-            "done": "Completed Meetings"
-        }
+        "pending": "Pending",
+        "request": "Matching Requests",
+        "matched": "Matched List",
+        "done": "Completed Meetings",
+        "notYetDiscuss": "Not yet discussed"
     },
     "search": {
         "placeholder": "Search by company name, person name, or keyword",
@@ -38,7 +37,9 @@
         "talk": "Start Chat",
         "scheduleNotice": "You can schedule a business meeting.",
         "schedule": "Schedule Meeting",
-        "markAsDone": "Mark participant as completed meeting"
+        "markAsDone": "Mark participant as completed meeting",
+        "markCompleted": "Mark as completed",
+        "selectParticipants": "Select participants who have already met"
     },
     "profile": {
         "title": "<Profile Information>",
@@ -51,6 +52,12 @@
         "snsUrl": "SNS URL",
         "purpose": "Purpose of Participation",
         "category": "Category"
+    },
+    "contract": {
+        "title": "Welcome to SusHi Tech Tokyo 2026",
+        "description": "Thank you for using the official SusHi Tech Tokyo 2026 app. To maximize business matching opportunities at SusHi Tech Tokyo, we recommend using the matching feature.\n\nWe encourage you to take advantage of the matching feature.",
+        "confirm": "Agree to use the matching feature",
+        "deny": "Do not use"
     },
     "emptyMessages": {
         "program": "This field becomes available after selecting program.",

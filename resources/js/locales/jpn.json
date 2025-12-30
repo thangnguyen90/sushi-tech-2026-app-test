@@ -21,7 +21,8 @@
         "pending": "申請中",
         "request": "マッチングリクエスト",
         "matched": "マッチング済リスト",
-        "done": "商談済"
+        "done": "商談済",
+        "notYetDiscuss": "未商談"
     },
     "search": {
         "placeholder": "会社名・氏名・キーワードで検索",
@@ -36,7 +37,15 @@
         "talk": "話しかける",
         "scheduleNotice": "商談日程を予約できます。",
         "schedule": "商談予約する",
-        "markAsDone": "参加者を商談済にする"
+        "markAsDone": "参加者を商談済にする",
+        "markCompleted": "商談済にする",
+        "selectParticipants": "商談済の参加者を選択"
+    },
+    "contract": {
+        "title": "SusHi Tech Tokyo 2026へようこそ",
+        "description": "SusHi Tech Tokyo 2026の公式アプリのご利用ありがとうございます。SusHi Tech Tokyoではビジネスマッチングの機会を最大化するために、マッチング機能の利用を推奨しております。\n\nぜひマッチング機能をご利用ください。",
+        "confirm": "マッチング機能の利用に同意する",
+        "deny": "利用しない"
     },
     "profile": {
         "title": "＜プロフィール情報＞",
