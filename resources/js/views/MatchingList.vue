@@ -15,7 +15,7 @@
         </div>
         <div
             class="matching-list__body"
-            :style="{ '--matching-height': headerHeight + 'px' }"
+            :style="{ '--matching-height': headerHeight + 'px', '--matching-footer': footerHeight + 'px' }"
             :class="{ 'matching-layout': status !== MATCHING_TYPES.MATCHING }"
         >
             <div class="matching-list__body-search">
@@ -29,9 +29,15 @@
                     {{ $t('search.button') }}
                 </button>
             </div>
-            <button v-if="status === MATCHING_TYPES.PENDING" class="btn-mark-meeting">
-                <img src="@/assets/icons/mark-check-meeting.png" alt="">
-                {{ $t('actions.markAsDone') }}
+            <button
+                v-if="status === MATCHING_TYPES.PENDING"
+                class="btn-mark-meeting"
+                :class="{ 'active': isCheckinMark }"
+                @click="handleCheckinMark"
+            >
+                <img v-if="isCheckinMark" src="@/assets/icons/mark-check-meeting-active.png" alt="">
+                <img v-else src="@/assets/icons/mark-check-meeting.png" alt="">
+                {{ isCheckinMark ? $t('actions.selectParticipants') : $t('actions.markAsDone') }}
             </button>
             <div class="matching-list__body-list">
                 <div v-if="status === MATCHING_TYPES.MATCHING" class="matching-list__body-list-title">
@@ -67,13 +73,35 @@
                             >
                                 {{ $t('actions.talk') }}
                             </button>
-                            <div v-if="status !== MATCHING_TYPES.MATCHING" class="matching-items__item-notify">
-                                1
+                            <div
+                                v-if="status !== MATCHING_TYPES.MATCHING"
+                                :class="{ 'matching-items__item-notify': !isCheckinMark }"
+                            >
+                                <span v-if="!isCheckinMark">1</span>
+                                <div class="matching-items__item-marking" v-else>
+                                    <input
+                                        type="checkbox"
+                                        :checked="selectedMarks.has(i)"
+                                        class=""
+                                        @click.stop @change="toggleItem(i)"
+                                    >
+                                    <label class="checkbox-text" for="">
+                                        {{ selectedMarks.has(i) ? $t('matching.done') : $t('matching.notYetDiscuss') }}
+                                    </label>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
+        </div>
+        <div v-if="isCheckinMark" ref="checkMarkFooter" class="matching-list__footer">
+            <button class="common-btn cancel-gray" @click="cancelCheckMarking">
+                {{ $t('common.cancel') }}
+            </button>
+            <button class="common-btn">
+                {{ $t('actions.markCompleted') }}
+            </button>
         </div>
     </div>
 </template>
@@ -82,7 +110,7 @@
 import { Option } from "@/components/SelectBoxComponent.vue";
 import { MATCHING_TYPES } from "@/shared/constants/matching";
 import { UserMatchingInfo } from "@/shared/interfaces/matching";
-import { defineAsyncComponent, nextTick, onMounted, ref } from "vue";
+import { defineAsyncComponent, nextTick, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 
 const SelectBoxComponent = defineAsyncComponent(
@@ -97,10 +125,14 @@ const ProfileModal = defineAsyncComponent(
 
 const { t: translate } = useI18n();
 const selectHeader = ref<HTMLElement | null>(null);
+const checkMarkFooter = ref<HTMLElement | null>(null);
 const headerHeight = ref<number>(0);
+const footerHeight = ref<number>(0);
 const searchText = ref<string>("");
 const status = ref<string>(MATCHING_TYPES.MATCHING);
 const showProfile = ref<boolean>(false);
+const isCheckinMark = ref<boolean>(false);
+const selectedMarks = ref<Set<number>>(new Set());
 const userInfo = ref<UserMatchingInfo>({
     id: 1,
     avatar: "/avatar.jpg",
@@ -133,12 +165,11 @@ const statusOptions = [
 
 const getHeaderHeight = async () => {
     await nextTick();
-    if (!selectHeader.value) return;
-
-    headerHeight.value = selectHeader.value.offsetHeight;
+    if (selectHeader.value) headerHeight.value = selectHeader.value.offsetHeight;
 };
 
 const changeStatus = (option: Option) => {
+    isCheckinMark.value = false;
     status.value = option.value;
 };
 
@@ -155,6 +186,31 @@ const handleTalk = () => {
     console.log("handleTalk");
 };
 
+const handleCheckinMark = async () => {
+    isCheckinMark.value = !isCheckinMark.value;
+};
+
+const cancelCheckMarking = async () => {
+    selectedMarks.value = new Set();
+    handleCheckinMark();
+};
+
+const toggleItem = (id: number) => {
+    if (selectedMarks.value.has(id)) {
+        selectedMarks.value.delete(id)
+    } else {
+        selectedMarks.value.add(id)
+    }
+}
+
+watch(
+    () => isCheckinMark.value,
+    async (newValue) => {
+        await nextTick();
+        footerHeight.value = checkMarkFooter.value && newValue ? checkMarkFooter.value.offsetHeight : 0;
+    },
+)
+
 onMounted(async () => {});
 </script>
 <style lang="scss" scoped>
@@ -165,7 +221,7 @@ onMounted(async () => {});
     }
 
     &__body {
-        height: calc(100svh - var(--matching-height));
+        height: calc(100svh - (var(--matching-height) + var(--matching-footer)));
         overflow: auto;
         background: #eef2fa;
 
@@ -181,10 +237,14 @@ onMounted(async () => {});
             background: var(--brand_red, #E60013);
             color: #FFF;
             font-family: Roboto;
-            font-size: 12.17px;
+            font-size: 14px;
             font-style: normal;
             font-weight: 700;
             line-height: normal;
+            &.active {
+                background: #F7F9FA;
+                color: var(--Ink-300, #404446);
+            }
             >img {
                 width: 16px;
             }
@@ -395,7 +455,54 @@ onMounted(async () => {});
                     font-style: normal;
                     font-weight: 700;
                 }
+                &-marking {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 4px;
+                    &.active {
+                        .checkbox-text {
+                            color: #E60013;
+                            font-family: Arial;
+                            font-size: 8px;
+                            font-style: normal;
+                            font-weight: 400;
+                            line-height: normal;
+                        }
+                    }
+                    .checkbox-text {
+                        color: #979C9E;
+                        font-family: Arial;
+                        font-size: 8px;
+                        font-style: normal;
+                        font-weight: 700;
+                        line-height: normal;
+                    }
+                }
             }
+        }
+    }
+    &__footer {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        background: rgba(255, 255, 255, 0.70);
+        padding: 25px 8px 15px 8px;
+        position: fixed;
+        width: 100%;
+        bottom: 0;
+        button {
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            vertical-align: middle;
+            text-align: center;
+            font-family: Arial;
+            font-size: 14px;
+            font-style: normal;
+            font-weight: 700;
+            line-height: normal;
+            width: 145px;
         }
     }
 }

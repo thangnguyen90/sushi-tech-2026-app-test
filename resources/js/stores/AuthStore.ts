@@ -1,7 +1,4 @@
-import Auth from '@/services/app/Auth'
 import { LOCALE_CODE } from '@/shared/constants/variables'
-import { UserInfo } from '@/shared/interfaces'
-import { ApiResponse } from '@/shared/interfaces/response'
 import { defineStore } from 'pinia'
 
 export const useAuthStore = defineStore('auth', {
@@ -54,16 +51,6 @@ export const useAuthStore = defineStore('auth', {
             this.token = null
             this.passCode = null
             localStorage.clear();
-        },
-        async getUser(): Promise<ApiResponse<UserInfo>> {
-            return new Promise((resolve, reject) => {
-                Auth.getUser()
-                    .then(({ data }) => {
-                        this.setUser(data?.result)
-                        resolve(data);
-                    })
-                    .catch(({ response }) => reject(response));
-            });
         },
     }
 })

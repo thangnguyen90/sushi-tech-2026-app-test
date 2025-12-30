@@ -20,6 +20,11 @@
 }
 
 @font-face {
+    font-family: "Roboto", sans-serif;
+    src: url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
+}
+
+@font-face {
     font-family: "SF Pro Text";
     font-weight: 400;
     src: url("@/assets/fonts/SF-Pro-Text-Light.otf") format("opentype");
@@ -149,6 +154,10 @@ input.common-input {
         border-color 0.25s ease,
         color 0.25s ease,
         box-shadow 0.25s ease;
+    &.cancel-gray {
+        background-color: #CDCFD0;
+        color: #000;
+    }
 }
 
 .common-btn.danger {
@@ -230,7 +239,7 @@ input.common-input {
     flex-direction: column;
     align-items: center;
     width: 90%;
-    border-radius: 16px;
+    border-radius: 24px;
     background-color: #fff;
     padding: 24px;
     gap: 16px;
@@ -307,7 +316,7 @@ input[type="checkbox"] {
     cursor: pointer;
     transition: all 0.15s ease-in-out;
     border-radius: 4px;
-    border: 1px solid rgba(0, 0, 0, 0.10);
+    border: 1px solid #CDCFD0;
     box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 
     // &:before {
@@ -322,8 +331,8 @@ input[type="checkbox"] {
     // }
     &:before {
         content: "";
-        width: 16px;
-        height: 16px;
+        width: 15px;
+        height: 15px;
         transform: scale(0);
         transition: 120ms transform ease-in-out;
         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='15' height='12' viewBox='0 0 15 12' fill='none'%3E%3Cpath d='M1.73242 5.82524L5.57719 10.0195L13.2667 1.98047' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
@@ -333,8 +342,8 @@ input[type="checkbox"] {
     }
 
     &:checked {
-        background-color: #EB0A1E;
-        border-color: #EB0A1E;
+        background-color: #E60013;
+        border-color: #E60013;
     }
 
     &:checked:before {

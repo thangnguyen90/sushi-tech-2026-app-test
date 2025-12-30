@@ -34,7 +34,6 @@ const onError = () => {
     isLoaded.value = false
 }
 
-// reset khi src thay đổi
 watch(
     () => props.src,
     () => {
@@ -66,6 +65,7 @@ watch(
         justify-content: center;
         color: #94a3b8;
         font-size: 14px;
+        text-align: center;
     }
 }
 </style>

@@ -7,6 +7,7 @@ import { createRouter, createWebHistory } from "vue-router";
 import type { RouteRecordRaw } from "vue-router";
 import i18n from "@/i18n";
 import language from "@/middlewares/language";
+import auth from "@/middlewares/auth";
 
 const routes: RouteRecordRaw[] = [
     {
@@ -28,7 +29,7 @@ const routes: RouteRecordRaw[] = [
             },
         ],
         meta: {
-            middleware: [language],
+            middleware: [auth, language],
         }
     },
 ];
@@ -74,7 +75,7 @@ router.afterEach((to) => {
     const meta: RouterMeta = to.meta;
     const titleKey = meta?.title as string | undefined;
     if (titleKey) {
-        document.title = i18n.global.t(titleKey);
+        document.title = i18n.global.t(`pageTitles.${titleKey}`);
     }
 });
 
