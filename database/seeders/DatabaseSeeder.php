@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
+use App\Models\LiveChatProfiles;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -15,10 +15,10 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        // LiveChatProfiles::factory(10)->create();
 
-        User::factory()->create([
-            'name' => 'Test User',
+        LiveChatProfiles::factory()->create([
+            'name' => 'Test LiveChatProfiles',
             'email' => 'test@example.com',
         ]);
     }

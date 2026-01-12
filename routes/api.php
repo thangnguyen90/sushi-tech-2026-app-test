@@ -2,10 +2,10 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\UserController;
+use App\Http\Controllers\LiveChatProfilesController;
 
 Route::name('users.')
-    ->controller(UserController::class)
+    ->controller(LiveChatProfilesController::class)
     ->group(function (): void {
         // GET /api/users/policy-status
         Route::get('user-status', 'checkUserFistLoginAndAgreePolicy')
