@@ -223,10 +223,6 @@ abstract class BaseRepository
     {
         return $this->model->firstOrCreate($conditions, $values);
     }
-    public function newQuery(): Builder
-    {
-        return $this->model->newQuery();
-    }
     public function count(array $conditions = []): int
     {
         $query = $this->model->newQuery();
