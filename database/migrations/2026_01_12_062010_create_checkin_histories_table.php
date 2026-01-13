@@ -26,7 +26,7 @@ return new class extends Migration
 
             // Indexes
             $table->index(['exhibitor_administrator_id', 'checkin_app_user_name'], 'idx_admin_event');
-            $table->index(['user_id', 'checkin_app_user_name'], 'idx_admin_event');
+            $table->index(['user_id', 'checkin_app_user_name']);
             $table->index('checkin_app_user_name');
 
         });
