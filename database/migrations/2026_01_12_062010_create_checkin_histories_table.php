@@ -12,8 +12,8 @@ return new class extends Migration
         Schema::create('checkin_histories', function (Blueprint $table) {
             $table->bigIncrements('id');
 
-            $table->unsignedBigInteger('exhibitor_administrator_id');
-            $table->unsignedBigInteger('user_id');
+            $table->unsignedBigInteger('exhibitor_administrator_id')->nullable();
+            $table->unsignedBigInteger('user_id')->nullable();
             $table->unsignedBigInteger('event_id');
 
             $table->string('checkin_app_user_name', 255)->nullable();
