@@ -1,20 +1,152 @@
 <template>
-    <h4>SUSHI TECH</h4>
-    <ContractMatchingModal
-        v-model="contractModal"
-        :description="$t('contract.description')"
-        @update:model-value="(v) => (contractModal = v)"
-        @update:confirm="confirmPolicy"
-    />
+    <div class="top">
+        <img class="top__ai-logo" src="@/assets/images/sushi_ai_chat.png" alt="">
+        <div class="d-flex justify-content-between align-items-center top__header">
+            <img class="main-logo" src="@/assets/images/sushi_logo.png" alt="" />
+            <div class="d-flex flex-column align-items-center">
+                <img class="qr-logo" src="@/assets/images/qr_display.png" alt="" />
+                <div class="text-qr">
+                    {{ $t('top.header.scanDisplay') }}
+                </div>
+            </div>
+        </div>
+        <div class="top__title">
+            <div class="top__title-text">
+                {{ $t('top.title.business') }}
+            </div>
+            <div class="top__title-undeline"></div>
+        </div>
+        <div class="top__list-content">
+            <div class="top__list-content-items">
+                <div class="top__list-content-item qr">
+                    <img class="icon-item" src="@/assets/images/qr_code.png" alt="">
+                    <div class="top__list-content-item-details">
+                        <div class="label">
+                            {{ $t('top.menu.qr.label') }}
+                        </div>
+                        <div class="note">
+                            {{ $t('top.menu.qr.note') }}
+                        </div>
+                    </div>
+                    <img class="arrow-icon" src="@/assets/icons/arrow_white_right.svg" alt="">
+                </div>
+                <div class="top__list-content-item business-card">
+                    <img class="icon-item" src="@/assets/images/bs_card.png" alt="">
+                    <div class="top__list-content-item-details">
+                        <div class="label">
+                            {{ $t('top.menu.businessCardHistory.label') }}
+                        </div>
+                        <div class="note">
+                            {{ $t('top.menu.businessCardHistory.note') }}
+                        </div>
+                    </div>
+                    <img class="arrow-icon" src="@/assets/icons/arrow_black_right.svg" alt="">
+                </div>
+            </div>
+            <div class="top__list-content-items mt-1">
+                <div class="top__list-content-item">
+                    <img src="@/assets/images/matching_list.png" alt="">
+                    <div class="top__list-content-item-details">
+                        <div class="label">
+                            {{ $t('top.menu.matchingList.label') }}
+                        </div>
+                        <div class="note">
+                            {{ $t('top.menu.matchingList.note') }}
+                        </div>
+                    </div>
+                    <img class="arrow-icon" src="@/assets/icons/arrow_white_right.svg" alt="">
+                </div>
+            </div>
+            <div class="top__list-content-items">
+                <div class="top__list-content-item">
+                    <img src="@/assets/images/calendar_apointment.png" alt="">
+                    <div class="top__list-content-item-details">
+                        <div class="label">
+                            {{ $t('top.menu.appointment.label') }}
+                        </div>
+                        <div class="note">
+                            {{ $t('top.menu.appointment.note') }}
+                        </div>
+                    </div>
+                    <img class="arrow-icon" src="@/assets/icons/arrow_white_right.svg" alt="">
+                </div>
+            </div>
+        </div>
+        <div class="top__title">
+            <div class="top__title-text">
+                {{ $t('top.title.notice') }}
+            </div>
+            <div class="top__title-undeline"></div>
+        </div>
+        <div class="top__notice">
+            <div class="top__notice-item" v-for="notice in notices" :key="notice.id">
+                <div class="top__notice-item-date">
+                    {{ formatDate(notice.date, 'yyyy.MM.dd') }}
+                </div>
+                <div class="top__notice-item-text">
+                    {{ notice.title }}
+                </div>
+            </div>
+        </div>
+        <!-- <div class="top__title">
+            <div class="top__title-text">
+                {{ $t('top.title.session') }}
+            </div>
+            <div class="top__title-undeline"></div>
+        </div>
+        <div class="top__stage_list">
+            <div class="top__stage_list-item">
+                <div class="">
+                    <div class="">
+                        <img src="" alt="">
+                        stage A
+                    </div>
+                    <div class="">
+                        4/29（水）10:00 - 11:00
+                    </div>
+                </div>
+                <div class="">
+                    【AI時代のビジネス戦略】人と機械の共創がもたらす未来
+                </div>
+                <div class="">
+                    <div class="">
+                        <img src="" alt="">
+                        <img src="" alt="">
+                    </div>
+                    <div class="">
+                        <img src="" alt="">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="slider-container pe-0">
+            <HeroSlider />
+        </div> -->
+        <ContractMatchingModal
+            v-model="contractModal"
+            :description="$t('contract.description')"
+            @update:model-value="(v) => (contractModal = v)"
+            @update:confirm="confirmPolicy"
+        />
+    </div>
 </template>
 <script setup lang="ts">
-import { useAgreePolicyMutation, useUserPolicyStatus } from "@/composables/auth";
+import {
+    useAgreePolicyMutation,
+    useUserPolicyStatus,
+} from "@/composables/auth";
 import { useAuthStore } from "@/stores/AuthStore";
+import { formatDate } from "@/utils/useDate";
 import { defineAsyncComponent, ref, watch } from "vue";
 
 const storeAuth = useAuthStore();
 const contractModal = ref<boolean>(false);
-const ContractMatchingModal = defineAsyncComponent(() => import("@/components/modals/ContractMatchingModal.vue"));
+const ContractMatchingModal = defineAsyncComponent(
+    () => import("@/components/modals/ContractMatchingModal.vue"),
+);
+// const HeroSlider = defineAsyncComponent(
+//     () => import("@/components/carousel/HeroSlider.vue"),
+// );
 
 const { mutate } = useAgreePolicyMutation();
 useUserPolicyStatus();
@@ -27,15 +159,227 @@ const confirmPolicy = () => {
         onError: (error) => {
             console.error(error);
             contractModal.value = false;
-        }
+        },
     });
 };
+
+const notices = ref([
+    {
+        id: 1,
+        title: "【会場変更】「基調講演」の会場がAホールへ変更になりました",
+        date: new Date().toISOString(),
+    },
+    {
+        id: 2,
+        title: "【ネットワーキング満席】14:00回は予約上限に達しました",
+        date: new Date().toISOString(),
+    },
+    {
+        id: 3,
+        title: "【名刺交換ブース】混雑緩和のため待機列を2列に変更しました",
+        date: new Date().toISOString(),
+    },
+])
 
 watch(
     () => storeAuth.user,
     (user) => {
         if (user) contractModal.value = !user.policy_agreed;
     },
-    { immediate: true }
+    { immediate: true },
 );
 </script>
+<style lang="scss" scoped>
+.top {
+    position: relative;
+    background-image:
+        url("@/assets/images/sushi_bg.png"),
+        url("@/assets/images/sushi_bg2.png");
+    background-size: 60%;
+    background-repeat: no-repeat;
+    background-position:
+        left top 90px,
+        right top 520px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 16px 0;
+    >div {
+        padding: 0 16px;
+        &.slider-container {
+            padding: 0;
+        }
+    }
+    &__ai-logo {
+        position: fixed;
+        bottom: 10%;
+        right: 0;
+        width: 113px;
+        z-index: 1;
+    }
+    &__header {
+        .main-logo {
+            width: 222px;
+        }
+        .qr-logo {
+            width: 36px;
+        }
+        .text-qr {
+            color: #FFF;
+            font-size: 12px;
+            font-style: normal;
+            font-weight: 700;
+            line-height: 24px;
+        }
+    }
+    &__title {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        &-text {
+            padding-bottom: 8px;
+            color: #FFF;
+            font-size: 20px;
+            font-style: normal;
+            font-weight: 700;
+            line-height: 24px;
+        }
+        &-undeline {
+            height: 4px;
+            border-radius: 0.5px;
+            width: 40px;
+            background-color: #E60013;
+        }
+    }
+    &__list-content {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        --bs-gutter-x: 0px;
+        --bs-gutter-y: 31px;
+        .col-6 {
+            --bs-gutter-x: 20px;
+        }
+        &-items {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            gap: 12px;
+            padding: 16px 24px;
+            align-self: center;
+            border-radius: 8px;
+            background: var(--Zinc-800, #202325);
+            color: #FFF;
+            text-align: center;
+            font-size: 14px;
+            font-style: normal;
+            font-weight: 700;
+            line-height: 24px;
+            &:first-child {
+                background: #FFF;
+                padding: 12px;
+            }
+        }
+        &-item {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 12px;
+            align-self: center;
+            border-radius: 8px;
+            background: var(--Zinc-800, #202325);
+            color: #FFF;
+            text-align: center;
+            font-size: 14px;
+            font-style: normal;
+            font-weight: 700;
+            line-height: 24px;
+            width: 100%;
+            .arrow-icon {
+                width: 24px;
+                margin-left: auto;
+            }
+            &-details {
+                text-align: left;
+                .label {
+                    color: var(--White, #FFF);
+                    font-size: 18px;
+                    font-style: normal;
+                    font-weight: 700;
+                    line-height: 24px;
+                }
+                .note {
+                    color: var(--White, #FFF);
+                    font-size: 12px;
+                    font-style: normal;
+                    font-weight: 400;
+                    line-height: 160%;
+                }
+            }
+            >img {
+                width: 38px;
+            }
+            &.qr {
+                background: #000;
+                color: #FFF;
+                font-size: 18px;
+                font-style: normal;
+                font-weight: 700;
+                line-height: 24px;
+                padding: 16px 12px;
+            }
+            &.business-card {
+                padding: 4px 12px;
+                background: #FFF;
+                color: #000;
+                .top__list-content-item-details {
+                    .label {
+                        color: #000;
+                    }
+                    .note {
+                        color: #000;
+                    }
+                }
+            }
+            &.qr,&.business-card {
+                .icon-item {
+                    width: 45px;
+                }
+            }
+            &.matching {
+                >img {
+                    width: 55px;
+                }
+            }
+        }
+    }
+    &__notice {
+        &-item {
+            &:first-child {
+                padding-top: 0;
+            }
+            padding-top: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #666;
+            &-text {
+                color: #FFF;
+                font-size: 14px;
+                font-style: normal;
+                font-weight: 700;
+                line-height: 160%;
+            }
+            &-date {
+                color: #FFF;
+                font-size: 14px;
+                font-style: normal;
+                font-weight: 400;
+                line-height: 160%;
+                padding-bottom: 8px;
+            }
+        }
+    }
+}
+</style>

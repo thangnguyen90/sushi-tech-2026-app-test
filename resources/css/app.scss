@@ -63,6 +63,8 @@
 :root {
     --toastify-toast-min-height: 34px !important;
     --FontFamily-Body: "SF Pro Text";
+    --bs-body-bg: #000;
+    --bs-body-color: #FFFFFF;
 }
 
 /* ----- Chinese ----- */
@@ -177,10 +179,13 @@ input.common-input {
 }
 
 .common-btn.cancel {
-    border: 1px solid $primaryColor;
-    background-color: #ffffff;
-    color: $primaryColor;
+    border: 1px solid #000;
+    background-color: #FFF;
+    color: #000 !important;
     padding: 13px;
+    font-size: 16px !important;
+    font-style: normal;
+    font-weight: 700;
 }
 
 .common-btn.cancel:disabled {

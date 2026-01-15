@@ -1,5 +1,5 @@
 <template>
-    <div class="">
+    <div class="main">
         <LoadingComponent :is-loading="storeAuth.loading" />
         <router-view />
     </div>

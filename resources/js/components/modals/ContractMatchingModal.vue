@@ -8,18 +8,45 @@
         :focusTrap="false"
         :clickToClose="false"
     >
-        <img class="icon-close" src="@/assets/icons/close-modal.png" alt="" @click="closeModal" />
+        <!-- <img class="icon-close" src="@/assets/icons/close-modal.png" alt="" @click="closeModal" /> -->
         <div class="title">
-            {{ $t('contract.title') }}
+            {{ $t("contract.title") }}
         </div>
         <div class="description">
             {{ description }}
         </div>
+        <div class="details-contract">
+            <div class="label">
+                {{ $t("contract.publicInfo.label") }}
+            </div>
+            <div class="description">
+                {{ $t("contract.publicInfo.description") }}
+            </div>
+        </div>
+        <div class="details-contract">
+            <div class="label">
+                {{ $t("contract.publicScope.label") }}
+            </div>
+            <div class="description">
+                {{ $t("contract.publicScope.description") }}
+            </div>
+        </div>
+        <div class="details-contract">
+            <div class="label">
+                {{ $t("contract.purpose.label") }}
+            </div>
+            <div class="description">
+                {{ $t("contract.purpose.description") }}
+            </div>
+        </div>
+        <div class="contract-note">
+            {{ $t("contract.note") }}
+        </div>
         <button class="common-btn" @click="confirmPolicy">
-            {{ $t('contract.confirm') }}
+            {{ $t("contract.confirm") }}
         </button>
-        <div class="refuse-btn" @click="closeModal">
-            {{ $t('contract.deny') }}
+        <div class="common-btn cancel" @click="closeModal">
+            {{ $t("contract.deny") }}
         </div>
     </vue-final-modal>
 </template>
@@ -58,26 +85,48 @@ const closeModal = (): void => {
 
 <style lang="scss">
 .common-modal-content.contract {
-    padding: 36px 16px;
+    padding: 24px;
+    border-radius: 8px;
+    max-height: 90%;
+    overflow: auto;
+
     .title {
         color: #000;
         text-align: center;
-        font-family: Roboto;
-        font-size: 16px;
+        font-size: 20px;
         font-style: normal;
         font-weight: 700;
-        line-height: 19.6px;
+        text-align: left;
+        line-height: 160%;
     }
+
     .description {
         color: #000;
-        font-family: Roboto;
-        font-size: 13px;
+        font-size: 14px;
         font-style: normal;
-        font-weight: 500;
-        line-height: 150%;
-        padding: 10px;
+        font-weight: 400;
+        line-height: 24px;
         white-space: pre-line;
     }
+
+    .contract-note {
+        color: var(--Black, #000);
+        font-size: 12px;
+        font-style: normal;
+        font-weight: 400;
+        line-height: 24px;
+    }
+
+    .details-contract {
+        .label {
+            color: var(--Black, #000);
+            font-size: 14px;
+            font-style: normal;
+            font-weight: 700;
+            line-height: 24px;
+        }
+    }
+
     .icon-close {
         position: absolute;
         top: -12px;
@@ -85,22 +134,22 @@ const closeModal = (): void => {
         cursor: pointer;
         width: 37px;
     }
+
     .common-btn {
         width: 100%;
-        color: #FFF;
         text-align: center;
-        font-family: Roboto;
         font-size: 16px;
+        min-height: 48px;
     }
+
     .refuse-btn {
-        color: var(--Ink-500, #979C9E);
+        color: var(--Ink-500, #979c9e);
         text-align: center;
-        font-family: Roboto;
         font-size: 12px;
         font-style: normal;
-        font-weight: 500;
+        font-weight: 400;
         line-height: normal;
-        border-bottom: 1px solid var(--Ink-500, #979C9E);
+        border-bottom: 1px solid var(--Ink-500, #979c9e);
         padding: 2px;
     }
 }
