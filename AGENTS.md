@@ -30,7 +30,9 @@ This application is a Laravel application and its main Laravel ecosystems packag
 - Do not create verification scripts or tinker when tests cover that functionality and prove it works. Unit and feature tests are more important.
 
 ## Application Structure & Architecture
-- Stick to existing directory structure; don't create new base folders without approval.
+- Stick to the existing directory structure; don't create new base folders without approval.
+- Code for new features should be organized logically within existing or approved directories.
+- Follow existing architectural patterns(Mvc, service-repository) used in the application.
 - Do not change the application's dependencies without approval.
 
 ## Frontend Bundling
@@ -108,6 +110,9 @@ protected function isAccessible(User $user, ?string $path = null): bool
 
 ## Enums
 - Typically, keys in an Enum should be TitleCase. For example: `FavoritePerson`, `BestLake`, `Monthly`.
+
+## response helper
+- When create a controller, use Service Response class for returning responses.
 
 === laravel/core rules ===
 
