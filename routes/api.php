@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\Api\MatchingPartnerController;
+use App\Http\Controllers\MatchingPartnerController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LiveChatProfilesController;
