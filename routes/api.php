@@ -5,6 +5,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LiveChatProfilesController;
 use App\Http\Middleware\UserAuthenticationMiddleware;
+use App\Http\Controllers\MatchingUserController;
 
 Route::name('users.')
     ->controller(LiveChatProfilesController::class)
@@ -25,4 +26,10 @@ Route::middleware(UserAuthenticationMiddleware::class)->group(function (): void 
             Route::get('matching-partners', 'index')
                 ->name('matching-partners');
         });
+
+    // List negotiations (deal done list)
+    Route::get('/matching/negotiations', [MatchingUserController::class, 'negotiationsList']);
+
+    // Mark negotiation as deal done (status = 4) if both sides already matched
+    Route::post('/matching/negotiations', [MatchingUserController::class, 'markDealDone']);
 });
