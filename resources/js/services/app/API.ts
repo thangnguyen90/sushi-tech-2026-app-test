@@ -38,9 +38,6 @@ apiClient.interceptors.request.use(
 
 apiClient.interceptors.response.use(
     async (response: AxiosResponse) => {
-        const storeAuth = useAuthStore();
-        const serverDate = response.headers["date"];
-        if (serverDate) storeAuth.setServerDate(serverDate);
         toggleLoading();
         return response;
     },

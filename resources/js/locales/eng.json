@@ -53,11 +53,57 @@
         "purpose": "Purpose of Participation",
         "category": "Category"
     },
+    "top": {
+        "header": {
+            "scanDisplay": "Scanner Display"
+        },
+        "title": {
+            "business": "Business Networking",
+            "notice": "Announcements",
+            "session": "Session List"
+        },
+        "menu": {
+            "qr": {
+                "label": "Member QR Code",
+                "note": "You can exchange business cards and contact information."
+            },
+            "businessCardHistory": {
+                "label": "Business Card Exchange History",
+                "note": "You can view the history of business card exchanges made via QR code."
+            },
+            "matchingList": {
+                "label": "Matching List",
+                "note": "Search for participants at the event venue and connect for meetings and business matching."
+            },
+            "appointment": {
+                "label": "Meeting Reservation Request",
+                "note": "You can request a meeting reservation by sending your preferred date and time."
+            }
+        },
+        "stage": {
+            "stageA": "Stage A",
+            "datetime": "Apr 29 (Wed) 10:00 - 11:00",
+            "title": "[Business Strategy in the AI Era] The Future Brought by Human–Machine Co-Creation"
+        }
+    },
     "contract": {
-        "title": "Welcome to SusHi Tech Tokyo 2026",
-        "description": "Thank you for using the official SusHi Tech Tokyo 2026 app. To maximize business matching opportunities at SusHi Tech Tokyo, we recommend using the matching feature.\n\nWe encourage you to take advantage of the matching feature.",
-        "confirm": "Agree to use the matching feature",
-        "deny": "Do not use"
+        "title": "Regarding the use of the business matching function",
+        "description": "This event offers a \"business matching function\" to promote interaction between participants. By using this function, we ask that you agree to the disclosure and provision of the following information.",
+        "confirm": "Agree",
+        "deny": "Disagree",
+        "publicInfo": {
+            "label": "Information to Be Disclosed",
+            "description": "Name, company name, department, job title, profile photo, and self-introduction (information entered during registration)"
+        },
+        "publicScope": {
+            "label": "Scope of Disclosure",
+            "description": "Participants logged into the event application and users with whom a match has been established"
+        },
+        "purpose": {
+            "label": "Purpose",
+            "description": "Networking between participants, chat, meeting reservations, and lead utilization by exhibitors"
+        },
+        "note": "*You can change your profile visibility (privacy settings) at any time from the settings screen."
     },
     "emptyMessages": {
         "program": "This field becomes available after selecting program.",
