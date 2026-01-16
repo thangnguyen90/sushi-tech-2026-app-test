@@ -42,18 +42,6 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        $exceptions->render(function (\Illuminate\Validation\ValidationException $e, Request $request) {
-            Log::error($e);
-            if ($request->is('api/*')) {
-                return response()->json([
-                    'result' => [
-                        'code' => 400,
-                        'message' => 'Validation failed',
-                        'result' => $e->errors(),
-                    ],
-                ], 400);
-            }
-        });
         $exceptions->render(function (Throwable $e, Request $request) {
             Log::error($e);
             if ($e instanceof NotFoundHttpException) {
