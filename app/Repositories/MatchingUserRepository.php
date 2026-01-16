@@ -45,17 +45,17 @@ class MatchingUserRepository extends BaseRepository
      */
     public function markDealDoneIfMutual(
         int $ownerUserId,
-        int $peerUserId,
+        array $peerUserId,
         int $dealDoneStatus,
         ?int $eventId = null
     ): bool {
         return DB::transaction(function () use ($ownerUserId, $peerUserId, $dealDoneStatus, $eventId) {
             $aToB = $this->query()
                 ->where('owner_user_id', $ownerUserId)
-                ->where('peer_user_id', $peerUserId);
+                ->whereIn('peer_user_id', $peerUserId);
 
             $bToA = $this->query()
-                ->where('owner_user_id', $peerUserId)
+                ->whereIn('owner_user_id', $peerUserId)
                 ->where('peer_user_id', $ownerUserId);
 
             if ($eventId !== null) {
