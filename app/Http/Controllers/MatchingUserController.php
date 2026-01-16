@@ -75,8 +75,8 @@ class MatchingUserController extends Controller
 
         $ownerUserId = (int) $user->id;
 
-        $peerUserId = (int) $request->input('peer_user_id', 0);
-        if ($peerUserId <= 0 || $peerUserId === $ownerUserId) {
+        $peerUserId = $request->input('peer_user_id', 0);
+        if ($peerUserId && count($peerUserId) <= 0 || $peerUserId === $ownerUserId) {
             return $this->responseService->error(
                 message: 'Invalid peer_user_id.',
                 code: 'INVALID_PEER_USER_ID',
