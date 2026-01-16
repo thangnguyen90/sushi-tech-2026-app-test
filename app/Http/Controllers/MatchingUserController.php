@@ -75,15 +75,10 @@ class MatchingUserController extends Controller
 
         $ownerUserId = (int) $user->id;
 
-        $peerUserId = $request->input('peer_user_id', 0);
-        if ($peerUserId && count($peerUserId) <= 0 || $peerUserId === $ownerUserId) {
-            return $this->responseService->error(
-                message: 'Invalid peer_user_id.',
-                code: 'INVALID_PEER_USER_ID',
-                data: null,
-                status: 400
-            );
-        }
+        $validated = $request->validate([
+            'peer_user_id' => ['required', 'array'],
+        ]);
+        $peerUserId = $validated['peer_user_id'];
 
         $ok = $this->matchingUserRepository->markDealDoneIfMutual(
             ownerUserId: $ownerUserId,
