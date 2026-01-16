@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\MarkMatchingRequest;
 use App\Repositories\MatchingUserRepository;
 use App\Services\ResponseService;
 use Illuminate\Http\Request;
@@ -61,7 +62,7 @@ class MatchingUserController extends Controller
      *
      * Set status=4 only if both directions already exist in matching_users.
      */
-    public function markDealDone(Request $request): JsonResponse
+    public function markDealDone(Request $request, MarkMatchingRequest $matchingRequest): JsonResponse
     {
         $user = $request->user();
         if (!$user || !isset($user->id)) {
@@ -75,11 +76,7 @@ class MatchingUserController extends Controller
 
         $ownerUserId = (int) $user->id;
 
-        $validated = $request->validate([
-            'peer_user_id' => ['required', 'array'],
-        ]);
-        $peerUserId = $validated['peer_user_id'];
-
+        $peerUserId = $matchingRequest['peer_user_id'];
         $ok = $this->matchingUserRepository->markDealDoneIfMutual(
             ownerUserId: $ownerUserId,
             peerUserId: $peerUserId,
