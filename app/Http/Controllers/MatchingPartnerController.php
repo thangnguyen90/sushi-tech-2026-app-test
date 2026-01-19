@@ -2,36 +2,58 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
+use App\Http\Requests\MatchingPartnerIndexRequest;
 use App\Services\MatchingPartnerService;
-use Illuminate\Http\Request;
+use App\Services\ResponseService;
+use Illuminate\Http\JsonResponse;
+use JsonException;
 
 class MatchingPartnerController extends Controller
 {
-    public function index(Request $request, MatchingPartnerService $service)
+    public function __construct(
+        private readonly ResponseService $responseService
+    ) {
+    }
+
+    public function index(MatchingPartnerIndexRequest $request, MatchingPartnerService $service): JsonResponse
     {
-        $validated = $request->validate([
-            'language_id' => ['nullable', 'integer'],
-            'limit_exhibitors' => ['nullable', 'integer', 'min:1', 'max:50'],
-            'limit_visitors' => ['nullable', 'integer', 'min:1', 'max:50'],
-            'limit_networking_per_name' => ['nullable', 'integer', 'min:1', 'max:50'],
-        ]);
+        $user = $request->user();
+        if (!$user || !isset($user->id)) {
+            return $this->responseService->error(
+                message: 'Unauthorized.',
+                code: 'UNAUTHORIZED',
+                data: null,
+                status: 401
+            );
+        }
 
-        $userId = (int) $request->user()->id;
+        $validated = $request->validated();
+        $userId = (int) $user->id;
 
-        $result = $service->getPartners([
-            'user_id' => $userId,
-            'data_source_id' => (int) $validated['live_chat_data_source_id'],
-            'language_id' => (int) ($validated['language_id'] ?? 1),
-            'limit_exhibitors' => (int) ($validated['limit_exhibitors'] ?? 10),
-            'limit_visitors' => (int) ($validated['limit_visitors'] ?? 10),
-            'limit_networking_per_name' => (int) ($validated['limit_networking_per_name'] ?? 10),
-        ]);
+        try {
+            $result = $service->getPartners([
+                'user_id' => $userId,
+                'data_source_id' => (int) $validated['live_chat_data_source_id'],
+                'language_id' => (int) ($validated['language_id'] ?? 1),
+                'limit_exhibitors' => (int) ($validated['limit_exhibitors'] ?? 10),
+                'limit_visitors' => (int) ($validated['limit_visitors'] ?? 10),
+                'limit_networking_per_name' => (int) ($validated['limit_networking_per_name'] ?? 10),
+            ]);
+        } catch (JsonException $e) {
+            return $this->responseService->error(
+                message: 'Failed to build partners response.',
+                code: 'JSON_EXCEPTION',
+                data: [
+                    'error' => $e->getMessage(),
+                ],
+                status: 500
+            );
+        }
 
-        return response()->json([
-            'code' => 'OK',
-            'message' => '',
-            'result' => $result,
-        ]);
+        return $this->responseService->success(
+            data: $result,
+            code: 'OK',
+            message: ''
+        );
     }
 }
