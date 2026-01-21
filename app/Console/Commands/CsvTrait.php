@@ -7,12 +7,15 @@ use RuntimeException;
 
 trait CsvTrait
 {
-    const string DISK = 's3';
-    const string DIR = 'csv_exports';
+    const string DIR = 'csv';
     const string FILE_PREFIX = 'export_';
     const string FILE_SUFFIX = '.csv.gz';
     protected $disk;
 
+
+    /**
+     * Get the most recent CSV file path from the storage disk.
+     */
     public function getLastFile(): ?string
     {
         $this->disk    = Storage::disk($this::DISK);
@@ -29,7 +32,13 @@ trait CsvTrait
         })->sortByDesc('modified');
         return $files->first()['path'];
     }
-    public function readAll(string $path): string
+
+    /**
+     * Read and parse a CSV file from storage.
+     *
+     * @return string The file contents.
+     */
+    public function getFileContent(string $path): string
     {
         $contents = $this->disk->get($path);
         if ($contents === false || $contents === null) {
@@ -40,6 +49,7 @@ trait CsvTrait
 
     /**
      * Safe gzip decompress with errors surfaced.
+     * @return string The decompressed string.
      */
     public function decompressGzip(string $binary): string
     {

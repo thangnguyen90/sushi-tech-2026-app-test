@@ -10,4 +10,8 @@ class LiveChatProfiles extends Authenticatable
     use Notifiable;
     protected $guarded = [];
     protected $table = 'live_chat_profiles';
+
+    protected $casts = [
+        'custom_fields' => 'array',
+    ];
 }
