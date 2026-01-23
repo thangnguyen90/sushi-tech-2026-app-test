@@ -43,12 +43,12 @@
                     <img class="arrow-icon" src="@/assets/icons/arrow_black_right.svg" alt="">
                 </div>
             </div>
-            <div class="top__list-content-items mt-1">
+            <div class="top__list-content-items mt-1" @click="toMatchingList">
                 <div class="top__list-content-item">
                     <img src="@/assets/images/matching_list.png" alt="">
                     <div class="top__list-content-item-details">
                         <div class="label">
-                            {{ $t('top.menu.matchingList.label') }}
+                            {{ $t('top.menu.appointment.label') }}
                         </div>
                         <div class="note">
                             {{ $t('top.menu.matchingList.note') }}
@@ -57,12 +57,12 @@
                     <img class="arrow-icon" src="@/assets/icons/arrow_white_right.svg" alt="">
                 </div>
             </div>
-            <div class="top__list-content-items">
+            <div class="top__list-content-items" @click="toChatList">
                 <div class="top__list-content-item">
                     <img src="@/assets/images/calendar_apointment.png" alt="">
                     <div class="top__list-content-item-details">
                         <div class="label">
-                            {{ $t('top.menu.appointment.label') }}
+                            {{ $t('top.menu.matchingList.label') }}
                         </div>
                         <div class="note">
                             {{ $t('top.menu.appointment.note') }}
@@ -136,6 +136,7 @@ import {
     useUserPolicyStatus,
 } from "@/composables/auth";
 import { useAuthStore } from "@/stores/AuthStore";
+import { LiveChatRedirect } from "@/utils/constantUrl";
 import { formatDate } from "@/utils/useDate";
 import { defineAsyncComponent, ref, watch } from "vue";
 
@@ -180,6 +181,18 @@ const notices = ref([
         date: new Date().toISOString(),
     },
 ])
+
+const toMatchingList = () => {
+    if (storeAuth.user?.policy_agreed) {
+        window.location.href = LiveChatRedirect(true, storeAuth.languageCode as string);
+        return
+    }
+    contractModal.value = true;
+}
+
+const toChatList = () => {
+    window.location.href = LiveChatRedirect(false, storeAuth.languageCode as string);
+}
 
 watch(
     () => storeAuth.user,
@@ -320,7 +333,7 @@ watch(
                 }
             }
             >img {
-                width: 38px;
+                width: 45px;
             }
             &.qr {
                 background: #000;
