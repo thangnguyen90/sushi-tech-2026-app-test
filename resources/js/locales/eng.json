@@ -76,8 +76,8 @@
                 "note": "Search for participants at the event venue and connect for meetings and business matching."
             },
             "appointment": {
-                "label": "Meeting Reservation Request",
-                "note": "You can request a meeting reservation by sending your preferred date and time."
+                "label": "Find participants",
+                "note": "You can see the participants who have been matched."
             }
         },
         "stage": {
