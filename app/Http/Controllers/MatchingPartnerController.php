@@ -33,7 +33,8 @@ class MatchingPartnerController extends Controller
         try {
             $result = $service->getPartners([
                 'user_id' => $userId,
-                'data_source_id' => (int) $validated['live_chat_data_source_id'],
+                'data_source_id' => $validated['live_chat_data_source_id']??config('eventos.live_chat_data_source_id'),
+                'event_id' => config('eventos.event_id'),
                 'language_id' => (int) ($validated['language_id'] ?? 1),
                 'limit_exhibitors' => (int) ($validated['limit_exhibitors'] ?? 10),
                 'limit_visitors' => (int) ($validated['limit_visitors'] ?? 10),
