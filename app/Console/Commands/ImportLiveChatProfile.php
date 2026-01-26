@@ -17,7 +17,7 @@ class ImportLiveChatProfile extends Command
      *
      * @var string
      */
-    protected $signature = 'app:import-live-chat-profile {file : The CSV file to import}';
+    protected $signature = 'live_chat_profiles {file : The CSV file to import}';
 
     /**
      * The console command description.
