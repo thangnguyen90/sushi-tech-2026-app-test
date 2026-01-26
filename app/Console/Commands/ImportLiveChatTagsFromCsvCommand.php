@@ -37,7 +37,7 @@ class ImportLiveChatTagsFromCsvCommand extends Command
         $file = $this->argument('file');
         $this->disk = Storage::disk(self::DISK);
         $file = $this->getFileContent($file);
-        // $file = $this->decompressGzip($file);
+        $file = $this->decompressGzip($file);
         $csv = Reader::fromString($file)->skipEmptyRecords()->setHeaderOffset(0);
 
         $repository = app(LiveChatTagRepository::class);
