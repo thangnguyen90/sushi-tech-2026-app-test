@@ -25,7 +25,7 @@ class ImportLiveChatProfile extends Command
      * @var string
      */
     protected $description = 'Command description';
-    const string DISK = 'local';
+    const string DISK = 's3';
 
     /**
      * Execute the console command.

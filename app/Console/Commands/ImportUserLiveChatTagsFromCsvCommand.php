@@ -26,7 +26,7 @@ class ImportUserLiveChatTagsFromCsvCommand extends Command
      */
     protected $description = 'Import user live chat tags from CSV';
 
-    const string DISK = 'local';
+    const string DISK = 's3';
 
     /**
      * Execute the console command.

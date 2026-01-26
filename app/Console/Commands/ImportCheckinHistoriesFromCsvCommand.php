@@ -26,7 +26,7 @@ class ImportCheckinHistoriesFromCsvCommand extends Command
      */
     protected $description = 'Import checkin histories from CSV';
 
-    const string DISK = 'local';
+    const string DISK = 's3';
 
     /**
      * Execute the console command.
