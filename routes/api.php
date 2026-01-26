@@ -29,13 +29,14 @@ Route::middleware(UserAuthenticationMiddleware::class)->group(function (): void 
                 ->name('matching-partners');
         });
 
-    // List negotiations (deal done list)
+    // List negotiations (deal-done list)
     Route::get('/matching/negotiations', [MatchingUserController::class, 'negotiationsList']);
 
-    // Mark negotiation as deal done (status = 4) if both sides already matched
+    // Mark negotiation as a deal done (status = 4) if both sides already matched
     Route::post('/matching/negotiations', [MatchingUserController::class, 'markDealDone']);
 });
 
 Route::controller(WebhookController::class)->group(function (): void {
     Route::post('webhook/csv-list-trigger', 'handleCsvListTriggerWebhook')->name('webhook.csv-list-trigger');
+    Route::post('webhook/business-approvement', 'businessApprovement')->name('webhook.business-approvement');
 });
