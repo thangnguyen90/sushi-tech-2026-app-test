@@ -5,6 +5,7 @@ namespace App\Repositories;
 use App\Models\MatchingUser;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use App\Enums\MatchingStatus;
 class MatchingUserRepository extends BaseRepository
 {
     protected function modelClass(): string
@@ -74,5 +75,45 @@ class MatchingUserRepository extends BaseRepository
 
             return true;
         });
+    }
+
+    public function addOrUpdateDataFromWebhook(array $data): void
+    {
+        $matchingUser = $this->query()
+            ->where('owner_user_id', $data['applicant']['user']['user_id'])
+            ->where('owner_uuid', $data['applicant']['user']['user_uuid'])
+            ->where('peer_user_id', $data['recipient']['exhibitor_administrator_id'])
+            ->where('peer_uuid', $data['recipient']['exhibitor_administrator_uuid'])
+            ->where('event_id', $data['basic_information']['event_id'] ?? 0)
+            ->first();
+
+        if (!$matchingUser)  {
+            $this->query()->create([
+                'owner_user_id' => $data['applicant']['user']['user_id'],
+                'owner_uuid' => $data['applicant']['user']['user_uuid'],
+                'peer_user_id' => $data['recipient']['exhibitor_administrator_id'],
+                'peer_uuid' => $data['recipient']['exhibitor_administrator_uuid'],
+                'event_id' => $data['basic_information']['event_id'] ?? 0,
+                'status' => MatchingStatus::DEAL_DONE->value,
+            ]);
+        }
+
+        $matchingUser = $this->query()
+            ->where('owner_user_id', $data['recipient']['exhibitor_administrator_id'])
+            ->where('owner_uuid', $data['recipient']['exhibitor_administrator_uuid'])
+            ->where('peer_user_id', $data['applicant']['user']['user_id'])
+            ->where('peer_uuid', $data['applicant']['user']['user_uuid'])
+            ->where('event_id', $data['basic_information']['event_id'] ?? 0)
+            ->first();
+        if(!$matchingUser)  {
+            $this->query()->create([
+                'owner_user_id' => $data['recipient']['exhibitor_administrator_id'],
+                'owner_uuid' => $data['recipient']['exhibitor_administrator_uuid'],
+                'peer_user_id' => $data['applicant']['user']['user_id'],
+                'event_id' => $data['basic_information']['event_id'] ?? 0,
+                'peer_uuid' => $data['applicant']['user']['user_uuid'],
+                'status' => MatchingStatus::DEAL_DONE->value,
+            ]);
+        }
     }
 }

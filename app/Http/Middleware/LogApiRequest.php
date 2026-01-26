@@ -47,7 +47,7 @@ class LogApiRequest
             'status' => method_exists($response, 'getStatusCode') ? $response->getStatusCode() : null,
         ]);
 
-        // set response header để client cũng trace được
+        // set a response header for tracing
         if (method_exists($response, 'headers')) {
             $response->headers->set('X-Request-Id', $requestId);
         }
@@ -139,7 +139,7 @@ class LogApiRequest
         return $masked;
     }
 
-//    private function shouldMaskKey(string $keyLower): bool
+//    a private function shouldMaskKey(string $keyLower): bool
 //    {
 //        return false;
 //    }
