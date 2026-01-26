@@ -91,7 +91,6 @@ class MatchingPartnerService
             $profiles = LiveChatProfiles::query()
                 ->whereNull('deleted_at')
                 ->where('live_chat_data_source_id', $ctx['data_source_id'])
-                ->where('display_is_search', true)
                 ->where('last_event_id', $ctx['event_id'])
                 ->where(function ($q) use ($userIds, $adminIds) {
                     if ($userIds->isNotEmpty()) {
@@ -141,7 +140,6 @@ class MatchingPartnerService
         return LiveChatProfiles::query()
             ->whereNull('deleted_at')
             ->where('live_chat_data_source_id', $ctx['data_source_id'])
-            ->where('display_is_search', true)
             ->where('last_event_id', $ctx['event_id'])
             ->whereNotNull('exhibitor_administrator_id')
             ->inRandomOrder()
@@ -170,7 +168,6 @@ class MatchingPartnerService
         return LiveChatProfiles::query()
             ->whereNull('deleted_at')
             ->where('live_chat_data_source_id', $ctx['data_source_id'])
-            ->where('display_is_search', true)
             ->where('last_event_id', $ctx['event_id'])
             ->whereNotNull('user_id')
             ->whereNull('exhibitor_administrator_id')
