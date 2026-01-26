@@ -17,7 +17,7 @@ class ImportLiveChatTagsFromCsvCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'app:import-live-chat-tags {file : The CSV file to import}';
+    protected $signature = 'live_chat_tags {file : The CSV file to import}';
 
     /**
      * The console command description.

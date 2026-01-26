@@ -6,6 +6,8 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LiveChatProfilesController;
 use App\Http\Middleware\UserAuthenticationMiddleware;
 use App\Http\Controllers\MatchingUserController;
+use App\Http\Controllers\WebhookController;
+
 
 Route::name('users.')
     ->controller(LiveChatProfilesController::class)
@@ -32,4 +34,8 @@ Route::middleware(UserAuthenticationMiddleware::class)->group(function (): void 
 
     // Mark negotiation as deal done (status = 4) if both sides already matched
     Route::post('/matching/negotiations', [MatchingUserController::class, 'markDealDone']);
+});
+
+Route::controller(WebhookController::class)->group(function (): void {
+    Route::post('webhook/csv-list-trigger', 'handleCsvListTriggerWebhook')->name('webhook.csv-list-trigger');
 });

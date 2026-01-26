@@ -17,7 +17,7 @@ class ImportCheckinHistoriesFromCsvCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'app:import-checkin-histories {file : The CSV file to import}';
+    protected $signature = 'checkin_histories {file : The CSV file to import}';
 
     /**
      * The console command description.
