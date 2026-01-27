@@ -20,7 +20,13 @@ export function useUserPolicyStatus() {
 }
 
 export function useAgreePolicyMutation() {
+    const useAuth = useAuthStore()
     return useMutation({
         mutationFn: () => Auth.updateUserPolicy(),
+        onSuccess: () => {
+            if (useAuth.user) {
+                useAuth.user.policy_agreed = true
+            }
+        },
     })
 }
