@@ -25,18 +25,33 @@ class BizTalksRepository extends BaseRepository
     /**
      * @throws JsonException
      */
-    public function addOrUpdateDataFromWebhook(array $data ): void
+    public function addOrUpdateDataFromWebhook(array $data): void
     {
-       $this->updateOrCreate(
-           [
-               'exhibitor_schedule_id' => $data['exhibitor_administrator_appointment_schedule_detail']['id'],
-           ],
-           [
-               'user_id' => $data['applicant']['user']['user_id'],
-               'user_uuid' => $data['applicant']['user']['user_uuid'],
-               'started_at' => $data['exhibitor_administrator_appointment_schedule_detail']['schedule_start_datetime'],
-               'data' => json_encode($data, JSON_THROW_ON_ERROR),
-           ]
-       );
+        // Extract applicant user_id and user_uuid based on type (user or exhibitor)
+        $applicantUserId = $data['applicant']['user_id']
+            ?? $data['applicant']['user']['user_id']
+            ?? $data['applicant']['exhibitor_administrator_id']
+            ?? null;
+        $applicantUuid = $data['applicant']['user_uuid']
+            ?? $data['applicant']['user']['user_uuid']
+            ?? $data['applicant']['exhibitor_administrator_uuid']
+            ?? null;
+
+        // Validate that we have required data
+        if (!$applicantUserId || !$applicantUuid) {
+            return;
+        }
+
+        $this->updateOrCreate(
+            [
+                'exhibitor_schedule_id' => $data['exhibitor_administrator_appointment_schedule_detail']['id'],
+            ],
+            [
+                'user_id' => $applicantUserId,
+                'user_uuid' => $applicantUuid,
+                'started_at' => $data['exhibitor_administrator_appointment_schedule_detail']['schedule_start_datetime'],
+                'data' => json_encode($data, JSON_THROW_ON_ERROR),
+            ]
+        );
     }
 }
