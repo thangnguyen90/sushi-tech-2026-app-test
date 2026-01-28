@@ -28,8 +28,7 @@ class MatchingPartnerController extends Controller
         }
 
         $validated = $request->validated();
-        $userId = (int) $user->id;
-
+        $userId = (int) $user->user_id;
         try {
             $result = $service->getPartners([
                 'user_id' => $userId,
@@ -39,6 +38,7 @@ class MatchingPartnerController extends Controller
                 'limit_exhibitors' => (int) ($validated['limit_exhibitors'] ?? 10),
                 'limit_visitors' => (int) ($validated['limit_visitors'] ?? 10),
                 'limit_networking_per_name' => (int) ($validated['limit_networking_per_name'] ?? 10),
+                'keyword' => $validated['keyword']??null,
             ]);
         } catch (JsonException $e) {
             return $this->responseService->error(
