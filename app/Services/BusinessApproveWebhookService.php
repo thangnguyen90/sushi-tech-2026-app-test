@@ -33,19 +33,15 @@ class BusinessApproveWebhookService
             // Process based on the scenario
             if ($applicantIsUser && $recipientIsUser) {
                 // Scenario 1: user <> user
-//                dd('user <> user');
                 $this->processUserToUser($data);
             } elseif ($applicantIsUser && $recipientIsExhibitor) {
                 // Scenario 2: user -> exhibitor
-//                dd('user -> exhibitor');
                 $this->processUserToExhibitor($data);
             } elseif ($applicantIsExhibitor && $recipientIsUser) {
                 // Scenario 3: exhibitor -> user
-//                dd('exhibitor -> user');
                 $this->processExhibitorToUser($data);
             } elseif ($applicantIsExhibitor && $recipientIsExhibitor) {
                 // Scenario 4: exhibitor <> exhibitor
-//                dd('exhibitor <> exhibitor');
                 $this->processExhibitorToExhibitor($data);
             }
             return;
