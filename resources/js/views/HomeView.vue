@@ -161,9 +161,7 @@ const confirmPolicy = () => {
     mutate(undefined, {
         onSuccess: () => {
             contractModal.value = false;
-            if (isCheckAgreement.value) {
-                window.location.href = LiveChatRedirect(moduleMatchingId, matchingWebLinkId);
-            }
+            window.location.href = LiveChatRedirect(moduleMatchingId, matchingWebLinkId);
         },
         onError: (error) => {
             console.error(error);
@@ -190,14 +188,11 @@ const notices = ref([
     },
 ])
 
-const isCheckAgreement = ref<boolean>(false);
-
 const toMatchingList = () => {
     if (storeAuth.user?.policy_agreed) {
         window.location.href = LiveChatRedirect(moduleMatchingId, matchingWebLinkId);
         return
     }
-    isCheckAgreement.value = true;
     contractModal.value = true;
 }
 
