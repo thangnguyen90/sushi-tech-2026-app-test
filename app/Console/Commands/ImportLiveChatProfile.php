@@ -44,12 +44,12 @@ class ImportLiveChatProfile extends Command
         foreach ($csv->getRecords() as $row) {
             $attributes = [
                 'uuid' => $row['uuid']  ?? null,
-                'user_id' => (int)(is_numeric($row['user_id']) ? $row['user_id'] : 0),
+                'user_id' => is_numeric($row['user_id']) && $row['user_id'] !== '' ? (int)$row['user_id'] : null,
                 'live_chat_data_source_id' => (int)(is_numeric($row['live_chat_data_source_id'] ?? null) ? $row['live_chat_data_source_id'] : 0),
                 'live_chat_user_id' => (int)(is_numeric($row['live_chat_user_id'] ?? null) ? $row['live_chat_user_id'] : 0),
             ];
             $repository->updateOrCreate($attributes, [
-                'user_id' => (int)(is_numeric($row['user_id']) ? $row['user_id'] : 0) ,
+                'user_id' => is_numeric($row['user_id']) && $row['user_id'] !== '' ? (int)$row['user_id'] : null,
                 'live_chat_data_source_id' => (int)(is_numeric($row['live_chat_data_source_id'] ) ? $row['live_chat_data_source_id'] : 0),
                 'live_chat_user_id' => (int)(is_numeric($row['live_chat_user_id'] ) ? $row['live_chat_user_id'] : 0),
                 'uuid' => $row['uuid'] ?? null,
