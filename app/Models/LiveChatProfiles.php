@@ -13,5 +13,6 @@ class LiveChatProfiles extends Authenticatable
 
     protected $casts = [
         'custom_fields' => 'array',
+        'exhibitor_administrator_id' => 'integer',
     ];
 }

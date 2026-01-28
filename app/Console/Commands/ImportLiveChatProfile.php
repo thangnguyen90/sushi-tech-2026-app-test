@@ -62,7 +62,7 @@ class ImportLiveChatProfile extends Command
                 'company' => $row['company'] ?? null,
                 'custom_fields' => $row['custom_fields'] ??[],
 //                'display_is_search' => $row['display_is_search'] ?? null,
-                'exhibitor_administrator_id' => (int)(is_numeric($row['exhibitor_administrator_id'] ?? null) ? $row['exhibitor_administrator_id'] : 1),
+                'exhibitor_administrator_id' => $row['exhibitor_administrator_id'] !== '' ? (int)$row['exhibitor_administrator_id']: null,
                 'last_portal_id' => (int)(is_numeric($row['last_portal_id'] ) ? $row['last_portal_id'] : 0),
                 'last_event_id' => (int)(is_numeric($row['last_event_id'] ) ? $row['last_event_id'] : 0),
             ]);
