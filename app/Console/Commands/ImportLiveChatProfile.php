@@ -49,13 +49,14 @@ class ImportLiveChatProfile extends Command
                 'live_chat_user_id' => (int)(is_numeric($row['live_chat_user_id'] ?? null) ? $row['live_chat_user_id'] : 0),
             ];
             $repository->updateOrCreate($attributes, [
+                'profile_id' => is_numeric($row['id']) && $row['id'] !== '' ? (int)$row['id'] : null,
                 'user_id' => is_numeric($row['user_id']) && $row['user_id'] !== '' ? (int)$row['user_id'] : null,
                 'live_chat_data_source_id' => (int)(is_numeric($row['live_chat_data_source_id'] ) ? $row['live_chat_data_source_id'] : 0),
-                'live_chat_user_id' => (int)(is_numeric($row['live_chat_user_id'] ) ? $row['live_chat_user_id'] : 0),
+                'live_chat_user_id' => $row['live_chat_user_id']??null,
                 'uuid' => $row['uuid'] ?? null,
                 'nickname' => $row['nickname'] ?? null,
-                'icon_image' => $row['icon_image'] ?? null,
-                'background_image' => $row['background_image'] ?? null,
+                'icon_image' => $this->normalizeNullableString($row['icon_image'] ?? null),
+                'background_image' => $this->normalizeNullableString($row['background_image'] ?? null),
                 'introduction' => $row['introduction'] ?? null,
 //                'mail_notification' => $row['mail_notification'] ?? null,
                 'mail_address' => $row['mail_address'] ?? null,
@@ -69,5 +70,15 @@ class ImportLiveChatProfile extends Command
         }
 
         $this->info('Import completed successfully.');
+    }
+
+    private function normalizeNullableString(mixed $value): ?string
+    {
+        if ($value === null) return null;
+
+        $v = trim((string) $value);
+        if ($v === '' || strcasecmp($v, 'null') === 0) return null;
+
+        return $v;
     }
 }
