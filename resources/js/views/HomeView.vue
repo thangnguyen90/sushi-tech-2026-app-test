@@ -135,7 +135,7 @@ import {
     useAgreePolicyMutation,
     useUserPolicyStatus,
 } from "@/composables/auth";
-import { EVENTOS_LIVE_CHAT_CONTENT_ID } from "@/shared/constants/env";
+import { EVENTOS_MODULE_CHAT, EVENTOS_MODULE_CHAT_WEB_LINK, EVENTOS_MODULE_MATCHING, EVENTOS_MODULE_MATCHING_WEB_LINK } from "@/shared/constants/env";
 import { useAuthStore } from "@/stores/AuthStore";
 import { LiveChatRedirect } from "@/utils/constantUrl";
 import { formatDate } from "@/utils/useDate";
@@ -143,12 +143,10 @@ import { defineAsyncComponent, ref, watch } from "vue";
 
 const storeAuth = useAuthStore();
 const contractModal = ref<boolean>(false);
-// const moduleMatchingId = EVENTOS_MODULE_MATCHING;
-// const matchingWebLinkId = EVENTOS_MODULE_MATCHING_WEB_LINK;
-// const moduleChatId = EVENTOS_MODULE_CHAT;
-// const chatWebLinkId = EVENTOS_MODULE_CHAT_WEB_LINK;
-const moduleLiveChatId = EVENTOS_LIVE_CHAT_CONTENT_ID;
-
+const moduleMatchingId = EVENTOS_MODULE_MATCHING;
+const matchingWebLinkId = EVENTOS_MODULE_MATCHING_WEB_LINK;
+const moduleChatId = EVENTOS_MODULE_CHAT;
+const chatWebLinkId = EVENTOS_MODULE_CHAT_WEB_LINK;
 const ContractMatchingModal = defineAsyncComponent(
     () => import("@/components/modals/ContractMatchingModal.vue"),
 );
@@ -163,8 +161,7 @@ const confirmPolicy = () => {
     mutate(undefined, {
         onSuccess: () => {
             contractModal.value = false;
-            // window.location.href = LiveChatRedirect(moduleMatchingId, matchingWebLinkId);
-            window.location.href = LiveChatRedirect(moduleLiveChatId, storeAuth.languageCode, true);
+            window.location.href = LiveChatRedirect(moduleMatchingId, matchingWebLinkId);
         },
         onError: (error) => {
             console.error(error);
@@ -193,17 +190,14 @@ const notices = ref([
 
 const toMatchingList = () => {
     if (storeAuth.user?.policy_agreed) {
-        // window.location.href = LiveChatRedirect(moduleMatchingId, matchingWebLinkId);
-        // window.location.href = LiveChatRedirect(moduleMatchingId, storeAuth.languageCode, true);
-        console.log('LiveChatRedirect(moduleMatchingId, storeAuth.languageCode, true)', LiveChatRedirect(moduleLiveChatId, storeAuth.languageCode, true))
+        window.location.href = LiveChatRedirect(moduleMatchingId, matchingWebLinkId);
         return
     }
     contractModal.value = true;
 }
 
 const toChatList = () => {
-    // window.location.href = LiveChatRedirect(moduleChatId, chatWebLinkId);
-    window.location.href = LiveChatRedirect(moduleLiveChatId, storeAuth.languageCode);
+    window.location.href = LiveChatRedirect(moduleChatId, chatWebLinkId);
 }
 
 watch(
