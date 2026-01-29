@@ -99,7 +99,12 @@ class MatchingPartnerService
                 });
 
             if (!empty($ctx['keyword'])) {
-                $profilesQuery->where('nickname', 'like', '%' . $ctx['keyword'] . '%');
+                $keyword = $ctx['keyword'];
+
+                $profilesQuery->where(function ($q) use ($keyword) {
+                    $q->where('nickname', 'like', '%' . $keyword . '%')
+                        ->orWhere('company', 'like', '%' . $keyword . '%');
+                });
             }
             
             if (!$profilesQuery->exists()) {
@@ -149,7 +154,12 @@ class MatchingPartnerService
             ->where('last_event_id', $ctx['event_id'])
             ->whereNotNull('exhibitor_administrator_id');
         if (!empty($ctx['keyword'])) {
-            $query->where('nickname', 'like', '%' . $ctx['keyword'] . '%');
+            $keyword = $ctx['keyword'];
+
+            $query->where(function ($q) use ($keyword) {
+                $q->where('nickname', 'like', '%' . $keyword . '%')
+                    ->orWhere('company', 'like', '%' . $keyword . '%');
+            });
         }
         return
             $query->inRandomOrder()
@@ -182,7 +192,12 @@ class MatchingPartnerService
             ->whereNotNull('user_id')
             ->whereNull('exhibitor_administrator_id');
         if (!empty($ctx['keyword'])) {
-            $query->where('nickname', 'like', '%' . $ctx['keyword'] . '%');
+            $keyword = $ctx['keyword'];
+
+            $query->where(function ($q) use ($keyword) {
+                $q->where('nickname', 'like', '%' . $keyword . '%')
+                    ->orWhere('company', 'like', '%' . $keyword . '%');
+            });
         }
 
         return $query
