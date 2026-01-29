@@ -287,7 +287,7 @@ class MatchingPartnerService
             return [
                 'live_chat_data_source_id' => (int) $p->live_chat_data_source_id,
                 'live_chat_user_id' => (string) $p->live_chat_user_id,
-                'profile_id' => (int) $p->id,
+                'profile_id' => (int) $p->profile_id,
                 'uuid' => (string) $p->uuid,
                 'nickname' => (string) $p->nickname,
                 'company' => $p->company !== null ? (string) $p->company : null,
