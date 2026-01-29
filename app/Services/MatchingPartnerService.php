@@ -106,13 +106,14 @@ class MatchingPartnerService
                         ->orWhere('company', 'like', '%' . $keyword . '%');
                 });
             }
-            
+
             if (!$profilesQuery->exists()) {
                 continue;
             }
 
             $profiles = $profilesQuery->get([
                 'id',
+                'profile_id',
                 'live_chat_data_source_id',
                 'live_chat_user_id',
                 'uuid',
@@ -166,6 +167,7 @@ class MatchingPartnerService
             ->limit($ctx['limit_exhibitors'])
             ->get([
                 'id',
+                'profile_id',
                 'live_chat_data_source_id',
                 'live_chat_user_id',
                 'uuid',
@@ -205,6 +207,7 @@ class MatchingPartnerService
             ->limit($ctx['limit_visitors'])
             ->get([
                 'id',
+                'profile_id',
                 'live_chat_data_source_id',
                 'live_chat_user_id',
                 'uuid',
