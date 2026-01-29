@@ -57,12 +57,12 @@ class ImportLiveChatTagContentsCommand extends Command
         $this->info('Import completed successfully.');
     }
 
-    private function toInt(mixed $value): int
+    private function toInt(mixed $value): ?int
     {
         if (is_string($value)) {
             $value = str_replace(',', '', $value);
         }
 
-        return (int) (is_numeric($value) ? $value : 0);
+        return is_numeric($value) ? (int) $value : null;
     }
 }

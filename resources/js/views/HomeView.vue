@@ -161,6 +161,7 @@ const confirmPolicy = () => {
     mutate(undefined, {
         onSuccess: () => {
             contractModal.value = false;
+            window.location.href = LiveChatRedirect(moduleMatchingId, matchingWebLinkId);
         },
         onError: (error) => {
             console.error(error);

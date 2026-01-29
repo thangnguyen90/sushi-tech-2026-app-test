@@ -79,39 +79,68 @@ class MatchingUserRepository extends BaseRepository
 
     public function addOrUpdateDataFromWebhook(array $data): void
     {
-        $matchingUser = $this->query()
-            ->where('owner_user_id', $data['applicant']['user']['user_id'])
-            ->where('owner_uuid', $data['applicant']['user']['user_uuid'])
-            ->where('peer_user_id', $data['recipient']['exhibitor_administrator_id'])
-            ->where('peer_uuid', $data['recipient']['exhibitor_administrator_uuid'])
-            ->where('event_id', $data['basic_information']['event_id'] ?? 0)
-            ->first();
+        // Extract applicant information based on type
+        $applicantUserId = $data['applicant']['user_id']
+            ?? $data['applicant']['user']['user_id']
+            ?? $data['applicant']['exhibitor_administrator_id']
+            ?? null;
+        $applicantUuid = $data['applicant']['user_uuid']
+            ?? $data['applicant']['user']['user_uuid']
+            ?? $data['applicant']['exhibitor_administrator_uuid']
+            ?? null;
 
-        if (!$matchingUser)  {
+        // Extract recipient information based on type
+        $recipientUserId = $data['recipient']['user_id']
+            ?? $data['recipient']['user']['user_id']
+            ?? $data['recipient']['exhibitor_administrator_id']
+            ?? null;
+        $recipientUuid = $data['recipient']['user_uuid']
+            ?? $data['recipient']['user']['user_uuid']
+            ?? $data['recipient']['exhibitor_administrator_uuid']
+            ?? null;
+
+        $eventId = $data['basic_information']['event_id'] ?? 0;
+//        dd($eventId, $applicantUserId, $applicantUuid, $recipientUserId, $recipientUuid);
+        // Validate that we have all required data
+        if (!$applicantUserId || !$applicantUuid || !$recipientUserId || !$recipientUuid) {
+            return;
+        }
+
+        // Create or find matching record: applicant -> recipient
+        $matchingUser = $this->query()
+            ->where('owner_user_id', $applicantUserId)
+            ->where('owner_uuid', $applicantUuid)
+            ->where('peer_user_id', $recipientUserId)
+            ->where('peer_uuid', $recipientUuid)
+            ->where('event_id', $eventId)
+            ->first();
+        if (!$matchingUser) {
             $this->query()->create([
-                'owner_user_id' => $data['applicant']['user']['user_id'],
-                'owner_uuid' => $data['applicant']['user']['user_uuid'],
-                'peer_user_id' => $data['recipient']['exhibitor_administrator_id'],
-                'peer_uuid' => $data['recipient']['exhibitor_administrator_uuid'],
-                'event_id' => $data['basic_information']['event_id'] ?? 0,
+                'owner_user_id' => $applicantUserId,
+                'owner_uuid' => $applicantUuid,
+                'peer_user_id' => $recipientUserId,
+                'peer_uuid' => $recipientUuid,
+                'event_id' => $eventId,
                 'status' => MatchingStatus::DEAL_DONE->value,
             ]);
         }
 
+        // Create or find matching record: recipient -> applicant
         $matchingUser = $this->query()
-            ->where('owner_user_id', $data['recipient']['exhibitor_administrator_id'])
-            ->where('owner_uuid', $data['recipient']['exhibitor_administrator_uuid'])
-            ->where('peer_user_id', $data['applicant']['user']['user_id'])
-            ->where('peer_uuid', $data['applicant']['user']['user_uuid'])
-            ->where('event_id', $data['basic_information']['event_id'] ?? 0)
+            ->where('owner_user_id', $recipientUserId)
+            ->where('owner_uuid', $recipientUuid)
+            ->where('peer_user_id', $applicantUserId)
+            ->where('peer_uuid', $applicantUuid)
+            ->where('event_id', $eventId)
             ->first();
-        if(!$matchingUser)  {
+
+        if (!$matchingUser) {
             $this->query()->create([
-                'owner_user_id' => $data['recipient']['exhibitor_administrator_id'],
-                'owner_uuid' => $data['recipient']['exhibitor_administrator_uuid'],
-                'peer_user_id' => $data['applicant']['user']['user_id'],
-                'event_id' => $data['basic_information']['event_id'] ?? 0,
-                'peer_uuid' => $data['applicant']['user']['user_uuid'],
+                'owner_user_id' => $recipientUserId,
+                'owner_uuid' => $recipientUuid,
+                'peer_user_id' => $applicantUserId,
+                'peer_uuid' => $applicantUuid,
+                'event_id' => $eventId,
                 'status' => MatchingStatus::DEAL_DONE->value,
             ]);
         }

@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('live_chat_profiles', function (Blueprint $table) {
-            //
+            $table->bigInteger('profile_id')->after('id');
         });
     }
 
@@ -22,7 +22,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('live_chat_profiles', function (Blueprint $table) {
-            $table->bigInteger('profile_id')->after('id');
+
         });
     }
 };
