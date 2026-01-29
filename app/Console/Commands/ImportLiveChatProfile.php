@@ -49,6 +49,7 @@ class ImportLiveChatProfile extends Command
                 'live_chat_user_id' => (int)(is_numeric($row['live_chat_user_id'] ?? null) ? $row['live_chat_user_id'] : 0),
             ];
             $repository->updateOrCreate($attributes, [
+                'profile_id' => $row['profile_id'] ?? 0,
                 'user_id' => (int)(is_numeric($row['user_id']) ? $row['user_id'] : 0) ,
                 'live_chat_data_source_id' => (int)(is_numeric($row['live_chat_data_source_id'] ) ? $row['live_chat_data_source_id'] : 0),
                 'live_chat_user_id' => (int)(is_numeric($row['live_chat_user_id'] ) ? $row['live_chat_user_id'] : 0),
