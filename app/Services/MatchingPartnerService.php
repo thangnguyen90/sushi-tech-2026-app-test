@@ -357,7 +357,7 @@ class MatchingPartnerService
             $sub->selectRaw('1')
                 ->from('live_chat_profile_field_options as fo')
                 ->whereNull('fo.deleted_at')
-                ->whereColumn('fo.profile_id', 'live_chat_profiles.id')
+                ->whereColumn('fo.profile_id', 'live_chat_profiles.profile_id')
                 ->whereIn('fo.option_value', $vals);
         });
     }
