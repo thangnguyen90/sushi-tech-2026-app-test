@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Repositories\UsersRepository;
 use App\Services\ResponseService;
 use Illuminate\Http\Request;
 use App\Repositories\LiveChatProfilesRepository;
@@ -10,8 +11,8 @@ class LiveChatProfilesController extends Controller
 {
 
     public function __construct(
-        private readonly LiveChatProfilesRepository $liveChatProfilesRepository,
-        private readonly ResponseService            $responseService
+        private readonly UsersRepository    $usersRepository,
+        private readonly ResponseService    $responseService
     )
     {
     }
@@ -20,10 +21,10 @@ class LiveChatProfilesController extends Controller
     {
         $isFirstLogin = true;
         $isAgreed = false;
-        $user = $this->liveChatProfilesRepository->firstWhere('uuid', $request->header('user-uuid') );
+        $user = $this->usersRepository->firstWhere('uuid', $request->header('user-uuid') );
 
         if (!$user) {
-            $this->liveChatProfilesRepository->create([
+            $this->usersRepository->create([
                 'uuid' => $request->header('user-uuid'),
                 'policy_agreed' => false,
             ]);
@@ -42,7 +43,7 @@ class LiveChatProfilesController extends Controller
 
     public function userAgreement( Request $request): \Illuminate\Http\JsonResponse
     {
-        $user = $this->liveChatProfilesRepository->firstWhere('uuid', $request->header('user-uuid'));
+        $user = $this->usersRepository->firstWhere('uuid', $request->header('user-uuid'));
         $user->policy_agreed = true;
         $user->save();
         return $this->responseService->success();
