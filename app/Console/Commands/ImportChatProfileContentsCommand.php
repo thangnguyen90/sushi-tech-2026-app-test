@@ -25,8 +25,9 @@ final class ImportChatProfileContentsCommand extends Command
      * - The exported file is often TSV (tab-separated), not CSV.
      * - Supported input formats:
      *   (A) Legacy export: columns id, content_id, is_publish, type, json, created_at, updated_at
-     *       -> json contains schema with custom_fields[].options[]
+     *       -> json contains schema with custom_fields[].options[] (and language_setting)
      *   (B) Direct export: field_key, option_value, label_eng, label_jpn, sort_order, is_enabled, created_at, updated_at
+     *       -> optionally description_eng/description_jpn (if present)
      *
      * @var string
      */
@@ -153,9 +154,28 @@ final class ImportChatProfileContentsCommand extends Command
             $labelEng = trim((string) ($row['label_eng'] ?? $row['labelEng'] ?? ''));
             $labelJpn = trim((string) ($row['label_jpn'] ?? $row['labelJpn'] ?? ''));
 
-            if ($labelEng === '' || $labelJpn === '') {
-                $this->warn("Line {$lineNo}: missing label_eng/label_jpn => skipped");
+            // fallback: allow single language
+            if ($labelEng === '' && $labelJpn !== '') {
+                $labelEng = $labelJpn;
+            }
+            if ($labelJpn === '' && $labelEng !== '') {
+                $labelJpn = $labelEng;
+            }
+
+            if ($labelEng === '' && $labelJpn === '') {
+                $this->warn("Line {$lineNo}: missing both label_eng/label_jpn => skipped");
                 return [];
+            }
+
+            // Optional descriptions (if your direct export includes them)
+            $descEng = trim((string) ($row['description_eng'] ?? $row['desc_eng'] ?? $row['descriptionEng'] ?? $row['descEng'] ?? ''));
+            $descJpn = trim((string) ($row['description_jpn'] ?? $row['desc_jpn'] ?? $row['descriptionJpn'] ?? $row['descJpn'] ?? ''));
+
+            if ($descEng === '' && $descJpn !== '') {
+                $descEng = $descJpn;
+            }
+            if ($descJpn === '' && $descEng !== '') {
+                $descJpn = $descEng;
             }
 
             $sortOrder = $this->toNullableInt($row['sort_order'] ?? $row['sortOrder'] ?? null) ?? 0;
@@ -164,11 +184,16 @@ final class ImportChatProfileContentsCommand extends Command
             $createdAt = $this->toNullableDateTimeString($row['created_at'] ?? null) ?? $now->format('Y-m-d H:i:s');
             $updatedAt = $this->toNullableDateTimeString($row['updated_at'] ?? null) ?? $now->format('Y-m-d H:i:s');
 
+            // Direct export doesn't contain field-level language_setting (unless you add columns for it).
+            // So we store option-level language_setting from labels/descriptions available in this row.
+            $languageSettingJson = $this->buildLanguageSettingJson($labelEng, $labelJpn, $descEng, $descJpn);
+
             return [[
                 'field_key' => $fieldKey,
                 'option_value' => $optionValue,
                 'label_eng' => $labelEng,
                 'label_jpn' => $labelJpn,
+                'language_setting' => $languageSettingJson,
                 'sort_order' => (int) $sortOrder,
                 'is_enabled' => (int) $isEnabled,
                 'created_at' => $createdAt,
@@ -192,6 +217,8 @@ final class ImportChatProfileContentsCommand extends Command
         $createdAt = $this->toNullableDateTimeString($row['created_at'] ?? null) ?? $now->format('Y-m-d H:i:s');
         $updatedAt = $this->toNullableDateTimeString($row['updated_at'] ?? null) ?? $now->format('Y-m-d H:i:s');
 
+        // IMPORTANT: field-level language_setting must be applied inside extractRowsFromSchemaJson()
+        // so that for the same field_key, language_setting is identical across all option rows.
         $rows = $this->extractRowsFromSchemaJson($decoded, $createdAt, $updatedAt);
 
         if (empty($rows)) {
@@ -203,8 +230,9 @@ final class ImportChatProfileContentsCommand extends Command
 
     /**
      * Extract rows for chat_profile_contents from schema JSON:
-     * - custom_fields[] where type == select and is_enabled == true
-     * - options[] => option_value + labels
+     * - custom_fields[] where type == select
+     * - options[] => option_value + option labels
+     * - language_setting MUST be field-level (same per field_key)
      *
      * @param array<string, mixed> $decoded
      * @return array<int, array<string, mixed>>
@@ -223,14 +251,42 @@ final class ImportChatProfileContentsCommand extends Command
                 continue;
             }
 
+            // Field identity and type
             $cfKey = trim((string) ($cf['key'] ?? ''));
             $cfType = trim((string) ($cf['type'] ?? ''));
-            $cfEnabled = (bool) ($cf['is_enabled'] ?? true);
 
-            if ($cfKey === '' || $cfType !== 'select' || !$cfEnabled) {
+            // We only import selectable options for "select" fields
+            if ($cfKey === '' || $cfType !== 'select') {
                 continue;
             }
 
+            // Field-level flags (same for all options under the same field_key)
+            $fieldEnabledInt = ((bool) ($cf['is_enabled'] ?? true)) ? 1 : 0;
+
+            // Field-level language_setting (same for all options under the same field_key)
+            // This is what you want to store in DB so that rows with the same field_key share identical language_setting.
+            $fieldLs = is_array($cf['language_setting'] ?? null) ? $cf['language_setting'] : [];
+
+            $fieldLabelEng = trim((string) ($fieldLs['eng']['label'] ?? ''));
+            $fieldLabelJpn = trim((string) ($fieldLs['jpn']['label'] ?? ''));
+            $fieldDescEng  = trim((string) ($fieldLs['eng']['description'] ?? ''));
+            $fieldDescJpn  = trim((string) ($fieldLs['jpn']['description'] ?? ''));
+
+            // Normalize missing values by falling back to the other language.
+            // This prevents generating invalid/partial language_setting JSON.
+            $fieldLabelEngNorm = $fieldLabelEng !== '' ? $fieldLabelEng : $fieldLabelJpn;
+            $fieldLabelJpnNorm = $fieldLabelJpn !== '' ? $fieldLabelJpn : $fieldLabelEng;
+            $fieldDescEngNorm  = $fieldDescEng  !== '' ? $fieldDescEng  : $fieldDescJpn;
+            $fieldDescJpnNorm  = $fieldDescJpn  !== '' ? $fieldDescJpn  : $fieldDescEng;
+
+            $fieldLanguageSettingJson = $this->buildLanguageSettingJson(
+                $fieldLabelEngNorm,
+                $fieldLabelJpnNorm,
+                $fieldDescEngNorm,
+                $fieldDescJpnNorm
+            );
+
+            // Option list
             $options = $cf['options'] ?? null;
             if (!is_array($options)) {
                 continue;
@@ -243,16 +299,19 @@ final class ImportChatProfileContentsCommand extends Command
                     continue;
                 }
 
+                // Option identity
                 $optionValue = trim((string) ($opt['value'] ?? ''));
                 if ($optionValue === '') {
                     continue;
                 }
 
-                $ls = $opt['language_setting'] ?? [];
-                $labelEng = trim((string) (($ls['eng']['label'] ?? '') ?: ''));
-                $labelJpn = trim((string) (($ls['jpn']['label'] ?? '') ?: ''));
+                // Option-level labels (different per option_value)
+                // These labels are what users see in the select dropdown for each option.
+                $optLs = $opt['language_setting'] ?? [];
+                $labelEng = trim((string) (($optLs['eng']['label'] ?? '') ?: ''));
+                $labelJpn = trim((string) (($optLs['jpn']['label'] ?? '') ?: ''));
 
-                // fallback if only one label exists
+                // Fallback: allow single-language option labels
                 if ($labelEng === '' && $labelJpn !== '') {
                     $labelEng = $labelJpn;
                 }
@@ -260,19 +319,31 @@ final class ImportChatProfileContentsCommand extends Command
                     $labelJpn = $labelEng;
                 }
 
-                if ($labelEng === '' || $labelJpn === '') {
+                // If both labels are missing, the option is not usable
+                if ($labelEng === '' && $labelJpn === '') {
                     continue;
                 }
 
                 $sortOrder++;
 
                 $rows[] = [
+                    // Unique key (field_key, option_value)
                     'field_key' => $cfKey,
                     'option_value' => $optionValue,
+
+                    // Option labels
                     'label_eng' => $labelEng,
                     'label_jpn' => $labelJpn,
+
+                    // IMPORTANT: field-level language_setting (same for all rows of the same field_key)
+                    'language_setting' => $fieldLanguageSettingJson,
+
+                    // Sort order within the field_key
                     'sort_order' => $sortOrder,
-                    'is_enabled' => 1,
+
+                    // Reflect field-level enabled flag on every option row
+                    'is_enabled' => $fieldEnabledInt,
+
                     'created_at' => $createdAt,
                     'updated_at' => $updatedAt,
                 ];
@@ -280,6 +351,35 @@ final class ImportChatProfileContentsCommand extends Command
         }
 
         return $rows;
+    }
+
+    /**
+     * Build normalized language_setting JSON for DB (eng/jpn with label/description).
+     */
+    private function buildLanguageSettingJson(
+        string $labelEng,
+        string $labelJpn,
+        string $descEng = '',
+        string $descJpn = ''
+    ): string {
+        $payload = [
+            'eng' => [
+                'label' => $labelEng,
+                'description' => $descEng,
+            ],
+            'jpn' => [
+                'label' => $labelJpn,
+                'description' => $descJpn,
+            ],
+        ];
+
+        $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if ($json === false) {
+            // Safe fallback: keep import running; store minimal labels
+            return '{"eng":{"label":"'.addslashes($labelEng).'","description":""},"jpn":{"label":"'.addslashes($labelJpn).'","description":""}}';
+        }
+
+        return $json;
     }
 
     /**
@@ -292,7 +392,7 @@ final class ImportChatProfileContentsCommand extends Command
         DB::table('chat_profile_contents')->upsert(
             $buffer,
             ['field_key', 'option_value'],
-            ['label_eng', 'label_jpn', 'sort_order', 'is_enabled', 'updated_at']
+            ['label_eng', 'label_jpn', 'language_setting', 'sort_order', 'is_enabled', 'updated_at']
         );
 
         return count($buffer);
