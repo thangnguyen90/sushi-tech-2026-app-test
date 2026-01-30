@@ -269,7 +269,7 @@ abstract class ConfigureAbstract
     {
         $this->isPublic = true;
         $this->isPrivate = false;
-        $this->_setPublicUrl(config('eventos.public.'));
+        $this->_setPublicUrl(config('eventos.public.open_api'));
         $this->_setPublicSecret(config('eventos.public.key'));
 
         return $this;
