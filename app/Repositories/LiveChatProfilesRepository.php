@@ -16,7 +16,7 @@ class LiveChatProfilesRepository extends BaseRepository
     {
         return $this->query()
             ->where('user_id', $id)
-            ->orWhereNull('exhibitor_administrator_id', $id)
+            ->orWhere('exhibitor_administrator_id', $id)
             ->first();
     }
 }

@@ -52,15 +52,23 @@ class MatchingPartnerService
 
     private function getNetworking(array $ctx): array
     {
-        $myNames = CheckinHistory::query()
-            ->whereNull('deleted_at')
-            ->where('user_id', $ctx['user_id'])
-            ->whereNotNull('checkin_app_user_name')
-            ->where('checkin_app_user_name', '<>', '')
+        $query = CheckinHistory::query();
+        if($ctx['user_id']) {
+            $query->where('user_id', $ctx['user_id']);
+        }elseif ($ctx['exhibitor_administrator_id']) {
+            $query->where('exhibitor_administrator_id', $ctx['exhibitor_administrator_id']);
+        }else{
+            return [
+                'discover_type' => self::DISCOVER_NETWORKING,
+                'list' => [],
+            ];
+        }
+
+
+        $myNames =$query
             ->distinct()
             ->pluck('checkin_app_user_name')
             ->values();
-
         if ($myNames->isEmpty()) {
             return [
                 'discover_type' => self::DISCOVER_NETWORKING,
@@ -71,7 +79,6 @@ class MatchingPartnerService
         $groups = [];
         foreach ($myNames as $name) {
             $query = CheckinHistory::query()
-                ->whereNull('deleted_at')
                 ->where('checkin_app_user_name', $name)
                 ->where('user_id', '<>', $ctx['user_id'])
                 ->limit($ctx['limit_networking_per_name']);
@@ -82,11 +89,11 @@ class MatchingPartnerService
 
             $checkins = $query->get(['user_id', 'exhibitor_administrator_id', 'checkin_app_user_name']);
 
+
             $userIds = $checkins->pluck('user_id')->filter()->unique()->values();
             $adminIds = $checkins->pluck('exhibitor_administrator_id')->filter()->unique()->values();
 
             $profilesQuery = LiveChatProfiles::query()
-                ->whereNull('deleted_at')
                 ->where('live_chat_data_source_id', $ctx['data_source_id'])
                 ->where('last_event_id', $ctx['event_id'])
                 ->where(function ($q) use ($userIds, $adminIds) {
@@ -102,7 +109,6 @@ class MatchingPartnerService
 
             if (!empty($ctx['keyword'])) {
                 $keyword = $ctx['keyword'];
-
                 $profilesQuery->where(function ($q) use ($keyword) {
                     $q->where('nickname', 'like', '%' . $keyword . '%')
                         ->orWhere('company', 'like', '%' . $keyword . '%');
@@ -112,7 +118,6 @@ class MatchingPartnerService
             if (!$profilesQuery->exists()) {
                 continue;
             }
-
             $profiles = $profilesQuery->get([
                 'id',
                 'profile_id',
@@ -132,7 +137,6 @@ class MatchingPartnerService
                     return $p;
                 })
                 ->values();
-
             if ($profiles->isEmpty()) {
                 continue;
             }
@@ -152,7 +156,6 @@ class MatchingPartnerService
     private function getRandomExhibitors(array $ctx): Collection
     {
         $query = LiveChatProfiles::query()
-            ->whereNull('deleted_at')
             ->where('live_chat_data_source_id', $ctx['data_source_id'])
             ->where('last_event_id', $ctx['event_id'])
             ->whereNotNull('exhibitor_administrator_id');
@@ -166,7 +169,7 @@ class MatchingPartnerService
         }
         $this->applyOptionValueFilter($query, $ctx['option_values'] ?? []);
         return
-            $query->inRandomOrder()
+            $query->distinct()->inRandomOrder()
             ->limit($ctx['limit_exhibitors'])
             ->get([
                 'id',
@@ -207,6 +210,7 @@ class MatchingPartnerService
         $this->applyOptionValueFilter($query, $ctx['option_values'] ?? []);
 
         return $query
+            ->distinct()
             ->inRandomOrder()
             ->limit($ctx['limit_visitors'])
             ->get([

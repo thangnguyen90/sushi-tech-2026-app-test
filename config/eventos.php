@@ -7,7 +7,7 @@ return [
     ],
     'private' => [
         'base_url' => env('EVENTOS_PRIVATE_BASE_URL'), //'https://api.eventos.example/private'
-        'username' => env('EVENTOS_PRIVATE_USERNAME'), //'admin_default'
+        'username' => env('EVENTOS_PRIVATE_USERNAME'), //'open_apiadmin_default'
         'password' => env('EVENTOS_PRIVATE_PASSWORD'), //'password_default'
     ],
     'portal' => env('EVENTOS_PORTAL'),

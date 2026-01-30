@@ -31,10 +31,11 @@ class MatchingPartnerController extends Controller
         }
 
         $validated = $request->validated();
-        $userId = (int) $user->user_id;
+        $userId = (int) $user->user_id ;
         try {
             $result = $service->getPartners([
                 'user_id' => $userId,
+                'exhibitor_administrator_id' =>  $user->exhibitor_administrator_id,
                 'data_source_id' => $validated['live_chat_data_source_id']??config('eventos.live_chat_data_source_id'),
                 'event_id' => config('eventos.event'),
                 'language_id' => (int) ($validated['language_id'] ?? 1),

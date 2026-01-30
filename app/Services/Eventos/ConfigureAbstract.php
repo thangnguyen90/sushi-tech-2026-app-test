@@ -23,17 +23,17 @@ use Psr\Http\Client\ClientExceptionInterface;
 abstract class ConfigureAbstract
 {
     // region Properties
-    protected string $publicUrl;
+    protected ?string $publicUrl;
 
-    protected string $publicSecret;
+    protected ?string $publicSecret;
 
     protected ?string $publicToken = null;
 
-    protected string $baseUrl;
+    protected ?string $baseUrl;
 
-    protected string $consoleAdmin;
+    protected ?string $consoleAdmin;
 
-    protected string $consoleAdminSecret;
+    protected ?string $consoleAdminSecret;
 
     protected ?int $client;
 
