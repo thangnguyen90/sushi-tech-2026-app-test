@@ -74,7 +74,7 @@ class MatchingUserController extends Controller
             );
         }
 
-        $ownerUserId = (int) $user->uuid;
+        $ownerUserId = $user->uuid;
 
         $peerUserId = $matchingRequest['peer_user_id'];
         $ok = $this->matchingUserRepository->markDealDoneIfMutual(
