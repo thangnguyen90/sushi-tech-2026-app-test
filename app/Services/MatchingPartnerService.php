@@ -128,6 +128,7 @@ class MatchingPartnerService
                 'background_image',
                 'user_id',
                 'exhibitor_administrator_id',
+                'custom_fields',
             ])
                 ->map(function ($p) {
                     $p->section = self::DISCOVER_NETWORKING;
@@ -180,6 +181,7 @@ class MatchingPartnerService
                 'background_image',
                 'user_id',
                 'exhibitor_administrator_id',
+                'custom_fields',
             ])
             ->map(function ($p) {
                 $p->section = self::DISCOVER_EXHIBITOR;
@@ -221,6 +223,7 @@ class MatchingPartnerService
                 'background_image',
                 'user_id',
                 'exhibitor_administrator_id',
+                'custom_fields',
             ])
             ->map(function ($p) {
                 $p->section = self::DISCOVER_VISITOR;
@@ -296,6 +299,7 @@ class MatchingPartnerService
                 'company' => $p->company !== null ? (string) $p->company : null,
                 'introduction' => $p->introduction !== null ? (string) $p->introduction : null,
                 'icon_image' => $p->icon_image !== null ? (string) $p->icon_image : null,
+                'custom_fields' => !empty($p->custom_fields) ? $p->custom_fields : null,
                 'background_image' => $p->background_image !== null ? (string) $p->background_image : null,
                 'user_id' => $p->user_id !== null ? (int) $p->user_id : null,
                 'exhibitor_administrator_id' => $p->exhibitor_administrator_id !== null ? (int) $p->exhibitor_administrator_id : null,
