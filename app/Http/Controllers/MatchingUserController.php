@@ -33,23 +33,18 @@ class MatchingUserController extends Controller
             );
         }
 
-        $ownerUserId = (int) $user->id;
+        $ownerUserId = (int) $user->user_id;
 
         $rows = $this->matchingUserRepository->getDealDoneListAllForOwner(
             ownerUserId: $ownerUserId,
             status: self::STATUS_DEAL_DONE
         );
 
-        $peerUserIds = $rows
-            ->map(fn ($r) => (int) $r->peer_user_id)
-            ->values()
-            ->all();
-
         return $this->responseService->success(
             data: [
                 'owner_user_id' => $ownerUserId,
                 'status' => self::STATUS_DEAL_DONE,
-                'peer_user_ids' => $peerUserIds,
+                'peer_user_ids' => $rows->pluck('peer_uuid')->toArray(),
             ],
             code: 'OK',
             message: ''
