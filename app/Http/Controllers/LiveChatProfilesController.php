@@ -43,9 +43,27 @@ class LiveChatProfilesController extends Controller
 
     public function userAgreement( Request $request): \Illuminate\Http\JsonResponse
     {
-        $user = $this->usersRepository->firstWhere('uuid', $request->header('user-uuid'));
-        $user->policy_agreed = true;
-        $user->save();
-        return $this->responseService->success();
+        try {
+            $user = $this->usersRepository->firstWhere('uuid', $request->header('user-uuid'));
+            if(!$user){
+                $this->usersRepository->create([
+                    'uuid' => $request->header('user-uuid'),
+                    'policy_agreed' => true,
+                ]);
+
+            }else{
+                $user->policy_agreed = true;
+                $user->save();
+            }
+
+            return $this->responseService->success();
+        }catch (\Exception $e){
+            dd($e->getMessage());
+            return $this->responseService->error(
+                message: 'Failed to record user agreement.',
+                status: 500,
+            );
+        }
+
     }
 }
