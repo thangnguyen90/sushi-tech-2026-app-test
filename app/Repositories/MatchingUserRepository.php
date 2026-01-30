@@ -25,7 +25,7 @@ class MatchingUserRepository extends BaseRepository
         ?int $eventId = null
     ): Collection {
         $query = $this->query()
-            ->select(['peer_user_id', 'updated_at'])
+            ->select(['peer_uuid', 'updated_at'])
             ->where('owner_user_id', $ownerUserId)
             ->where('status', $status);
 
