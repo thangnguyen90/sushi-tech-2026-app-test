@@ -5,6 +5,7 @@ namespace App\Services\Eventos\User;
 use App\Services\Eventos\EventosClient;
 use Exception;
 use GuzzleHttp\Exception\ClientException;
+use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Exception\ServerException;
 use Illuminate\Support\Facades\Cache;
 
@@ -80,6 +81,10 @@ final class UserService extends EventosClient
         });
     }
 
+    /**
+     * @throws \Throwable
+     * @throws GuzzleException
+     */
     public function getTickets(string $uuid, int $moduleId = null): array
     {
         $client = $this->createApiClient();
@@ -99,9 +104,10 @@ final class UserService extends EventosClient
                 $errorMessage = json_decode($e->getResponse()->getBody(), true);
                 throw new Exception($errorMessage['error_message'], 404, $e);
             }
+            throw $e;
         }
 
-        throw new Exception('Failed to get profiles. Status: ');
+        throw new \RuntimeException('Failed to get profiles.');
     }
 
     public function getUserShareProfile()
