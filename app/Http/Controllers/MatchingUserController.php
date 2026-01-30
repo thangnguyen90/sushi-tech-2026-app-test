@@ -57,9 +57,9 @@ class MatchingUserController extends Controller
      *
      * Set status=4 only if both directions already exist in matching_users.
      */
-    public function markDealDone(Request $request, MarkMatchingRequest $matchingRequest): JsonResponse
+    public function markDealDone(MarkMatchingRequest $matchingRequest): JsonResponse
     {
-        $user = $request->user();
+        $user = $matchingRequest->user();
         if (!$user || !isset($user->id)) {
             return $this->responseService->error(
                 message: 'Unauthorized.',
@@ -69,7 +69,7 @@ class MatchingUserController extends Controller
             );
         }
 
-        $ownerUserId = (int) $user->id;
+        $ownerUserId = (int) $user->user_id;
 
         $peerUserId = $matchingRequest['peer_user_id'];
         $ok = $this->matchingUserRepository->markDealDoneIfMutual(
