@@ -45,7 +45,7 @@ class MatchingUserRepository extends BaseRepository
      * Returns true if update was applied, false if mutual match condition is not met.
      */
     public function markDealDoneIfMutual(
-        string $ownerUserId,
+        int $ownerUserId,
         array $peerUserId,
         int $dealDoneStatus,
         ?int $eventId = null
