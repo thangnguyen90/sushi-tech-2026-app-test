@@ -23,7 +23,8 @@ class LiveChatProfileDetailsService
             return [];
         }
 
-        $profile = $this->attachTagsOne($profile, (int) $ctx['language_id']);
+        $languageId =  config("language.{$ctx['lang']}", 1);
+        $profile = $this->attachTagsOne($profile, $languageId);
         $customFields = $this->liveChatProfileFieldOptionRepository
             ->getResolvedCustomFields((int) $profile->profile_id, (string) $ctx['lang']);
 

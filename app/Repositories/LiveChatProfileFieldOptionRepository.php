@@ -68,7 +68,6 @@ class LiveChatProfileFieldOptionRepository extends BaseRepository
             $optionLabel = $lang === 'eng' ? (string) ($r->label_eng ?? '') : (string) ($r->label_jpn ?? '');
 
             $grouped[$fieldKey]['values'][] = [
-                'option_id' => isset($r->option_id) ? (int) $r->option_id : null,
                 'option_value' => (string) ($r->option_value ?? ''),
                 'label' => $optionLabel,
             ];

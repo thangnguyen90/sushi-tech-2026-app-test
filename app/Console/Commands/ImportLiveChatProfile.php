@@ -47,9 +47,8 @@ class ImportLiveChatProfile extends Command
                 'uuid' => $row['uuid'] ?? null,
                 'user_id' => is_numeric($row['user_id']) && $row['user_id'] !== '' ? (int) $row['user_id'] : null,
                 'live_chat_data_source_id' => (int) (is_numeric($row['live_chat_data_source_id'] ?? null) ? $row['live_chat_data_source_id'] : 0),
-                'live_chat_user_id' => (int) (is_numeric($row['live_chat_user_id'] ?? null) ? $row['live_chat_user_id'] : 0),
+                'live_chat_user_id' => $row['live_chat_user_id'] ?? null,
             ];
-
             $profile = $repository->updateOrCreate($attributes, [
                 'profile_id' => is_numeric($row['id']) && $row['id'] !== '' ? (int) $row['id'] : null,
                 'user_id' => is_numeric($row['user_id']) && $row['user_id'] !== '' ? (int) $row['user_id'] : null,
@@ -116,7 +115,7 @@ class ImportLiveChatProfile extends Command
         }
 
         $customFields = $this->normalizeCustomFields($customFieldsRaw);
-        
+
         if ($customFields === []) {
             return;
         }
