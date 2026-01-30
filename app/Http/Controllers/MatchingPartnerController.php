@@ -63,14 +63,11 @@ class MatchingPartnerController extends Controller
 
     public function show(Request $request, int $profile_id): JsonResponse
     {
-        dd('^^^^^^');
         $lang = (string) $request->query('lang', 'jpn');
         $languageId = (int) $request->query('language_id', 1);
 
         $ctx = [
             'profile_id' => $profile_id,
-            'data_source_id' => (int) ($request->query('live_chat_data_source_id') ?? config('eventos.live_chat_data_source_id')),
-            'event_id' => (int) config('eventos.event_id'),
             'language_id' => $languageId,
             'lang' => $lang,
         ];

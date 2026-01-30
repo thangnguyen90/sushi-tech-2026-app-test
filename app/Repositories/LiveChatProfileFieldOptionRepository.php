@@ -2,6 +2,7 @@
 
 namespace App\Repositories;
 
+use App\Models\LiveChatProfileFieldOption;
 use Illuminate\Support\Facades\DB;
 
 class LiveChatProfileFieldOptionRepository extends BaseRepository

@@ -25,7 +25,7 @@ class LiveChatProfileDetailsService
 
         $profile = $this->attachTagsOne($profile, (int) $ctx['language_id']);
         $customFields = $this->liveChatProfileFieldOptionRepository
-            ->getResolvedCustomFields((int) $profile->id, (string) $ctx['lang']);
+            ->getResolvedCustomFields((int) $profile->profile_id, (string) $ctx['lang']);
 
         return [
             'live_chat_data_source_id' => (int) $profile->live_chat_data_source_id,
@@ -48,9 +48,7 @@ class LiveChatProfileDetailsService
     {
         return LiveChatProfiles::query()
             ->whereNull('deleted_at')
-            ->where('live_chat_data_source_id', (int) $ctx['data_source_id'])
-            ->where('last_event_id', (int) $ctx['event_id'])
-            ->where('id', (int) $ctx['profile_id'])
+            ->where('profile_id', (int) $ctx['profile_id'])
             ->first([
                 'id',
                 'profile_id',
