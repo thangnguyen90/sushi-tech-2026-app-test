@@ -153,7 +153,6 @@ class MatchingPartnerService
     private function getRandomExhibitors(array $ctx): Collection
     {
         $query = LiveChatProfiles::query()
-            ->whereNull('deleted_at')
             ->where('live_chat_data_source_id', $ctx['data_source_id'])
             ->where('last_event_id', $ctx['event_id'])
             ->whereNotNull('exhibitor_administrator_id');
@@ -166,7 +165,7 @@ class MatchingPartnerService
             });
         }
         return
-            $query->inRandomOrder()
+            $query->distinct()->inRandomOrder()
             ->limit($ctx['limit_exhibitors'])
             ->get([
                 'id',
@@ -206,6 +205,7 @@ class MatchingPartnerService
         }
 
         return $query
+            ->distinct()
             ->inRandomOrder()
             ->limit($ctx['limit_visitors'])
             ->get([
