@@ -124,6 +124,7 @@ const closeModal = (): void => {
             font-style: normal;
             font-weight: 700;
             line-height: 24px;
+            margin-bottom: 8px;
         }
     }
 
