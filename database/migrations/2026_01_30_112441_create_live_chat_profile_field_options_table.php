@@ -17,6 +17,7 @@ return new class extends Migration
             $table->unsignedBigInteger('profile_id');
             $table->string('field_key', 128);
             $table->unsignedBigInteger('option_id');
+            $table->string('option_value', 128);
 
             $table->timestamps();
             $table->softDeletes();
