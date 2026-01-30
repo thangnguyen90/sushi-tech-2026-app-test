@@ -113,7 +113,6 @@ class MatchingPartnerService
             }
 
             if (!$profilesQuery->exists()) {
-                dd($profilesQuery, $profilesQuery->exists());
                 continue;
             }
             $profiles = $profilesQuery->get([
