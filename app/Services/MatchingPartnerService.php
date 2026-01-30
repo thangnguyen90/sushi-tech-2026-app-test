@@ -29,7 +29,6 @@ class MatchingPartnerService
             ->merge($this->flattenNetworkingProfiles($networking))
             ->merge($exhibitors)
             ->merge($visitors);
-
         $profilesWithTags = $this->attachTags($allProfiles, $ctx['data_source_id'], $ctx['language_id']);
 
         // re-hydrate
@@ -228,7 +227,7 @@ class MatchingPartnerService
     /**
      * @throws JsonException
      */
-    private function attachTags(Collection $profiles, int $dataSourceId, int $languageId): Collection
+    private function attachTags(Collection $profiles, ?int $dataSourceId, int $languageId): Collection
     {
         if ($profiles->isEmpty()) {
             return $profiles;

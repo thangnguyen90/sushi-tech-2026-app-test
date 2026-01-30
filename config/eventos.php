@@ -14,7 +14,7 @@ return [
     'event' => env('EVENTOS_EVENT'),
     'booth' => env('EVENTOS_BOOTH_EXHIBITOR_ID'), //default_booth_id
     'event_id' => env('EVENT_ID'),
-    'live_chat_data_source_id' => env('LIVE_CHAT_DATA_SOURCE_ID'),
+    'live_chat_data_source_id' => (int) env('LIVE_CHAT_DATA_SOURCE_ID'),
     'module' => env('EVENTOS_MODULE', null), //default_module
     'client' => env('EVENTOS_CLIENT_ID'), //default_client_id
     'web_api' => [
