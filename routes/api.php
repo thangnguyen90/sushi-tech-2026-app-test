@@ -26,6 +26,9 @@ Route::middleware(UserAuthenticationMiddleware::class)->group(function (): void 
             // GET /api/users/me
             Route::get('matching-partners', 'index')
                 ->name('matching-partners');
+
+            Route::get('/matching/{profile_id}/details', 'show')
+                ->name('matching-partners-details');
         });
 
     // GET /api/chat-profile/filters?lang=eng|jpn&only_enabled=0|1
