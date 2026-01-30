@@ -34,7 +34,6 @@ class LiveChatProfilesController extends Controller
                 ],
             );
         } catch (Exception $e) {
-            dd($e);
             return $this->responseService->error(
                 message: 'Failed to check user login and agreement status.',
                 status: 500,
@@ -92,7 +91,8 @@ class LiveChatProfilesController extends Controller
             $dataUser['account'] = null;
         }else{
             $liveChatProfile = $this->liveChatProfilesRepository->firstWhere('mail_address', $dataUser['account']);
-            $dataUser['account'] = $liveChatProfile ? $liveChatProfile->user_id : $liveChatProfile->exhibitor_administrator_id ;
+
+            $dataUser['account'] = $liveChatProfile ? ($liveChatProfile?->user_id ??  $liveChatProfile?->exhibitor_administrator_id):null ;
         }
         return $dataUser['account'];
     }
