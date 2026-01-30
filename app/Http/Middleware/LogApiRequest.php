@@ -22,15 +22,19 @@ class LogApiRequest
         }
         $requestId = $this->getOrCreateRequestId($request);
 
+        $headers = $this->sanitizeHeaders($request->headers->all());
+        $body    = $this->extractBody($request);
+
+        $response = $next($request);
+        if(in_array($response->getStatusCode(), [200, 201], true)) {
+            return $response;
+        }
         // add request_id to log context (tùy driver)
         Log::withContext([
             'request_id' => $requestId,
             'method'     => $request->method(),
             'path'       => $request->path(),
         ]);
-
-        $headers = $this->sanitizeHeaders($request->headers->all());
-        $body    = $this->extractBody($request);
 
         Log::info('request', [
             'ip'          => $request->ip(),
@@ -39,8 +43,6 @@ class LogApiRequest
             'query'       => $this->sanitizeArray($request->query()),
             'body'        => $body,
         ]);
-
-        $response = $next($request);
 
         // log response basic info (optional)
         Log::info('api.response', [
