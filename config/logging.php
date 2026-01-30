@@ -127,6 +127,16 @@ return [
             'path' => storage_path('logs/laravel.log'),
         ],
 
+        'webhook' => [
+            'driver' => 'monolog',
+            'handler' => StreamHandler::class,
+            'with' => [
+                'stream' => storage_path('logs/webhook/laravel.log'),
+            ],
+            'level' => env('LOG_LEVEL', 'debug'),
+            'processors' => [PsrLogMessageProcessor::class],
+        ],
+
     ],
 
 ];

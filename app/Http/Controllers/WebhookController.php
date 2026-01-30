@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\ResponseService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Http\JsonResponse;
 use App\Services\BusinessApproveWebhookService;
@@ -35,6 +36,7 @@ class WebhookController extends Controller
     public function businessApprovement(Request $request): JsonResponse
     {
         $data = $request->all();
+        Log::channel('webhook')->info($data);
         $businessApproveWebhookService = app(BusinessApproveWebhookService::class);
         $businessApproveWebhookService->process($data);
         return $this->responseService->success('Webhook processed successfully', 200, status: 201);
