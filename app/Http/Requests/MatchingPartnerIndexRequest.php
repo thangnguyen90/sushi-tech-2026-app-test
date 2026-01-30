@@ -18,6 +18,10 @@ class MatchingPartnerIndexRequest extends BaseRequest
             'limit_visitors' => ['nullable', 'integer', 'min:1', 'max:50'],
             'limit_networking_per_name' => ['nullable', 'integer', 'min:1', 'max:50'],
             'keyword' => ['nullable', 'string'],
+
+            // NEW: single selected option_value
+            'option_values' => ['nullable', 'array', 'max:1'],
+            'option_values.*' => ['string'],
         ];
     }
 }

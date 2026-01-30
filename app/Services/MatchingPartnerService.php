@@ -7,6 +7,7 @@ use App\Models\LiveChatProfiles;
 use App\Models\LiveChatProfileTag;
 use App\Models\LiveChatTagContent;
 use Illuminate\Support\Collection;
+use Illuminate\Database\Eloquent\Builder;
 use JsonException;
 
 class MatchingPartnerService
@@ -104,6 +105,8 @@ class MatchingPartnerService
                     }
                 });
 
+            $this->applyOptionValueFilter($profilesQuery, $ctx['option_values'] ?? []);
+
             if (!empty($ctx['keyword'])) {
                 $keyword = $ctx['keyword'];
                 $profilesQuery->where(function ($q) use ($keyword) {
@@ -164,6 +167,7 @@ class MatchingPartnerService
                     ->orWhere('company', 'like', '%' . $keyword . '%');
             });
         }
+        $this->applyOptionValueFilter($query, $ctx['option_values'] ?? []);
         return
             $query->distinct()->inRandomOrder()
             ->limit($ctx['limit_exhibitors'])
@@ -203,6 +207,7 @@ class MatchingPartnerService
                     ->orWhere('company', 'like', '%' . $keyword . '%');
             });
         }
+        $this->applyOptionValueFilter($query, $ctx['option_values'] ?? []);
 
         return $query
             ->distinct()
@@ -335,5 +340,25 @@ class MatchingPartnerService
             'discover_type' => self::DISCOVER_NETWORKING,
             'list' => $outList,
         ];
+    }
+
+    /**
+     * Filter profiles by selected option_value in live_chat_profile_field_options.
+     * UI sends max 1 value but we accept array for compatibility.
+     */
+    private function applyOptionValueFilter(Builder $query, array $optionValues): void
+    {
+        $vals = array_values(array_unique(array_filter(array_map('strval', $optionValues))));
+        if (empty($vals)) {
+            return;
+        }
+
+        $query->whereExists(function ($sub) use ($vals) {
+            $sub->selectRaw('1')
+                ->from('live_chat_profile_field_options as fo')
+                ->whereNull('fo.deleted_at')
+                ->whereColumn('fo.profile_id', 'live_chat_profiles.profile_id')
+                ->whereIn('fo.option_value', $vals);
+        });
     }
 }
