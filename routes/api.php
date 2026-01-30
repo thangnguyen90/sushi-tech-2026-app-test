@@ -1,13 +1,12 @@
 <?php
 
 use App\Http\Controllers\MatchingPartnerController;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LiveChatProfilesController;
 use App\Http\Middleware\UserAuthenticationMiddleware;
 use App\Http\Controllers\MatchingUserController;
 use App\Http\Controllers\WebhookController;
-
+use App\Http\Controllers\ChatProfileContentController;
 
 Route::name('users.')
     ->controller(LiveChatProfilesController::class)
@@ -28,6 +27,9 @@ Route::middleware(UserAuthenticationMiddleware::class)->group(function (): void 
             Route::get('matching-partners', 'index')
                 ->name('matching-partners');
         });
+
+    // GET /api/chat-profile/filters?lang=eng|jpn&only_enabled=0|1
+    Route::get('/chat-profile/filters', [ChatProfileContentController::class, 'filters']);
 
     // List negotiations (deal-done list)
     Route::get('/matching/negotiations', [MatchingUserController::class, 'negotiationsList']);
