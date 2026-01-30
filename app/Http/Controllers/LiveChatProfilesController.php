@@ -24,8 +24,9 @@ class LiveChatProfilesController extends Controller
     public function checkUserFistLoginAndAgreePolicy(Request $request) : \Illuminate\Http\JsonResponse
     {
         try {
-            $user = $this->usersRepository->firstWhere('uuid', $request->header('user-uuid') );
-            [$isFirstLogin , $isAgreed] = $this->CheckUserIdWithUuid($user, $request->header('user-uuid'), false);
+            $uuid = $request->header('user-uuid');
+            $user = $this->usersRepository->firstWhere('uuid', $uuid );
+            [$isFirstLogin , $isAgreed] = $this->CheckUserIdWithUuid($user, $uuid, false);
             return $this->responseService->success(
                 data: [
                     'is_first_login' => $isFirstLogin,
@@ -44,8 +45,9 @@ class LiveChatProfilesController extends Controller
     public function userAgreement( Request $request): \Illuminate\Http\JsonResponse
     {
         try {
-            $user = $this->usersRepository->firstWhere('uuid', $request->header('user-uuid'));
-            $this->CheckUserIdWithUuid($user, $request->header('user-uuid'), true);
+            $uuid = $request->header('user-uuid');
+            $user = $this->usersRepository->firstWhere('uuid', $uuid);
+            $this->CheckUserIdWithUuid($user, $uuid, true);
             return $this->responseService->success();
         }catch (Exception $e){
             return $this->responseService->error(
