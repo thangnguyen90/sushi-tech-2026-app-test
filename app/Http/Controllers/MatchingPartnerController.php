@@ -5,13 +5,16 @@ namespace App\Http\Controllers;
 use App\Http\Requests\MatchingPartnerIndexRequest;
 use App\Services\MatchingPartnerService;
 use App\Services\ResponseService;
+use Illuminate\Http\Request;
+use App\Services\LiveChatProfileDetailsService;
 use Illuminate\Http\JsonResponse;
 use JsonException;
 
 class MatchingPartnerController extends Controller
 {
     public function __construct(
-        private readonly ResponseService $responseService
+        private readonly ResponseService $responseService,
+        private LiveChatProfileDetailsService $liveChatProfileDetailsService
     ) {
     }
 
@@ -50,6 +53,26 @@ class MatchingPartnerController extends Controller
                 status: 500
             );
         }
+
+        return $this->responseService->success(
+            data: $result,
+            code: 'OK',
+            message: ''
+        );
+    }
+
+    public function show(Request $request, int $profile_id): JsonResponse
+    {
+        $lang = (string) $request->query('lang', 'jpn');
+        $languageId = (int) $request->query('language_id', 1);
+
+        $ctx = [
+            'profile_id' => $profile_id,
+            'language_id' => $languageId,
+            'lang' => $lang,
+        ];
+
+        $result = $this->liveChatProfileDetailsService->getDetail($ctx);
 
         return $this->responseService->success(
             data: $result,

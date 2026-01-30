@@ -33,6 +33,7 @@ class LiveChatProfilesController extends Controller
                 ],
             );
         } catch (Exception $e) {
+            dd($e);
             return $this->responseService->error(
                 message: 'Failed to check user login and agreement status.',
                 status: 500,
