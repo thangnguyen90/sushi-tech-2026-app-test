@@ -43,6 +43,7 @@ class MatchingPartnerController extends Controller
                 'limit_visitors' => (int) ($validated['limit_visitors'] ?? 10),
                 'limit_networking_per_name' => (int) ($validated['limit_networking_per_name'] ?? 10),
                 'keyword' => $validated['keyword']??null,
+                'option_values' => $validated['option_values'] ?? [],
             ]);
         } catch (JsonException $e) {
             return $this->responseService->error(
@@ -64,7 +65,7 @@ class MatchingPartnerController extends Controller
 
     public function show(Request $request, int $profile_id): JsonResponse
     {
-        $lang = (string) $request->header('lang', 'jpn');
+        $lang = (string) $request->header('language', 'jpn');
 
         $ctx = [
             'profile_id' => $profile_id,
