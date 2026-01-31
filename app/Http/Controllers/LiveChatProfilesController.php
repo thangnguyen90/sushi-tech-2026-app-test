@@ -46,8 +46,11 @@ class LiveChatProfilesController extends Controller
         try {
             $uuid = $request->header('user-uuid');
             $user = $this->usersRepository->firstWhere('uuid', $uuid);
-            $this->CheckUserIdWithUuid($user, $uuid, true);
-            return $this->responseService->success();
+            [$isFirstLogin , $isAgreed] = $this->CheckUserIdWithUuid($user, $uuid, true);
+            return $this->responseService->success(data: [
+                'is_first_login' => $isFirstLogin,
+                'policy_agreed' => $isAgreed,
+            ],);
         }catch (Exception $e){
             return $this->responseService->error(
                 message: 'Failed to record user agreement.',
