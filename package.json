@@ -44,6 +44,7 @@
         "laravel-echo": "^2.2.6",
         "pinia": "^3.0.4",
         "pusher-js": "^8.4.0",
+        "qrcode-vue3": "^1.7.1",
         "typescript": "^5.9.3",
         "typescript-eslint": "^8.49.0",
         "vee-validate": "^4.15.1",

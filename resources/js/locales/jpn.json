@@ -52,8 +52,13 @@
         },
         "menu": {
             "qr": {
-                "label": "会員QR表示",
-                "note": "名刺・連絡先交換などができます。"
+                "label": "QR名刺交換",
+                "note": "QRを読み取って名刺交換を行えます。",
+                "details": {
+                    "view": "表示",
+                    "read": "読み取り",
+                    "history": "交換履歴"
+                }
             },
             "businessCardHistory": {
                 "label": "名刺交換履歴",
@@ -61,11 +66,19 @@
             },
             "matchingList": {
                 "label": "マッチングリスト",
-                "note": "イベント会場の参加ユーザーを検索し、商談やマッチングにつなげます。"
+                "note": "商談やマッチングにつなげます。"
             },
             "appointment": {
                 "label": "参加者を探す",
                 "note": "マッチングした参加者が見れます。"
+            },
+            "negotiateManagement": {
+                "label": "商談管理",
+                "note": "予約状況を確認・管理できます。"
+            },
+            "exhibitor": {
+                "label": "出展者を探す",
+                "note": "SusHi Tech Tokyo 2026に出展している出展者を探します。"
             }
         },
         "stage": {
