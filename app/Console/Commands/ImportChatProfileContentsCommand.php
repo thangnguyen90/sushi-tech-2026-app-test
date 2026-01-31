@@ -179,7 +179,7 @@ final class ImportChatProfileContentsCommand extends Command
             }
 
             $sortOrder = $this->toNullableInt($row['sort_order'] ?? $row['sortOrder'] ?? null) ?? 0;
-            $isEnabled = $this->toBoolInt($row['is_enabled'] ?? $row['isEnabled'] ?? 1);
+//            $isEnabled = $this->toBoolInt($row['is_enabled'] ?? $row['isEnabled'] ?? 1);
 
             $createdAt = $this->toNullableDateTimeString($row['created_at'] ?? null) ?? $now->format('Y-m-d H:i:s');
             $updatedAt = $this->toNullableDateTimeString($row['updated_at'] ?? null) ?? $now->format('Y-m-d H:i:s');
@@ -195,7 +195,7 @@ final class ImportChatProfileContentsCommand extends Command
                 'label_jpn' => $labelJpn,
                 'language_setting' => $languageSettingJson,
                 'sort_order' => (int) $sortOrder,
-                'is_enabled' => (int) $isEnabled,
+//                'is_enabled' => (int) $isEnabled,
                 'created_at' => $createdAt,
                 'updated_at' => $updatedAt,
             ]];
@@ -261,7 +261,7 @@ final class ImportChatProfileContentsCommand extends Command
             }
 
             // Field-level flags (same for all options under the same field_key)
-            $fieldEnabledInt = ((bool) ($cf['is_enabled'] ?? true)) ? 1 : 0;
+//            $fieldEnabledInt = ((bool) ($cf['is_enabled'] ?? true)) ? 1 : 0;
 
             // Field-level language_setting (same for all options under the same field_key)
             // This is what you want to store in DB so that rows with the same field_key share identical language_setting.
@@ -342,7 +342,7 @@ final class ImportChatProfileContentsCommand extends Command
                     'sort_order' => $sortOrder,
 
                     // Reflect field-level enabled flag on every option row
-                    'is_enabled' => $fieldEnabledInt,
+//                    'is_enabled' => $fieldEnabledInt,
 
                     'created_at' => $createdAt,
                     'updated_at' => $updatedAt,
@@ -392,11 +392,12 @@ final class ImportChatProfileContentsCommand extends Command
         DB::table('chat_profile_contents')->upsert(
             $buffer,
             ['field_key', 'option_value'],
-            ['label_eng', 'label_jpn', 'language_setting', 'sort_order', 'is_enabled', 'updated_at']
+            ['label_eng', 'label_jpn', 'language_setting', 'sort_order', 'updated_at'] // remove is_enabled
         );
 
         return count($buffer);
     }
+
 
     private function toNullableInt(mixed $value): ?int
     {
