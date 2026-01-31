@@ -18,7 +18,7 @@ class ChatProfileContentController extends Controller
     public function filters(Request $request): \Illuminate\Http\JsonResponse
     {
         $lang = (string) $request->query('lang', 'jpn');
-        $onlyEnabled = (int) $request->query('only_enabled', 0) === 1;
+        $onlyEnabled = (int) $request->query('only_enabled', 0) === 0;
 
         return $this->responseService->success(
             data: $this->chatProfileContentRepository->getFilterFields($lang, $onlyEnabled),
