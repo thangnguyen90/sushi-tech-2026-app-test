@@ -75,6 +75,7 @@ class LiveChatProfilesController extends Controller
             if($user->user_id === null){
                 $id = $this->getIdLiveChatProfile($uuid);
                 $user->user_id = $id;
+                $user->policy_agreed = $isAgreed;
                 $user->save();
             }
         }
