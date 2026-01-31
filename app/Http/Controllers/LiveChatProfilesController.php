@@ -26,7 +26,7 @@ class LiveChatProfilesController extends Controller
         try {
             $uuid = $request->header('user-uuid');
             $user = $this->usersRepository->firstWhere('uuid', $uuid );
-            [$isFirstLogin , $isAgreed] = $this->CheckUserIdWithUuid($user, $uuid, false);
+            [$isFirstLogin , $isAgreed] = $this->CheckUserIdWithUuid($user, $uuid);
             return $this->responseService->success(
                 data: [
                     'is_first_login' => $isFirstLogin,
@@ -46,7 +46,7 @@ class LiveChatProfilesController extends Controller
         try {
             $uuid = $request->header('user-uuid');
             $user = $this->usersRepository->firstWhere('uuid', $uuid);
-            [$isFirstLogin , $isAgreed] = $this->CheckUserIdWithUuid($user, $uuid, true);
+            [$isFirstLogin , $isAgreed] = $this->CheckUserIdWithUuid($user, $uuid);
             return $this->responseService->success(data: [
                 'is_first_login' => $isFirstLogin,
                 'policy_agreed' => $isAgreed,
@@ -63,9 +63,10 @@ class LiveChatProfilesController extends Controller
     /**
      * @throws Exception
      */
-    private  function CheckUserIdWithUuid($user, string $uuid, bool $isAgreed): array
+    private  function CheckUserIdWithUuid($user, string $uuid): array
     {
         $isFirstLogin = true;
+        $isAgreed = true;
         if (!$user) {
             $id = $this->getIdLiveChatProfile($uuid);
             $this->usersRepository->create([
@@ -73,13 +74,14 @@ class LiveChatProfilesController extends Controller
                 'user_id' => $id,
                 'policy_agreed' => false,
             ]);
+            $isAgreed = false;
         }else{
             $isFirstLogin = false;
             if($user->user_id === null){
                 $id = $this->getIdLiveChatProfile($uuid);
                 $user->user_id = $id;
             }
-            $user->policy_agreed = $isAgreed;
+            $user->policy_agreed = true;
             $user->save();
         }
         return [$isFirstLogin, $isAgreed];
