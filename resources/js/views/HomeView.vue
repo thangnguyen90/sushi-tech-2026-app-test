@@ -118,7 +118,7 @@
                 </div>
             </div>
         </div>
-        <div class="top__title">
+        <!-- <div class="top__title">
             <div class="top__title-text">
                 {{ $t('top.title.notice') }}
             </div>
@@ -133,7 +133,7 @@
                     {{ notice.title }}
                 </div>
             </div>
-        </div>
+        </div> -->
         <ContractMatchingModal
             v-model="contractModal"
             :description="$t('contract.description')"
@@ -156,7 +156,6 @@ import {
 import { EVENTOS_MODULE_CHAT, EVENTOS_MODULE_CHAT_WEB_LINK, EVENTOS_MODULE_MATCHING, EVENTOS_MODULE_MATCHING_WEB_LINK } from "@/shared/constants/env";
 import { useAuthStore } from "@/stores/AuthStore";
 import { LiveChatRedirect } from "@/utils/constantUrl";
-import { formatDate } from "@/utils/useDate";
 import { defineAsyncComponent, ref, watch } from "vue";
 
 const storeAuth = useAuthStore();
@@ -189,23 +188,23 @@ const confirmPolicy = () => {
     });
 };
 
-const notices = ref([
-    {
-        id: 1,
-        title: "【会場変更】「基調講演」の会場がAホールへ変更になりました",
-        date: new Date().toISOString(),
-    },
-    {
-        id: 2,
-        title: "【ネットワーキング満席】14:00回は予約上限に達しました",
-        date: new Date().toISOString(),
-    },
-    {
-        id: 3,
-        title: "【名刺交換ブース】混雑緩和のため待機列を2列に変更しました",
-        date: new Date().toISOString(),
-    },
-])
+// const notices = ref([
+//     {
+//         id: 1,
+//         title: "【会場変更】「基調講演」の会場がAホールへ変更になりました",
+//         date: new Date().toISOString(),
+//     },
+//     {
+//         id: 2,
+//         title: "【ネットワーキング満席】14:00回は予約上限に達しました",
+//         date: new Date().toISOString(),
+//     },
+//     {
+//         id: 3,
+//         title: "【名刺交換ブース】混雑緩和のため待機列を2列に変更しました",
+//         date: new Date().toISOString(),
+//     },
+// ])
 
 const viewQrUser= () => {
     qrModal.value = true;
@@ -251,7 +250,7 @@ watch(
     display: flex;
     flex-direction: column;
     gap: 16px;
-    padding: 16px 0;
+    padding: 16px 0 31px;
     >div {
         padding: 0 16px;
         &.slider-container {
