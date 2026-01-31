@@ -20,7 +20,7 @@ class MatchingPartnerIndexRequest extends BaseRequest
             'keyword' => ['nullable', 'string'],
 
             // NEW: single selected option_value
-            'option_values' => ['nullable', 'array', 'max:1'],
+            'option_values' => ['nullable', 'array'],
             'option_values.*' => ['string'],
         ];
     }

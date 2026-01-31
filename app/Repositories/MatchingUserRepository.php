@@ -2,6 +2,7 @@
 
 namespace App\Repositories;
 
+use App\Models\LiveChatProfiles;
 use App\Models\MatchingUser;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -48,33 +49,61 @@ class MatchingUserRepository extends BaseRepository
         int $ownerUserId,
         array $peerUserId,
         int $dealDoneStatus,
-        ?int $eventId = null
     ): bool {
-        return DB::transaction(function () use ($ownerUserId, $peerUserId, $dealDoneStatus, $eventId) {
-            $aToB = $this->query()
-                ->where('owner_user_id', $ownerUserId)
-                ->whereIn('peer_user_id', $peerUserId);
+        $liveChatProfileOwner = LiveChatProfiles::query()
+            ->where('user_id', $ownerUserId)
+            ->first();
+        $liveChatProfilePeer = LiveChatProfiles::query()
+            ->whereIn('profile_id', $peerUserId)
+            ->cursor()
+            ->mapWithKeys(function ($item) {
+                $key = $item->user_id ?? $item->exhibitor_administrator_id;
+                return $key ? [$key => $item->uuid] : [];
+            })
+            ->all();
 
-            $bToA = $this->query()
-                ->whereIn('owner_user_id', $peerUserId)
-                ->where('peer_user_id', $ownerUserId);
-
-            if ($eventId !== null) {
-                $aToB->where('event_id', $eventId);
-                $bToA->where('event_id', $eventId);
+        $O2P = $this->query()->where('owner_user_id', $ownerUserId)->get()->pluck('peer_uuid', 'peer_user_id')->toArray();
+        $eventId =  config('eventos.event');
+        foreach ($liveChatProfilePeer as $peerId => $peerUuid) {
+            if (isset($O2P[$peerId])) {
+                continue;
             }
-
-            // Both directions must exist
-            if (!$aToB->exists() || !$bToA->exists()) {
-                return false;
+            // Begin transaction to ensure atomicity
+            DB::beginTransaction();
+            try {
+                // Update owner -> peer
+                 $this->updateOrCreate(
+                    [
+                        'owner_user_id' => $ownerUserId,
+                        'owner_uuid' => $liveChatProfileOwner->uuid,
+                        'peer_user_id' => $peerId,
+                        'peer_uuid' => $peerUuid,
+                        'event_id' => $eventId,
+                    ],
+                    [
+                        'status' => $dealDoneStatus,
+                    ]
+                );
+                // Update peer -> owner
+                 $this->updateOrCreate(
+                    [
+                        'owner_user_id' => $peerId,
+                        'owner_uuid' => $peerUuid,
+                        'peer_user_id' => $ownerUserId,
+                        'peer_uuid' => $liveChatProfileOwner->uuid,
+                        'event_id' => $eventId,
+                    ],
+                    [
+                        'status' => $dealDoneStatus,
+                    ]
+                );
+                DB::commit();
+            } catch (\Exception $e) {
+                DB::rollBack();
+                dd($e);
             }
-
-            // Update both directions to deal done
-            $aToB->update(['status' => $dealDoneStatus]);
-            $bToA->update(['status' => $dealDoneStatus]);
-
-            return true;
-        });
+        }
+        return true;
     }
 
     public function addOrUpdateDataFromWebhook(array $data): void
