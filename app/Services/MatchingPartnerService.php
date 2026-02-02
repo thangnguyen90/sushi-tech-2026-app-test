@@ -331,77 +331,13 @@ class MatchingPartnerService
                 'nickname' => (string)$p->nickname,
                 'company' => $p->company !== null ? (string)$p->company : null,
                 'introduction' => $p->introduction !== null ? (string)$p->introduction : null,
-                'icon_image' => $p->icon_image !== null ? (string)$p->icon_image : null,
-                'background_image' => $p->background_image !== null ? (string)$p->background_image : null,
                 'user_id' => $p->user_id !== null ? (int)$p->user_id : null,
                 'exhibitor_administrator_id' => $p->exhibitor_administrator_id !== null ? (int)$p->exhibitor_administrator_id : null,
-                'live_chat_data_source_id' => (int) $p->live_chat_data_source_id,
-                'live_chat_user_id' => (string) $p->live_chat_user_id,
-                'profile_id' => (int) $p->profile_id,
-                'uuid' => (string) $p->uuid,
-                'nickname' => (string) $p->nickname,
-                'company' => $p->company !== null ? (string) $p->company : null,
-                'introduction' => $p->introduction !== null ? (string) $p->introduction : null,
                 'icon_image' => $p->icon_image,
                 'background_image' => $p->background_image,
-                'user_id' => $p->user_id !== null ? (int) $p->user_id : null,
-                'exhibitor_administrator_id' => $p->exhibitor_administrator_id !== null ? (int) $p->exhibitor_administrator_id : null,
                 'tags' => $p->tags ?? [],
             ];
         })->values()->all();
-    }
-
-    private function flattenNetworkingProfiles(array $networking): Collection
-    {
-        $all = collect();
-        foreach (($networking['list'] ?? []) as $g) {
-            $items = $g['items'] ?? collect();
-            $all = $all->merge($items);
-        }
-        return $all;
-    }
-
-    private function hydrateNetworking(array $networking, Collection $profilesWithTags): array
-    {
-        $byId = $profilesWithTags->keyBy('id');
-
-        $outList = [];
-        foreach (($networking['list'] ?? []) as $g) {
-            $items = collect($g['items'] ?? [])
-                ->map(fn($p) => $byId->get($p->id))
-                ->filter()
-                ->values();
-
-            $outList[] = [
-                'checkin_app_user_name' => (string) $g['checkin_app_user_name'],
-                'items' => $this->mapProfiles($items),
-            ];
-        }
-
-        return [
-            'discover_type' => self::DISCOVER_NETWORKING,
-            'list' => $outList,
-        ];
-    }
-
-    /**
-     * Filter profiles by selected option_value in live_chat_profile_field_options.
-     * UI sends max 1 value but we accept array for compatibility.
-     */
-    private function applyOptionValueFilter(Builder $query, array $optionValues): void
-    {
-        $vals = array_values(array_unique(array_filter(array_map('strval', $optionValues))));
-        if (empty($vals)) {
-            return;
-        }
-
-        $query->whereExists(function ($sub) use ($vals) {
-            $sub->selectRaw('1')
-                ->from('live_chat_profile_field_options as fo')
-                ->whereNull('fo.deleted_at')
-                ->whereColumn('fo.profile_id', 'live_chat_profiles.profile_id')
-                ->whereIn('fo.option_value', $vals);
-        });
     }
 
     /**
