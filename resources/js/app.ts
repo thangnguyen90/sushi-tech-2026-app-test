@@ -7,6 +7,7 @@ import router from "@/router";
 import i18n from '@/i18n';
 import { VueQrcodeReader } from 'vue-qrcode-reader'
 import { configureEcho } from '@laravel/echo-vue';
+import QRCodeVue3 from "qrcode-vue3";
 
 // import Bootstrap JS
 import "bootstrap";
@@ -27,4 +28,5 @@ app.use(i18n);
 app.use(createVfm);
 app.use(VueQrcodeReader);
 app.component('VueFinalModal', VueFinalModal)
+app.component('QRCodeVue3', QRCodeVue3)
 app.mount("#app");

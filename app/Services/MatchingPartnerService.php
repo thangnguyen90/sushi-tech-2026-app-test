@@ -96,6 +96,7 @@ class MatchingPartnerService
             $profilesQuery = LiveChatProfiles::query()
                 ->where('live_chat_data_source_id', $ctx['data_source_id'])
                 ->where('last_event_id', $ctx['event_id'])
+                ->where('user_id' , '<>', $ctx['user_id'])
                 ->where(function ($q) use ($userIds, $adminIds) {
                     if ($userIds->isNotEmpty()) {
                         $q->orWhereIn('user_id', $userIds);
@@ -158,6 +159,7 @@ class MatchingPartnerService
         $query = LiveChatProfiles::query()
             ->where('live_chat_data_source_id', $ctx['data_source_id'])
             ->where('last_event_id', $ctx['event_id'])
+            ->where('user_id' , '<>', $ctx['user_id'])
             ->whereNotNull('exhibitor_administrator_id');
         if (!empty($ctx['keyword'])) {
             $keyword = $ctx['keyword'];
@@ -198,6 +200,7 @@ class MatchingPartnerService
             ->where('live_chat_data_source_id', $ctx['data_source_id'])
             ->where('last_event_id', $ctx['event_id'])
             ->whereNotNull('user_id')
+            ->where('user_id' , '<>', $ctx['user_id'])
             ->whereNull('exhibitor_administrator_id');
         if (!empty($ctx['keyword'])) {
             $keyword = $ctx['keyword'];

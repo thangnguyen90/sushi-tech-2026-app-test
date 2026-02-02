@@ -65,7 +65,12 @@
         "menu": {
             "qr": {
                 "label": "Member QR Code",
-                "note": "You can exchange business cards and contact information."
+                "note": "You can exchange business cards and contact information.",
+                "details": {
+                    "view": "View",
+                    "read": "Read",
+                    "history": "Exchange history"
+                }
             },
             "businessCardHistory": {
                 "label": "Business Card Exchange History",
@@ -78,6 +83,14 @@
             "appointment": {
                 "label": "Find participants",
                 "note": "You can see the participants who have been matched."
+            },
+            "negotiateManagement": {
+                "label": "Negotiation Management",
+                "note": "You can check and manage reservation status."
+            },
+            "exhibitor": {
+                "label": "Find exhibitors",
+                "note": "Find exhibitors at SusHi Tech Tokyo 2026."
             }
         },
         "stage": {
