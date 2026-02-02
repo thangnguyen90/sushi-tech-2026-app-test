@@ -21,6 +21,7 @@ class MarkMatchingRequest extends BaseRequest
     {
         return [
             'peer_user_id' => ['required', 'array'],
+            'status' => ['required', 'integer', 'in:1,2,3,4'],
         ];
     }
 }

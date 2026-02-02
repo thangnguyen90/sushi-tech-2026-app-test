@@ -68,14 +68,14 @@ class MatchingUserController extends Controller
                 status: 401
             );
         }
-
+        $status = (int) $user->status;
         $ownerUserId = (int) $user->user_id;
 
         $peerUserId = $matchingRequest['peer_user_id'];
         $ok = $this->matchingUserRepository->markDealDoneIfMutual(
             ownerUserId: $ownerUserId,
             peerUserId: $peerUserId,
-            dealDoneStatus: self::STATUS_DEAL_DONE
+            status: $status
         );
 
         if (!$ok) {
@@ -84,7 +84,7 @@ class MatchingUserController extends Controller
                 code: 'NOT_MUTUAL_MATCH',
                 data: [
                     'owner_user_id' => $ownerUserId,
-                    'status' => self::STATUS_DEAL_DONE,
+                    'status' => $status,
                     'peer_user_ids' => [],
                 ],
                 status: 409

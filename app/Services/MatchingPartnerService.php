@@ -107,6 +107,10 @@ class MatchingPartnerService
                 });
 
             $this->applyOptionValueFilter($profilesQuery, $ctx['option_values'] ?? []);
+            $this->applyMatchedExclusion($profilesQuery, $ctx, [
+                'live_chat_profiles.user_id',
+                'live_chat_profiles.exhibitor_administrator_id',
+            ]);
 
             if (!empty($ctx['keyword'])) {
                 $keyword = $ctx['keyword'];
@@ -170,6 +174,7 @@ class MatchingPartnerService
             });
         }
         $this->applyOptionValueFilter($query, $ctx['option_values'] ?? []);
+        $this->applyMatchedExclusion($query, $ctx, ['live_chat_profiles.exhibitor_administrator_id']);
         return
             $query->distinct()->inRandomOrder()
             ->limit($ctx['limit_exhibitors'])
@@ -211,6 +216,7 @@ class MatchingPartnerService
             });
         }
         $this->applyOptionValueFilter($query, $ctx['option_values'] ?? []);
+        $this->applyMatchedExclusion($query, $ctx, ['live_chat_profiles.user_id']);
 
         return $query
             ->distinct()
@@ -303,8 +309,8 @@ class MatchingPartnerService
                 'nickname' => (string) $p->nickname,
                 'company' => $p->company !== null ? (string) $p->company : null,
                 'introduction' => $p->introduction !== null ? (string) $p->introduction : null,
-                'icon_image' => $p->icon_image !== null ? (string) $p->icon_image : null,
-                'background_image' => $p->background_image !== null ? (string) $p->background_image : null,
+                'icon_image' => $p->icon_image,
+                'background_image' => $p->background_image,
                 'user_id' => $p->user_id !== null ? (int) $p->user_id : null,
                 'exhibitor_administrator_id' => $p->exhibitor_administrator_id !== null ? (int) $p->exhibitor_administrator_id : null,
                 'tags' => $p->tags ?? [],
@@ -362,6 +368,50 @@ class MatchingPartnerService
                 ->whereNull('fo.deleted_at')
                 ->whereColumn('fo.profile_id', 'live_chat_profiles.profile_id')
                 ->whereIn('fo.option_value', $vals);
+        });
+    }
+
+    /**
+     * Exclude profiles that already have a matching row with current user
+     * (as owner_user_id OR peer_user_id) in same event.
+     *
+     * @param array<int, string> $candidateColumns Columns on live_chat_profiles to compare (e.g. user_id, exhibitor_administrator_id)
+     * @param array<int, int>|null $excludeStatuses Optional statuses to exclude (null = exclude all statuses)
+     */
+    private function applyMatchedExclusion(
+        Builder $query,
+        array $ctx,
+        array $candidateColumns,
+        ?array $excludeStatuses = null
+    ): void {
+        $eventId = $ctx['event_id'] ?? null;
+        if (!$eventId || empty($candidateColumns)) {
+            return;
+        }
+
+        $matchingTable = config('constants.MATCHING_PARTNER_TABLE') ?: 'matching_users';
+        $candidateColumns = array_values(array_filter(array_unique($candidateColumns)));
+
+        $query->whereNotExists(function ($sub) use ($matchingTable, $eventId, $candidateColumns, $excludeStatuses) {
+            $sub->selectRaw('1')
+                ->from($matchingTable . ' as mp')
+                ->whereNull('mp.deleted_at')
+                ->where('mp.event_id', $eventId);
+
+            if (is_array($excludeStatuses) && !empty($excludeStatuses)) {
+                $sub->whereIn('mp.status', $excludeStatuses);
+            }
+
+            // candidate appears in matching_users as owner OR peer -> exclude
+            $sub->where(function ($w) use ($candidateColumns) {
+                foreach ($candidateColumns as $i => $col) {
+                    $method = $i === 0 ? 'where' : 'orWhere';
+                    $w->{$method}(function ($x) use ($col) {
+                        $x->whereColumn('mp.owner_user_id', $col)
+                            ->orWhereColumn('mp.peer_user_id', $col);
+                    });
+                }
+            });
         });
     }
 }
