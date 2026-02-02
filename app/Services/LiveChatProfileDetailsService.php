@@ -76,41 +76,13 @@ class LiveChatProfileDetailsService
     {
         $row = LiveChatProfileTag::query()
             ->whereNull('deleted_at')
-            ->where('user_live_chat_profile_id', (int) $profile->id)
+            ->where('user_live_chat_profile_id', (int) $profile->profile_id)
             ->first(['tags']);
-
         if (!$row) {
             $profile->tags = [];
             return $profile;
         }
-
-        $tagIds = is_array($row->tags) ? $row->tags : (json_decode($row->tags, true, 512, JSON_THROW_ON_ERROR) ?? []);
-        $tagIds = collect($tagIds)->filter(fn ($v) => is_numeric($v))->map(fn ($v) => (int) $v)->values();
-
-        if ($tagIds->isEmpty()) {
-            $profile->tags = [];
-            return $profile;
-        }
-
-        $tagContents = LiveChatTagContent::query()
-            ->whereNull('deleted_at')
-            ->whereIn('live_chat_tag_id', $tagIds)
-            ->where('language_id', $languageId)
-            ->where('is_publish', 1)
-            ->get(['live_chat_tag_id', 'name'])
-            ->keyBy('live_chat_tag_id');
-
-        $profile->tags = $tagIds
-            ->map(function (int $tagId) use ($tagContents) {
-                $c = $tagContents->get($tagId);
-                if (!$c) {
-                    return null;
-                }
-                return ['id' => $tagId, 'name' => (string) $c->name];
-            })
-            ->filter()
-            ->values()
-            ->all();
+        $profile->tags = $row->tags[$languageId];
 
         return $profile;
     }
