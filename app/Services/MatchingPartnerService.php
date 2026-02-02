@@ -6,15 +6,15 @@ use App\Models\CheckinHistory;
 use App\Models\LiveChatProfiles;
 use App\Models\LiveChatProfileTag;
 use App\Models\LiveChatTagContent;
-use Illuminate\Support\Collection;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use JsonException;
 
 class MatchingPartnerService
 {
     private const string DISCOVER_NETWORKING = 'NETWORKING';
-    private const string DISCOVER_EXHIBITOR  = 'EXHIBITOR';
-    private const string DISCOVER_VISITOR    = 'VISITOR';
+    private const string DISCOVER_EXHIBITOR = 'EXHIBITOR';
+    private const string DISCOVER_VISITOR = 'VISITOR';
 
     /**
      * @throws JsonException
@@ -23,7 +23,7 @@ class MatchingPartnerService
     {
         $networking = $this->getNetworking($ctx);
         $exhibitors = $this->getRandomExhibitors($ctx);
-        $visitors   = $this->getRandomVisitors($ctx);
+        $visitors = $this->getRandomVisitors($ctx);
 
         // Batch attach tags to all profiles in 3 sections
         $allProfiles = collect()
@@ -35,7 +35,7 @@ class MatchingPartnerService
         // re-hydrate
         $networkingOut = $this->hydrateNetworking($networking, $profilesWithTags);
         $exhibitorsOut = $this->mapProfiles($profilesWithTags->where('section', self::DISCOVER_EXHIBITOR)->values());
-        $visitorsOut   = $this->mapProfiles($profilesWithTags->where('section', self::DISCOVER_VISITOR)->values());
+        $visitorsOut = $this->mapProfiles($profilesWithTags->where('section', self::DISCOVER_VISITOR)->values());
 
         return array_values(array_filter([
             $networkingOut,
@@ -52,12 +52,12 @@ class MatchingPartnerService
 
     private function getNetworking(array $ctx): array
     {
-        $query = CheckinHistory::query()->limit(config('constants.NET_WORKING_LIMIT')??5);
-        if($ctx['user_id']) {
+        $query = CheckinHistory::query()->limit(config('constants.NET_WORKING_LIMIT') ?? 5);
+        if ($ctx['user_id']) {
             $query->where('user_id', $ctx['user_id']);
         } elseif ($ctx['exhibitor_administrator_id']) {
             $query->where('exhibitor_administrator_id', $ctx['exhibitor_administrator_id']);
-        } else{
+        } else {
             return [
                 'discover_type' => self::DISCOVER_NETWORKING,
                 'list' => [],
@@ -65,7 +65,7 @@ class MatchingPartnerService
         }
 
 
-        $myNames =$query
+        $myNames = $query
             ->distinct()
             ->pluck('checkin_app_user_name')
             ->values();
@@ -96,7 +96,7 @@ class MatchingPartnerService
             $profilesQuery = LiveChatProfiles::query()
                 ->where('live_chat_data_source_id', $ctx['data_source_id'])
                 ->where('last_event_id', $ctx['event_id'])
-                ->where('user_id' , '<>', $ctx['user_id'])
+                ->where('user_id', '<>', $ctx['user_id'])
                 ->where(function ($q) use ($userIds, $adminIds) {
                     if ($userIds->isNotEmpty()) {
                         $q->orWhereIn('user_id', $userIds);
@@ -154,12 +154,32 @@ class MatchingPartnerService
         ];
     }
 
+    /**
+     * Filter profiles by selected option_value in live_chat_profile_field_options.
+     * UI sends max 1 value but we accept array for compatibility.
+     */
+    private function applyOptionValueFilter(Builder $query, array $optionValues): void
+    {
+        $vals = array_values(array_unique(array_filter(array_map('strval', $optionValues))));
+        if (empty($vals)) {
+            return;
+        }
+
+        $query->whereExists(function ($sub) use ($vals) {
+            $sub->selectRaw('1')
+                ->from('live_chat_profile_field_options as fo')
+                ->whereNull('fo.deleted_at')
+                ->whereColumn('fo.profile_id', 'live_chat_profiles.profile_id')
+                ->whereIn('fo.option_value', $vals);
+        });
+    }
+
     private function getRandomExhibitors(array $ctx): Collection
     {
         $query = LiveChatProfiles::query()
             ->where('live_chat_data_source_id', $ctx['data_source_id'])
             ->where('last_event_id', $ctx['event_id'])
-            ->where('user_id' , '<>', $ctx['user_id'])
+            ->where('user_id', '<>', $ctx['user_id'])
             ->whereNotNull('exhibitor_administrator_id');
         if (!empty($ctx['keyword'])) {
             $keyword = $ctx['keyword'];
@@ -172,25 +192,25 @@ class MatchingPartnerService
         $this->applyOptionValueFilter($query, $ctx['option_values'] ?? []);
         return
             $query->distinct()->inRandomOrder()
-            ->limit($ctx['limit_exhibitors'])
-            ->get([
-                'id',
-                'profile_id',
-                'live_chat_data_source_id',
-                'live_chat_user_id',
-                'uuid',
-                'nickname',
-                'company',
-                'introduction',
-                'icon_image',
-                'background_image',
-                'user_id',
-                'exhibitor_administrator_id',
-            ])
-            ->map(function ($p) {
-                $p->section = self::DISCOVER_EXHIBITOR;
-                return $p;
-            });
+                ->limit($ctx['limit_exhibitors'])
+                ->get([
+                    'id',
+                    'profile_id',
+                    'live_chat_data_source_id',
+                    'live_chat_user_id',
+                    'uuid',
+                    'nickname',
+                    'company',
+                    'introduction',
+                    'icon_image',
+                    'background_image',
+                    'user_id',
+                    'exhibitor_administrator_id',
+                ])
+                ->map(function ($p) {
+                    $p->section = self::DISCOVER_EXHIBITOR;
+                    return $p;
+                });
     }
 
     private function getRandomVisitors(array $ctx): Collection
@@ -200,7 +220,7 @@ class MatchingPartnerService
             ->where('live_chat_data_source_id', $ctx['data_source_id'])
             ->where('last_event_id', $ctx['event_id'])
             ->whereNotNull('user_id')
-            ->where('user_id' , '<>', $ctx['user_id'])
+            ->where('user_id', '<>', $ctx['user_id'])
             ->whereNull('exhibitor_administrator_id');
         if (!empty($ctx['keyword'])) {
             $keyword = $ctx['keyword'];
@@ -236,6 +256,16 @@ class MatchingPartnerService
             });
     }
 
+    private function flattenNetworkingProfiles(array $networking): Collection
+    {
+        $all = collect();
+        foreach (($networking['list'] ?? []) as $g) {
+            $items = $g['items'] ?? collect();
+            $all = $all->merge($items);
+        }
+        return $all;
+    }
+
     /**
      * @throws JsonException
      */
@@ -245,81 +275,21 @@ class MatchingPartnerService
             return $profiles;
         }
 
-        $profileIds = $profiles->pluck('id')->unique()->values();
-
+        $profileIds = $profiles->pluck('profile_id')->unique()->values();
         // live_chat_profile_tags.tags = JSON array of tag IDs
         $profileTagRows = LiveChatProfileTag::query()
-            ->whereNull('deleted_at')
             ->where('live_chat_data_source_id', $dataSourceId)
             ->whereIn('user_live_chat_profile_id', $profileIds)
-            ->get(['user_live_chat_profile_id', 'tags']);
-
-        $profileToTagIds = [];
-        $allTagIds = collect();
-
-        foreach ($profileTagRows as $row) {
-            $tagIds = is_array($row->tags) ? $row->tags : (json_decode($row->tags, true, 512, JSON_THROW_ON_ERROR) ?? []);
-            $tagIds = collect($tagIds)->filter(fn($v) => is_numeric($v))->map(fn($v) => (int) $v)->values();
-            $profileToTagIds[(int) $row->user_live_chat_profile_id] = $tagIds->all();
-            $allTagIds = $allTagIds->merge($tagIds);
+            ->get()->pluck('tags', 'user_live_chat_profile_id');
+        foreach ($profiles as &$row) {
+            $tags = $profileTagRows[$row->profile_id] ?? [];
+            if (empty($tags)) {
+                continue;
+            }
+            $row->tags = $tags[$languageId] ?? [];
         }
-
-        $allTagIds = $allTagIds->unique()->values();
-
-        $tagContents = $allTagIds->isEmpty()
-            ? collect()
-            : LiveChatTagContent::query()
-                ->whereNull('deleted_at')
-                ->whereIn('live_chat_tag_id', $allTagIds)
-                ->where('language_id', $languageId)
-                ->where('is_publish', 1)
-                ->get(['live_chat_tag_id', 'name'])
-                ->keyBy('live_chat_tag_id');
-
-        return $profiles->map(function ($p) use ($profileToTagIds, $tagContents) {
-            $tagIds = $profileToTagIds[(int) $p->id] ?? [];
-            $p->tags = collect($tagIds)
-                ->map(function (int $tagId) use ($tagContents) {
-                    $c = $tagContents->get($tagId);
-                    if (!$c) return null;
-                    return ['id' => $tagId, 'name' => (string) $c->name];
-                })
-                ->filter()
-                ->values()
-                ->all();
-
-            return $p;
-        });
-    }
-
-    private function mapProfiles(Collection $profiles): array
-    {
-        return $profiles->map(function ($p) {
-            return [
-                'live_chat_data_source_id' => (int) $p->live_chat_data_source_id,
-                'live_chat_user_id' => (string) $p->live_chat_user_id,
-                'profile_id' => (int) $p->profile_id,
-                'uuid' => (string) $p->uuid,
-                'nickname' => (string) $p->nickname,
-                'company' => $p->company !== null ? (string) $p->company : null,
-                'introduction' => $p->introduction !== null ? (string) $p->introduction : null,
-                'icon_image' => $p->icon_image !== null ? (string) $p->icon_image : null,
-                'background_image' => $p->background_image !== null ? (string) $p->background_image : null,
-                'user_id' => $p->user_id !== null ? (int) $p->user_id : null,
-                'exhibitor_administrator_id' => $p->exhibitor_administrator_id !== null ? (int) $p->exhibitor_administrator_id : null,
-                'tags' => $p->tags ?? [],
-            ];
-        })->values()->all();
-    }
-
-    private function flattenNetworkingProfiles(array $networking): Collection
-    {
-        $all = collect();
-        foreach (($networking['list'] ?? []) as $g) {
-            $items = $g['items'] ?? collect();
-            $all = $all->merge($items);
-        }
-        return $all;
+        unset($row);
+        return $profiles;
     }
 
     private function hydrateNetworking(array $networking, Collection $profilesWithTags): array
@@ -334,7 +304,7 @@ class MatchingPartnerService
                 ->values();
 
             $outList[] = [
-                'checkin_app_user_name' => (string) $g['checkin_app_user_name'],
+                'checkin_app_user_name' => (string)$g['checkin_app_user_name'],
                 'items' => $this->mapProfiles($items),
             ];
         }
@@ -345,23 +315,23 @@ class MatchingPartnerService
         ];
     }
 
-    /**
-     * Filter profiles by selected option_value in live_chat_profile_field_options.
-     * UI sends max 1 value but we accept array for compatibility.
-     */
-    private function applyOptionValueFilter(Builder $query, array $optionValues): void
+    private function mapProfiles(Collection $profiles): array
     {
-        $vals = array_values(array_unique(array_filter(array_map('strval', $optionValues))));
-        if (empty($vals)) {
-            return;
-        }
-
-        $query->whereExists(function ($sub) use ($vals) {
-            $sub->selectRaw('1')
-                ->from('live_chat_profile_field_options as fo')
-                ->whereNull('fo.deleted_at')
-                ->whereColumn('fo.profile_id', 'live_chat_profiles.profile_id')
-                ->whereIn('fo.option_value', $vals);
-        });
+        return $profiles->map(function ($p) {
+            return [
+                'live_chat_data_source_id' => (int)$p->live_chat_data_source_id,
+                'live_chat_user_id' => (string)$p->live_chat_user_id,
+                'profile_id' => (int)$p->profile_id,
+                'uuid' => (string)$p->uuid,
+                'nickname' => (string)$p->nickname,
+                'company' => $p->company !== null ? (string)$p->company : null,
+                'introduction' => $p->introduction !== null ? (string)$p->introduction : null,
+                'icon_image' => $p->icon_image !== null ? (string)$p->icon_image : null,
+                'background_image' => $p->background_image !== null ? (string)$p->background_image : null,
+                'user_id' => $p->user_id !== null ? (int)$p->user_id : null,
+                'exhibitor_administrator_id' => $p->exhibitor_administrator_id !== null ? (int)$p->exhibitor_administrator_id : null,
+                'tags' => $p->tags ?? [],
+            ];
+        })->values()->all();
     }
 }
