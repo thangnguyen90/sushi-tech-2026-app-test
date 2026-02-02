@@ -52,12 +52,12 @@ class MatchingPartnerService
 
     private function getNetworking(array $ctx): array
     {
-        $query = CheckinHistory::query();
+        $query = CheckinHistory::query()->limit(config('constants.NET_WORKING_LIMIT')??5);
         if($ctx['user_id']) {
             $query->where('user_id', $ctx['user_id']);
-        }elseif ($ctx['exhibitor_administrator_id']) {
+        } elseif ($ctx['exhibitor_administrator_id']) {
             $query->where('exhibitor_administrator_id', $ctx['exhibitor_administrator_id']);
-        }else{
+        } else{
             return [
                 'discover_type' => self::DISCOVER_NETWORKING,
                 'list' => [],
