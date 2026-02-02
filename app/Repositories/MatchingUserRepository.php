@@ -48,7 +48,7 @@ class MatchingUserRepository extends BaseRepository
     public function markDealDoneIfMutual(
         int $ownerUserId,
         array $peerUserId,
-        int $dealDoneStatus,
+        int $status,
     ): bool {
         $liveChatProfileOwner = LiveChatProfiles::query()
             ->where('user_id', $ownerUserId)
@@ -81,7 +81,7 @@ class MatchingUserRepository extends BaseRepository
                         'event_id' => $eventId,
                     ],
                     [
-                        'status' => $dealDoneStatus,
+                        'status' => $status,
                     ]
                 );
                 // Update peer -> owner
@@ -94,13 +94,12 @@ class MatchingUserRepository extends BaseRepository
                         'event_id' => $eventId,
                     ],
                     [
-                        'status' => $dealDoneStatus,
+                        'status' => $status,
                     ]
                 );
                 DB::commit();
             } catch (\Exception $e) {
                 DB::rollBack();
-                dd($e);
             }
         }
         return true;
