@@ -26,7 +26,7 @@ class LiveChatProfilesController extends Controller
         try {
             $uuid = $request->header('user-uuid');
             $user = $this->usersRepository->firstWhere('uuid', $uuid );
-            [$isFirstLogin , $isAgreed] = $this->CheckUserIdWithUuid($user, $uuid);
+            [$isFirstLogin , $isAgreed] = $this->CheckUserIdWithUuid($user, $uuid, true);
             return $this->responseService->success(
                 data: [
                     'is_first_login' => $isFirstLogin,
@@ -63,10 +63,10 @@ class LiveChatProfilesController extends Controller
     /**
      * @throws Exception
      */
-    private  function CheckUserIdWithUuid($user, string $uuid): array
+    private  function CheckUserIdWithUuid($user, string $uuid, $isCheck = false): array
     {
         $isFirstLogin = true;
-        $isAgreed = true;
+        $isAgreed = false;
         if (!$user) {
             $id = $this->getIdLiveChatProfile($uuid);
             $this->usersRepository->create([
@@ -74,8 +74,7 @@ class LiveChatProfilesController extends Controller
                 'user_id' => $id,
                 'policy_agreed' => false,
             ]);
-            $isAgreed = false;
-        }else{
+        }else if ($isCheck){
             $isFirstLogin = false;
             if($user->user_id === null){
                 $id = $this->getIdLiveChatProfile($uuid);
@@ -83,7 +82,8 @@ class LiveChatProfilesController extends Controller
             }
             $user->policy_agreed = true;
             $user->save();
-        }
+            $isAgreed= true;
+        }else {$isAgreed = $user->policy_agreed;}
         return [$isFirstLogin, $isAgreed];
     }
     /**
