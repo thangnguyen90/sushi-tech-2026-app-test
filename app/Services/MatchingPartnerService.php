@@ -107,6 +107,10 @@ class MatchingPartnerService
                 });
 
             $this->applyOptionValueFilter($profilesQuery, $ctx['option_values'] ?? []);
+            $this->applyMatchedExclusion($profilesQuery, $ctx, [
+                'live_chat_profiles.user_id',
+                'live_chat_profiles.exhibitor_administrator_id',
+            ]);
 
             if (!empty($ctx['keyword'])) {
                 $keyword = $ctx['keyword'];
@@ -179,7 +183,7 @@ class MatchingPartnerService
         $query = LiveChatProfiles::query()
             ->where('live_chat_data_source_id', $ctx['data_source_id'])
             ->where('last_event_id', $ctx['event_id'])
-            ->where('user_id', '<>', $ctx['user_id'])
+            ->where('user_id' , '<>', $ctx['user_id'])
             ->whereNotNull('exhibitor_administrator_id');
         if (!empty($ctx['keyword'])) {
             $keyword = $ctx['keyword'];
@@ -231,6 +235,7 @@ class MatchingPartnerService
             });
         }
         $this->applyOptionValueFilter($query, $ctx['option_values'] ?? []);
+        $this->applyMatchedExclusion($query, $ctx, ['live_chat_profiles.user_id']);
 
         return $query
             ->distinct()
@@ -330,8 +335,116 @@ class MatchingPartnerService
                 'background_image' => $p->background_image !== null ? (string)$p->background_image : null,
                 'user_id' => $p->user_id !== null ? (int)$p->user_id : null,
                 'exhibitor_administrator_id' => $p->exhibitor_administrator_id !== null ? (int)$p->exhibitor_administrator_id : null,
+                'live_chat_data_source_id' => (int) $p->live_chat_data_source_id,
+                'live_chat_user_id' => (string) $p->live_chat_user_id,
+                'profile_id' => (int) $p->profile_id,
+                'uuid' => (string) $p->uuid,
+                'nickname' => (string) $p->nickname,
+                'company' => $p->company !== null ? (string) $p->company : null,
+                'introduction' => $p->introduction !== null ? (string) $p->introduction : null,
+                'icon_image' => $p->icon_image,
+                'background_image' => $p->background_image,
+                'user_id' => $p->user_id !== null ? (int) $p->user_id : null,
+                'exhibitor_administrator_id' => $p->exhibitor_administrator_id !== null ? (int) $p->exhibitor_administrator_id : null,
                 'tags' => $p->tags ?? [],
             ];
         })->values()->all();
+    }
+
+    private function flattenNetworkingProfiles(array $networking): Collection
+    {
+        $all = collect();
+        foreach (($networking['list'] ?? []) as $g) {
+            $items = $g['items'] ?? collect();
+            $all = $all->merge($items);
+        }
+        return $all;
+    }
+
+    private function hydrateNetworking(array $networking, Collection $profilesWithTags): array
+    {
+        $byId = $profilesWithTags->keyBy('id');
+
+        $outList = [];
+        foreach (($networking['list'] ?? []) as $g) {
+            $items = collect($g['items'] ?? [])
+                ->map(fn($p) => $byId->get($p->id))
+                ->filter()
+                ->values();
+
+            $outList[] = [
+                'checkin_app_user_name' => (string) $g['checkin_app_user_name'],
+                'items' => $this->mapProfiles($items),
+            ];
+        }
+
+        return [
+            'discover_type' => self::DISCOVER_NETWORKING,
+            'list' => $outList,
+        ];
+    }
+
+    /**
+     * Filter profiles by selected option_value in live_chat_profile_field_options.
+     * UI sends max 1 value but we accept array for compatibility.
+     */
+    private function applyOptionValueFilter(Builder $query, array $optionValues): void
+    {
+        $vals = array_values(array_unique(array_filter(array_map('strval', $optionValues))));
+        if (empty($vals)) {
+            return;
+        }
+
+        $query->whereExists(function ($sub) use ($vals) {
+            $sub->selectRaw('1')
+                ->from('live_chat_profile_field_options as fo')
+                ->whereNull('fo.deleted_at')
+                ->whereColumn('fo.profile_id', 'live_chat_profiles.profile_id')
+                ->whereIn('fo.option_value', $vals);
+        });
+    }
+
+    /**
+     * Exclude profiles that already have a matching row with current user
+     * (as owner_user_id OR peer_user_id) in same event.
+     *
+     * @param array<int, string> $candidateColumns Columns on live_chat_profiles to compare (e.g. user_id, exhibitor_administrator_id)
+     * @param array<int, int>|null $excludeStatuses Optional statuses to exclude (null = exclude all statuses)
+     */
+    private function applyMatchedExclusion(
+        Builder $query,
+        array $ctx,
+        array $candidateColumns,
+        ?array $excludeStatuses = null
+    ): void {
+        $eventId = $ctx['event_id'] ?? null;
+        if (!$eventId || empty($candidateColumns)) {
+            return;
+        }
+
+        $matchingTable = config('constants.MATCHING_PARTNER_TABLE') ?: 'matching_users';
+        $candidateColumns = array_values(array_filter(array_unique($candidateColumns)));
+
+        $query->whereNotExists(function ($sub) use ($matchingTable, $eventId, $candidateColumns, $excludeStatuses) {
+            $sub->selectRaw('1')
+                ->from($matchingTable . ' as mp')
+                ->whereNull('mp.deleted_at')
+                ->where('mp.event_id', $eventId);
+
+            if (is_array($excludeStatuses) && !empty($excludeStatuses)) {
+                $sub->whereIn('mp.status', $excludeStatuses);
+            }
+
+            // candidate appears in matching_users as owner OR peer -> exclude
+            $sub->where(function ($w) use ($candidateColumns) {
+                foreach ($candidateColumns as $i => $col) {
+                    $method = $i === 0 ? 'where' : 'orWhere';
+                    $w->{$method}(function ($x) use ($col) {
+                        $x->whereColumn('mp.owner_user_id', $col)
+                            ->orWhereColumn('mp.peer_user_id', $col);
+                    });
+                }
+            });
+        });
     }
 }
