@@ -74,7 +74,7 @@ class LiveChatProfilesController extends Controller
                 'user_id' => $id,
                 'policy_agreed' => false,
             ]);
-        }else if ($isCheck){
+        }else if (!$isCheck){
             $isFirstLogin = false;
             if($user->user_id === null){
                 $id = $this->getIdLiveChatProfile($uuid);
