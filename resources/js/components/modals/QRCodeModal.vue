@@ -71,6 +71,8 @@ const close = () => emits("update:modelValue", false);
     .my-qr {
         img {
             width: 100%;
+            border: 6px solid #000;
+            padding: 6px;
         }
     }
     .icon-close {
