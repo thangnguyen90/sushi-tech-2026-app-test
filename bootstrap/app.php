@@ -9,6 +9,7 @@ use Laravel\Sanctum\Http\Middleware\CheckForAnyAbility;
 use Symfony\Component\HttpFoundation\Request as RequestAlias;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\Routing\Exception\RouteNotFoundException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -44,7 +45,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions) {
         $exceptions->render(function (Throwable $e, Request $request) {
             Log::error($e);
-            if ($e instanceof NotFoundHttpException) {
+            if ($e instanceof NotFoundHttpException||$e instanceof RouteNotFoundException) {
                 return response()->json([
                     'result' => [
                         'code' => 'CMSE404',
