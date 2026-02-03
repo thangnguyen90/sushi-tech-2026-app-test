@@ -62,10 +62,16 @@ class MatchingUserRepository extends BaseRepository
             })
             ->all();
 
-        $O2P = $this->query()->where('owner_user_id', $ownerUserId)->get()->pluck('peer_uuid', 'peer_user_id')->toArray();
+        $O2P = $this->query()
+            ->where('owner_user_id', $ownerUserId)
+            ->get()
+            ->groupBy('peer_user_id')
+            ->map(fn($items) => $items->first())
+            ->toArray();
+
         $eventId =  config('eventos.event');
         foreach ($liveChatProfilePeer as $peerId => $peerUuid) {
-            if (isset($O2P[$peerId])) {
+            if (isset($O2P[$peerId]) && $O2P[$peerId]['status'] === config('constants.STATUS.DEAL_DONE')) {
                 continue;
             }
             // Begin transaction to ensure atomicity
