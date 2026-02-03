@@ -34,7 +34,12 @@ class WebhookController extends Controller
         //        }
         $data = $request->all();
         foreach ($data as $item) {
-            Process::path(base_path())->start("php artisan " . $item['name'] . ' /' . $item['fileurl']);
+            tap(
+                $item['name'] ,
+                static function ($item) {
+                    Process::path(base_path())->quietly()->start("php artisan " . $item['name'] . ' /' . $item['fileurl']);
+                }
+            );
         }
         return $this->responseService->success('Webhook processed successfully', 200, status: 201);
     }
