@@ -51,6 +51,7 @@ class WebhookController extends Controller
     public function userRegistration(Request $request): JsonResponse
     {
         $data = $request->all();
+        Log::channel('webhook')->info($data);
         if ($data["module_code"] === "Register") {
             $user = $this->usersRepository->findByUuid($data['user']['user_uuid']);
             if ($user) {
