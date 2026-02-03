@@ -45,6 +45,9 @@ class UserAuthenticationMiddleware
                     return new JsonResponse(['message' => 'Unauthorized', 'error' => 'Unauthorized'], 401);
                 }
                 $userProfile = $this->liveChatProfilesRepository->getProfileByUserId($user->user_id);
+                if(!$userProfile){
+                    return new JsonResponse(['message' => 'Unauthorized live chat profile not register', 'error' => 'Unauthorized'], 403);
+                }
                 Auth::login($userProfile);
                 return $next($request);
             } catch (\Throwable $e) {
