@@ -115,9 +115,9 @@ class LogApiRequest
     {
         $header = sprintf(
             '[%s]__[API]__[HTTP_%d] %s %s',
-            $request->method(),
-            $statusCode,
             strtoupper((string) app()->environment()),
+            $statusCode,
+            $request->method(),
             $request->path()
         );
 
