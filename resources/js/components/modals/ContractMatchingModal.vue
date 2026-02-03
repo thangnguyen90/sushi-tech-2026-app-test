@@ -91,7 +91,7 @@ const closeModal = (): void => {
     padding: 24px;
     border-radius: 8px;
     max-height: 90%;
-    height: 708px;
+    height: auto;
     overflow: auto;
 
     .title {
@@ -163,7 +163,8 @@ const closeModal = (): void => {
         display: flex;
         flex-direction: column;
         gap: 16px;
-        max-height: calc(100% - 132px);
+        max-height: 100%;
+        padding-bottom: 132px;
         overflow: auto;
     }
 
