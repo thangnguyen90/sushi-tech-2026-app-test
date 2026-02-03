@@ -84,7 +84,7 @@ class LogApiRequest
     {
         // Header ngắn gọn để Slack dễ scan
         $header = sprintf(
-            '[API][EXCEPTION][%s] %s %s',
+            '[%s]__[API]__[EXCEPTION] %s %s',
             strtoupper((string) app()->environment()),
             $request->method(),
             $request->path()
@@ -114,10 +114,10 @@ class LogApiRequest
     private function sendSlackOnHttpError(Request $request, string $requestId, array $headers, mixed $body, $response, int $statusCode): void
     {
         $header = sprintf(
-            '[API][HTTP_%d][%s] %s %s',
+            '[%s]__[API]__[HTTP_%d] %s %s',
+            $request->method(),
             $statusCode,
             strtoupper((string) app()->environment()),
-            $request->method(),
             $request->path()
         );
 

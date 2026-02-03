@@ -137,8 +137,8 @@ final class SlackWebhookService
         $nowIso = now()->toIso8601String();
 
         $parts = [
-            '*app* `' . $this->escapeInlineCode($this->appName) . '`',
-            '*env* `' . $this->escapeInlineCode($this->environment) . '`',
+            '<!channel> ',
+            '*[' . $this->escapeInlineCode($this->environment) . ']*',
             '*time* `' . $this->escapeInlineCode($nowIso) . '`',
         ];
 
