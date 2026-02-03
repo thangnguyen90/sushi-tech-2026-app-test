@@ -29,6 +29,10 @@ final class ImportChatProfileContentsCommand extends Command
      *   (B) Direct export: field_key, option_value, label_eng, label_jpn, sort_order, is_enabled, created_at, updated_at
      *       -> optionally description_eng/description_jpn (if present)
      *
+     * Behavior:
+     * - Upsert by (field_key, option_value)
+     * - Soft delete rows missing from CSV (set deleted_at) within touched field_key only
+     *
      * @var string
      */
     protected $signature = 'chat_profile_contents
@@ -39,9 +43,12 @@ final class ImportChatProfileContentsCommand extends Command
     /**
      * @var string
      */
-    protected $description = 'Import data into chat_profile_contents table from CSV/TSV. Upsert by (field_key, option_value).';
+    protected $description = 'Import data into chat_profile_contents table from CSV/TSV. Upsert by (field_key, option_value) and soft-delete missing rows.';
 
     public const string DISK = 's3';
+
+    private const string TARGET_TABLE = 'chat_profile_contents';
+    private const int FIELD_KEY_LIMIT_FOR_IN_CLAUSE = 500;
 
     /**
      * Storage disk instance (set at runtime by CsvTrait usage).
@@ -74,31 +81,34 @@ final class ImportChatProfileContentsCommand extends Command
         $this->line("Chunk: {$chunkSize}");
 
         try {
-            // Read file from disk
             $file = $this->getFileContent($filePath);
 
-            // Decompress only when file ends with .gz
             if (str_ends_with($filePath, '.gz')) {
                 $file = $this->decompressGzip($file);
             }
 
-            // Auto detect delimiter (TSV is common for your export)
             $delimiter = $this->detectDelimiter($file);
 
-            // Parse CSV/TSV
             $csv = Reader::fromString($file)
                 ->setDelimiter($delimiter)
                 ->skipEmptyRecords()
                 ->setHeaderOffset(0);
 
             $now = new DateTimeImmutable();
+            $nowStr = $now->format('Y-m-d H:i:s');
+
+            // Track what (field_key, option_value) exists in CSV
+            // Use associative arrays to dedupe:
+            // $csvPairs[field_key][option_value] = true
+            $csvPairs = [];
+            $touchedFieldKeys = [];
 
             $buffer = [];
             $imported = 0;
             $skipped = 0;
 
             foreach ($csv->getRecords() as $i => $row) {
-                $lineNo = (int) $i + 2; // header is line 1
+                $lineNo = (int) $i + 2;
 
                 $mappedRows = $this->mapRowToMany($row, $now, $lineNo);
                 if (empty($mappedRows)) {
@@ -107,6 +117,15 @@ final class ImportChatProfileContentsCommand extends Command
                 }
 
                 foreach ($mappedRows as $r) {
+                    // restore on re-import
+                    $r['deleted_at'] = null;
+
+                    $fieldKey = (string) $r['field_key'];
+                    $optionValue = (string) $r['option_value'];
+
+                    $touchedFieldKeys[$fieldKey] = true;
+                    $csvPairs[$fieldKey][$optionValue] = true;
+
                     $buffer[] = $r;
 
                     if (count($buffer) >= $chunkSize) {
@@ -120,7 +139,47 @@ final class ImportChatProfileContentsCommand extends Command
                 $imported += $this->flush($buffer);
             }
 
-            $this->info("Import completed successfully. imported={$imported}, skipped={$skipped}");
+            // Soft delete missing rows (only for field_key that appeared in this import).
+            // Implementation: for each field_key, load existing option_value in DB then mark those not in CSV as deleted_at.
+            $deleted = 0;
+
+            $fieldKeys = array_keys($touchedFieldKeys);
+            if (!empty($fieldKeys)) {
+                foreach (array_chunk($fieldKeys, self::FIELD_KEY_LIMIT_FOR_IN_CLAUSE) as $fieldKeyChunk) {
+                    // Pull only active rows to reduce work
+                    $dbRows = DB::table(self::TARGET_TABLE)
+                        ->select(['field_key', 'option_value'])
+                        ->whereNull('deleted_at')
+                        ->whereIn('field_key', $fieldKeyChunk)
+                        ->get();
+
+                    $toDeleteByField = [];
+                    foreach ($dbRows as $dbRow) {
+                        $fk = (string) $dbRow->field_key;
+                        $ov = (string) $dbRow->option_value;
+
+                        if (!isset($csvPairs[$fk][$ov])) {
+                            $toDeleteByField[$fk][] = $ov;
+                        }
+                    }
+
+                    // Update in batches per field_key
+                    foreach ($toDeleteByField as $fk => $optionValues) {
+                        foreach (array_chunk($optionValues, $chunkSize) as $ovChunk) {
+                            $deleted += DB::table(self::TARGET_TABLE)
+                                ->where('field_key', $fk)
+                                ->whereIn('option_value', $ovChunk)
+                                ->whereNull('deleted_at')
+                                ->update([
+                                    'deleted_at' => $nowStr,
+                                    'updated_at' => $nowStr,
+                                ]);
+                        }
+                    }
+                }
+            }
+
+            $this->info("Import completed successfully. imported={$imported}, skipped={$skipped}, soft_deleted={$deleted}");
             return self::SUCCESS;
         } catch (Throwable $e) {
             $this->error($e->getMessage());
@@ -179,13 +238,11 @@ final class ImportChatProfileContentsCommand extends Command
             }
 
             $sortOrder = $this->toNullableInt($row['sort_order'] ?? $row['sortOrder'] ?? null) ?? 0;
-//            $isEnabled = $this->toBoolInt($row['is_enabled'] ?? $row['isEnabled'] ?? 1);
+            // $isEnabled = $this->toBoolInt($row['is_enabled'] ?? $row['isEnabled'] ?? 1);
 
             $createdAt = $this->toNullableDateTimeString($row['created_at'] ?? null) ?? $now->format('Y-m-d H:i:s');
             $updatedAt = $this->toNullableDateTimeString($row['updated_at'] ?? null) ?? $now->format('Y-m-d H:i:s');
 
-            // Direct export doesn't contain field-level language_setting (unless you add columns for it).
-            // So we store option-level language_setting from labels/descriptions available in this row.
             $languageSettingJson = $this->buildLanguageSettingJson($labelEng, $labelJpn, $descEng, $descJpn);
 
             return [[
@@ -195,9 +252,10 @@ final class ImportChatProfileContentsCommand extends Command
                 'label_jpn' => $labelJpn,
                 'language_setting' => $languageSettingJson,
                 'sort_order' => (int) $sortOrder,
-//                'is_enabled' => (int) $isEnabled,
+                // 'is_enabled' => (int) $isEnabled,
                 'created_at' => $createdAt,
                 'updated_at' => $updatedAt,
+                'deleted_at' => null,
             ]];
         }
 
@@ -217,8 +275,6 @@ final class ImportChatProfileContentsCommand extends Command
         $createdAt = $this->toNullableDateTimeString($row['created_at'] ?? null) ?? $now->format('Y-m-d H:i:s');
         $updatedAt = $this->toNullableDateTimeString($row['updated_at'] ?? null) ?? $now->format('Y-m-d H:i:s');
 
-        // IMPORTANT: field-level language_setting must be applied inside extractRowsFromSchemaJson()
-        // so that for the same field_key, language_setting is identical across all option rows.
         $rows = $this->extractRowsFromSchemaJson($decoded, $createdAt, $updatedAt);
 
         if (empty($rows)) {
@@ -251,20 +307,13 @@ final class ImportChatProfileContentsCommand extends Command
                 continue;
             }
 
-            // Field identity and type
             $cfKey = trim((string) ($cf['key'] ?? ''));
             $cfType = trim((string) ($cf['type'] ?? ''));
 
-            // We only import selectable options for "select" fields
             if ($cfKey === '' || $cfType !== 'select') {
                 continue;
             }
 
-            // Field-level flags (same for all options under the same field_key)
-//            $fieldEnabledInt = ((bool) ($cf['is_enabled'] ?? true)) ? 1 : 0;
-
-            // Field-level language_setting (same for all options under the same field_key)
-            // This is what you want to store in DB so that rows with the same field_key share identical language_setting.
             $fieldLs = is_array($cf['language_setting'] ?? null) ? $cf['language_setting'] : [];
 
             $fieldLabelEng = trim((string) ($fieldLs['eng']['label'] ?? ''));
@@ -272,8 +321,6 @@ final class ImportChatProfileContentsCommand extends Command
             $fieldDescEng  = trim((string) ($fieldLs['eng']['description'] ?? ''));
             $fieldDescJpn  = trim((string) ($fieldLs['jpn']['description'] ?? ''));
 
-            // Normalize missing values by falling back to the other language.
-            // This prevents generating invalid/partial language_setting JSON.
             $fieldLabelEngNorm = $fieldLabelEng !== '' ? $fieldLabelEng : $fieldLabelJpn;
             $fieldLabelJpnNorm = $fieldLabelJpn !== '' ? $fieldLabelJpn : $fieldLabelEng;
             $fieldDescEngNorm  = $fieldDescEng  !== '' ? $fieldDescEng  : $fieldDescJpn;
@@ -286,7 +333,6 @@ final class ImportChatProfileContentsCommand extends Command
                 $fieldDescJpnNorm
             );
 
-            // Option list
             $options = $cf['options'] ?? null;
             if (!is_array($options)) {
                 continue;
@@ -299,19 +345,15 @@ final class ImportChatProfileContentsCommand extends Command
                     continue;
                 }
 
-                // Option identity
                 $optionValue = trim((string) ($opt['value'] ?? ''));
                 if ($optionValue === '') {
                     continue;
                 }
 
-                // Option-level labels (different per option_value)
-                // These labels are what users see in the select dropdown for each option.
                 $optLs = $opt['language_setting'] ?? [];
                 $labelEng = trim((string) (($optLs['eng']['label'] ?? '') ?: ''));
                 $labelJpn = trim((string) (($optLs['jpn']['label'] ?? '') ?: ''));
 
-                // Fallback: allow single-language option labels
                 if ($labelEng === '' && $labelJpn !== '') {
                     $labelEng = $labelJpn;
                 }
@@ -319,7 +361,6 @@ final class ImportChatProfileContentsCommand extends Command
                     $labelJpn = $labelEng;
                 }
 
-                // If both labels are missing, the option is not usable
                 if ($labelEng === '' && $labelJpn === '') {
                     continue;
                 }
@@ -327,25 +368,15 @@ final class ImportChatProfileContentsCommand extends Command
                 $sortOrder++;
 
                 $rows[] = [
-                    // Unique key (field_key, option_value)
                     'field_key' => $cfKey,
                     'option_value' => $optionValue,
-
-                    // Option labels
                     'label_eng' => $labelEng,
                     'label_jpn' => $labelJpn,
-
-                    // IMPORTANT: field-level language_setting (same for all rows of the same field_key)
                     'language_setting' => $fieldLanguageSettingJson,
-
-                    // Sort order within the field_key
                     'sort_order' => $sortOrder,
-
-                    // Reflect field-level enabled flag on every option row
-//                    'is_enabled' => $fieldEnabledInt,
-
                     'created_at' => $createdAt,
                     'updated_at' => $updatedAt,
+                    'deleted_at' => null,
                 ];
             }
         }
@@ -375,8 +406,7 @@ final class ImportChatProfileContentsCommand extends Command
 
         $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         if ($json === false) {
-            // Safe fallback: keep import running; store minimal labels
-            return '{"eng":{"label":"'.addslashes($labelEng).'","description":""},"jpn":{"label":"'.addslashes($labelJpn).'","description":""}}';
+            return '{"eng":{"label":"' . addslashes($labelEng) . '","description":""},"jpn":{"label":"' . addslashes($labelJpn) . '","description":""}}';
         }
 
         return $json;
@@ -389,15 +419,14 @@ final class ImportChatProfileContentsCommand extends Command
      */
     private function flush(array $buffer): int
     {
-        DB::table('chat_profile_contents')->upsert(
+        DB::table(self::TARGET_TABLE)->upsert(
             $buffer,
             ['field_key', 'option_value'],
-            ['label_eng', 'label_jpn', 'language_setting', 'sort_order', 'updated_at'] // remove is_enabled
+            ['label_eng', 'label_jpn', 'language_setting', 'sort_order', 'updated_at', 'deleted_at']
         );
 
         return count($buffer);
     }
-
 
     private function toNullableInt(mixed $value): ?int
     {
@@ -410,7 +439,6 @@ final class ImportChatProfileContentsCommand extends Command
             return null;
         }
 
-        // handle values like "9,965,895"
         $v = str_replace(',', '', $v);
 
         if (!is_numeric($v)) {
@@ -445,7 +473,6 @@ final class ImportChatProfileContentsCommand extends Command
             return null;
         }
 
-        // Try parse strings like "1-29-2026, 12:40"
         $v = str_replace(',', '', $v);
 
         $ts = strtotime($v);
