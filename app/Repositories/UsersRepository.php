@@ -9,4 +9,9 @@ class UsersRepository extends BaseRepository
     {
         return User::class;
     }
+
+    public function findByUuid(string $uuid): ?User
+    {
+        return $this->firstWhere('uuid', $uuid);
+    }
 }

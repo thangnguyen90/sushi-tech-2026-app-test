@@ -44,4 +44,5 @@ Route::middleware(UserAuthenticationMiddleware::class)->group(function (): void 
 Route::controller(WebhookController::class)->group(function (): void {
     Route::post('webhook/csv-list-trigger', 'handleCsvListTriggerWebhook')->name('webhook.csv-list-trigger');
     Route::post('webhook/business-approvement', 'businessApprovement')->name('webhook.business-approvement');
+    Route::post('webhook/user-registration', 'userRegistration')->name('webhook.user-registration');
 });

@@ -3,43 +3,38 @@
 namespace App\Http\Controllers;
 
 use App\Repositories\UsersRepository;
-use App\Services\Eventos\User\UserService;
 use App\Services\ResponseService;
 use Exception;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use App\Repositories\LiveChatProfilesRepository;
 use TypeError;
 
 class LiveChatProfilesController extends Controller
 {
-
     public function __construct(
-        private readonly UsersRepository    $usersRepository,
-        private readonly ResponseService    $responseService,
-        private readonly LiveChatProfilesRepository $liveChatProfilesRepository,
-        private readonly UserService       $userService,
-    )
-    {
+        private readonly UsersRepository $usersRepository,
+        private readonly ResponseService $responseService,
+    ) {
     }
 
-    public function checkUserFistLoginAndAgreePolicy(Request $request) : \Illuminate\Http\JsonResponse
+    public function checkUserFistLoginAndAgreePolicy(Request $request): JsonResponse
     {
         try {
-            $uuid = $request->header('user-uuid');
-            if(!$uuid){
-                return $this->responseService->error(
-                    message: 'Missing user uuid.',
-                    status: 400,
-                );
+            $uuid = $this->getUuidFromRequest($request);
+            if ($uuid === null) {
+                return $this->responseService->error(message: 'Missing user uuid.', status: 400);
             }
-            $user = $this->usersRepository->firstWhere('uuid', $uuid );
-            [$isFirstLogin , $isAgreed] = $this->CheckUserIdWithUuid($user, $uuid, true);
-            return $this->responseService->success(
-                data: [
-                    'is_first_login' => $isFirstLogin,
-                    'policy_agreed' => $isAgreed,
-                ],
-            );
+
+            $user = $this->ensureUserExists($uuid);
+
+            // First login should be true exactly once, then always false.
+            $isFirstLogin = $this->consumeFirstLoginFlag($user);
+            $isAgreed = (bool) $user->policy_agreed;
+
+            return $this->responseService->success(data: [
+                'is_first_login' => $isFirstLogin,
+                'policy_agreed' => $isAgreed,
+            ]);
         } catch (Exception|TypeError $e) {
             return $this->responseService->error(
                 message: 'Failed to check user login and agreement status.',
@@ -48,71 +43,72 @@ class LiveChatProfilesController extends Controller
         }
     }
 
-    public function userAgreement( Request $request): \Illuminate\Http\JsonResponse
+    public function userAgreement(Request $request): JsonResponse
     {
         try {
-            $uuid = $request->header('user-uuid');
-            if(!$uuid){
-                return $this->responseService->error(
-
-                    message: 'Missing user uuid.',
-                );
+            $uuid = $this->getUuidFromRequest($request);
+            if ($uuid === null) {
+                return $this->responseService->error(message: 'Missing user uuid.', status: 400);
             }
-            $user = $this->usersRepository->firstWhere('uuid', $uuid);
-            [$isFirstLogin , $isAgreed] = $this->CheckUserIdWithUuid($user, $uuid);
+
+            $user = $this->ensureUserExists($uuid);
+
+            // Keep first-login behavior consistent across endpoints.
+            $isFirstLogin = $this->consumeFirstLoginFlag($user);
+
+            // Only this endpoint updates policy_agreed.
+            if (!$user->policy_agreed) {
+                $user->policy_agreed = true;
+                $user->save();
+            }
+
             return $this->responseService->success(data: [
                 'is_first_login' => $isFirstLogin,
-                'policy_agreed' => $isAgreed,
+                'policy_agreed' => true,
             ]);
-        }catch (Exception|TypeError $e){
+        } catch (Exception|TypeError $e) {
             return $this->responseService->error(
                 message: 'Failed to record user agreement.',
                 status: 500,
             );
         }
-
     }
 
-    /**
-     * @throws Exception
-     */
-    private  function CheckUserIdWithUuid($user, string $uuid, $isCheck = false): array
+    private function getUuidFromRequest(Request $request): ?string
     {
-        $isFirstLogin = true;
-        $isAgreed = false;
-        if (!$user) {
-            $id = $this->getIdLiveChatProfile($uuid);
-            $this->usersRepository->create([
-                'uuid' => $uuid,
-                'user_id' => $id,
-                'policy_agreed' => false,
-            ]);
-        }else if (!$isCheck){
-            $isFirstLogin = false;
-            if($user->user_id === null){
-                $id = $this->getIdLiveChatProfile($uuid);
-                $user->user_id = $id;
-            }
-            $user->policy_agreed = true;
-            $user->save();
-            $isAgreed= true;
-        }else {$isAgreed = $user->policy_agreed;}
-        return [$isFirstLogin, $isAgreed];
-    }
-    /**
-     * @param $uuid
-     * @return string|null
-     * @throws Exception
-     */
-    public function getIdLiveChatProfile($uuid): ?string{
-        $dataUser = $this->userService->getUsersByUuid($uuid);
-        if(empty($dataUser['account'])){
-            $dataUser['account'] = null;
-        }else{
-            $liveChatProfile = $this->liveChatProfilesRepository->firstWhere('mail_address', $dataUser['account']);
-
-            $dataUser['account'] = $liveChatProfile ? ($liveChatProfile?->user_id ??  $liveChatProfile?->exhibitor_administrator_id):null ;
+        $uuid = $request->header('user-uuid');
+        if (!is_string($uuid)) {
+            return null;
         }
-        return $dataUser['account'];
+
+        $uuid = trim($uuid);
+        return $uuid !== '' ? $uuid : null;
+    }
+
+    private function ensureUserExists(string $uuid)
+    {
+        $user = $this->usersRepository->firstWhere('uuid', $uuid);
+
+        if (!$user) {
+            $user = $this->usersRepository->create([
+                'uuid' => $uuid,
+                'policy_agreed' => false,
+                'is_first_login' => true,
+            ]);
+        }
+
+        return $user;
+    }
+
+    private function consumeFirstLoginFlag($user): bool
+    {
+        $wasFirstLogin = (bool) $user->is_first_login;
+
+        if ($wasFirstLogin) {
+            $user->is_first_login = false;
+            $user->save();
+        }
+
+        return $wasFirstLogin;
     }
 }
