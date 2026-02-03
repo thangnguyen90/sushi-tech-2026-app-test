@@ -10,7 +10,6 @@ use Illuminate\Http\JsonResponse;
 
 class MatchingUserController extends Controller
 {
-    private const STATUS_DEAL_DONE = 4;
 
     public function __construct(
         private readonly MatchingUserRepository $matchingUserRepository,
@@ -37,13 +36,13 @@ class MatchingUserController extends Controller
 
         $rows = $this->matchingUserRepository->getDealDoneListAllForOwner(
             ownerUserId: $ownerUserId,
-            status: self::STATUS_DEAL_DONE
+            status: config('constants.STATUS.DEAL_DONE')
         );
 
         return $this->responseService->success(
             data: [
                 'owner_user_id' => $ownerUserId,
-                'status' => self::STATUS_DEAL_DONE,
+                'status' => config('constants.STATUS.DEAL_DONE'),
                 'peer_user_ids' => $rows->pluck('peer_uuid')->toArray(),
             ],
             code: 'OK',
@@ -68,7 +67,7 @@ class MatchingUserController extends Controller
                 status: 401
             );
         }
-        $status = (int) $user->status;
+        $status = (int) $matchingRequest->status;
         $ownerUserId = (int) $user->user_id;
 
         $peerUserId = $matchingRequest['peer_user_id'];
@@ -94,7 +93,6 @@ class MatchingUserController extends Controller
         return $this->responseService->success(
             data: [
                 'owner_user_id' => $ownerUserId,
-                'status' => self::STATUS_DEAL_DONE,
                 'peer_user_ids' => [$peerUserId],
             ],
             code: 'OK',
