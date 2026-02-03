@@ -42,7 +42,7 @@
         <div class="contract-note">
             {{ $t("contract.note") }}
         </div>
-        <button class="common-btn" @click="confirmPolicy">
+        <button class="common-btn mt-1" @click="confirmPolicy">
             {{ $t("contract.confirm") }}
         </button>
         <div class="common-btn cancel" @click="closeModal">
@@ -98,6 +98,7 @@ const closeModal = (): void => {
         font-weight: 700;
         text-align: left;
         line-height: 160%;
+        white-space: pre-line;
     }
 
     .description {
