@@ -8,6 +8,7 @@ use App\Services\ResponseService;
 use Exception;
 use Illuminate\Http\Request;
 use App\Repositories\LiveChatProfilesRepository;
+use TypeError;
 
 class LiveChatProfilesController extends Controller
 {
@@ -25,6 +26,12 @@ class LiveChatProfilesController extends Controller
     {
         try {
             $uuid = $request->header('user-uuid');
+            if(!$uuid){
+                return $this->responseService->error(
+                    message: 'Missing user uuid.',
+                    status: 400,
+                );
+            }
             $user = $this->usersRepository->firstWhere('uuid', $uuid );
             [$isFirstLogin , $isAgreed] = $this->CheckUserIdWithUuid($user, $uuid, true);
             return $this->responseService->success(
@@ -33,7 +40,7 @@ class LiveChatProfilesController extends Controller
                     'policy_agreed' => $isAgreed,
                 ],
             );
-        } catch (Exception $e) {
+        } catch (Exception|TypeError $e) {
             return $this->responseService->error(
                 message: 'Failed to check user login and agreement status.',
                 status: 500,
@@ -45,13 +52,19 @@ class LiveChatProfilesController extends Controller
     {
         try {
             $uuid = $request->header('user-uuid');
+            if(!$uuid){
+                return $this->responseService->error(
+
+                    message: 'Missing user uuid.',
+                );
+            }
             $user = $this->usersRepository->firstWhere('uuid', $uuid);
             [$isFirstLogin , $isAgreed] = $this->CheckUserIdWithUuid($user, $uuid);
             return $this->responseService->success(data: [
                 'is_first_login' => $isFirstLogin,
                 'policy_agreed' => $isAgreed,
-            ],);
-        }catch (Exception $e){
+            ]);
+        }catch (Exception|TypeError $e){
             return $this->responseService->error(
                 message: 'Failed to record user agreement.',
                 status: 500,
