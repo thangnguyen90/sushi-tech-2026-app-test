@@ -357,6 +357,9 @@ watch(
                 justify-content: center;
                 gap: 8px;
                 background: unset;
+                .top__list-content-item-child {
+                    min-height: 82px;
+                }
             }
             &-child {
                 padding: 16px 8px 8px;

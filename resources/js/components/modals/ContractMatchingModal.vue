@@ -8,45 +8,48 @@
         :focusTrap="false"
         :clickToClose="false"
     >
-        <!-- <img class="icon-close" src="@/assets/icons/close-modal.png" alt="" @click="closeModal" /> -->
-        <div class="title">
-            {{ $t("contract.title") }}
-        </div>
-        <div class="description">
-            {{ description }}
-        </div>
-        <div class="details-contract">
-            <div class="label">
-                {{ $t("contract.publicInfo.label") }}
+        <div class="contract-layout">
+            <div class="title">
+                {{ $t("contract.title") }}
             </div>
             <div class="description">
-                {{ $t("contract.publicInfo.description") }}
+                {{ description }}
+            </div>
+            <div class="details-contract">
+                <div class="label">
+                    {{ $t("contract.publicInfo.label") }}
+                </div>
+                <div class="description">
+                    {{ $t("contract.publicInfo.description") }}
+                </div>
+            </div>
+            <div class="details-contract">
+                <div class="label">
+                    {{ $t("contract.publicScope.label") }}
+                </div>
+                <div class="description">
+                    {{ $t("contract.publicScope.description") }}
+                </div>
+            </div>
+            <div class="details-contract">
+                <div class="label">
+                    {{ $t("contract.purpose.label") }}
+                </div>
+                <div class="description">
+                    {{ $t("contract.purpose.description") }}
+                </div>
+            </div>
+            <div class="contract-note">
+                {{ $t("contract.note") }}
             </div>
         </div>
-        <div class="details-contract">
-            <div class="label">
-                {{ $t("contract.publicScope.label") }}
+        <div class="btn-layout">
+            <button class="common-btn mt-1" @click="confirmPolicy">
+                {{ $t("contract.confirm") }}
+            </button>
+            <div class="common-btn cancel" @click="closeModal">
+                {{ $t("contract.deny") }}
             </div>
-            <div class="description">
-                {{ $t("contract.publicScope.description") }}
-            </div>
-        </div>
-        <div class="details-contract">
-            <div class="label">
-                {{ $t("contract.purpose.label") }}
-            </div>
-            <div class="description">
-                {{ $t("contract.purpose.description") }}
-            </div>
-        </div>
-        <div class="contract-note">
-            {{ $t("contract.note") }}
-        </div>
-        <button class="common-btn" @click="confirmPolicy">
-            {{ $t("contract.confirm") }}
-        </button>
-        <div class="common-btn cancel" @click="closeModal">
-            {{ $t("contract.deny") }}
         </div>
     </vue-final-modal>
 </template>
@@ -88,6 +91,7 @@ const closeModal = (): void => {
     padding: 24px;
     border-radius: 8px;
     max-height: 90%;
+    height: 708px;
     overflow: auto;
 
     .title {
@@ -98,6 +102,7 @@ const closeModal = (): void => {
         font-weight: 700;
         text-align: left;
         line-height: 160%;
+        white-space: pre-line;
     }
 
     .description {
@@ -152,6 +157,24 @@ const closeModal = (): void => {
         line-height: normal;
         border-bottom: 1px solid var(--Ink-500, #979c9e);
         padding: 2px;
+    }
+
+    .contract-layout {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        max-height: calc(100% - 132px);
+        overflow: auto;
+    }
+
+    .btn-layout {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        width: 100%;
+        position: absolute;
+        padding: 0 24px 24px 24px;
+        bottom: 0;
     }
 }
 </style>
