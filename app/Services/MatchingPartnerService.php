@@ -50,10 +50,7 @@ class MatchingPartnerService
         } elseif ($ctx['exhibitor_administrator_id']) {
             $query->where('exhibitor_administrator_id', $ctx['exhibitor_administrator_id']);
         } else {
-            return [
-                'discover_type' => self::DISCOVER_NETWORKING,
-                'list' => [],
-            ];
+            return [];
         }
 
         $myNames = $query
