@@ -61,7 +61,6 @@ class WebhookController extends Controller
             $commandName = $item['name'];
             $fileUrl = $item['fileurl'];
 
-            // Basic guard to avoid command injection / weird names
             if (!preg_match('/^[a-zA-Z0-9:_-]+$/', $commandName)) {
                 $failed[] = [
                     'name' => $commandName,
@@ -122,17 +121,12 @@ class WebhookController extends Controller
         $data = $request->all();
         Log::channel('webhook')->info($data);
         if ($data["module_code"] === "Register") {
-            $user = $this->usersRepository->findByUuid($data['user']['user_uuid']);
-            if ($user) {
-                $user->user_id = $data['user']['user_id'];
-                $user->save();
-            } else {
-                $this->usersRepository->create([
-                    'uuid' => $data['user']['user_uuid'],
-                    'user_id' => $data['user']['user_id'],
-                    'is_first_login' => true,
-                ]);
-            }
+            $this->usersRepository->create([
+                'uuid' => $data['user']['user_uuid'],
+                'user_id' => $data['user']['user_id'],
+                'webhook_data' => $data['user'],
+                'is_first_login' => true,
+            ]);
         }
         return $this->responseService->success('Register user', 200, status: 201);
     }

@@ -11,6 +11,8 @@ use TypeError;
 
 class LiveChatProfilesController extends Controller
 {
+    private const string USER_UUID_HEADER = 'user-uuid';
+
     public function __construct(
         private readonly UsersRepository $usersRepository,
         private readonly ResponseService $responseService,
@@ -21,13 +23,22 @@ class LiveChatProfilesController extends Controller
     {
         try {
             $uuid = $this->getUuidFromRequest($request);
+
+            // Requirement: if uuid is missing or user not found => policy_agreed = true
             if ($uuid === null) {
-                return $this->responseService->error(message: 'Missing user uuid.', status: 400);
+                return $this->responseService->error(
+                    message: 'Failed to check user login and agreement status.',
+                    status: 500,
+                );
             }
 
-            $user = $this->ensureUserExists($uuid);
+            $user = $this->findUserByUuid($uuid);
+            if ($user === null) {
+                return $this->responseService->error(
+                    message: 'Failed to check user login and agreement status.',
+                );
+            }
 
-            // First login should be true exactly once, then always false.
             $isFirstLogin = $this->consumeFirstLoginFlag($user);
             $isAgreed = (bool) $user->policy_agreed;
 
@@ -47,11 +58,22 @@ class LiveChatProfilesController extends Controller
     {
         try {
             $uuid = $this->getUuidFromRequest($request);
+
+            // Same behavior: if uuid is missing or user not found => treat as already agreed
             if ($uuid === null) {
-                return $this->responseService->error(message: 'Missing user uuid.', status: 400);
+                return $this->responseService->error(
+                    message: 'Failed to check user login and agreement status.',
+                    status: 403,
+                );
             }
 
-            $user = $this->ensureUserExists($uuid);
+            $user = $this->findUserByUuid($uuid);
+            if ($user === null) {
+                return $this->responseService->error(
+                    message: 'Failed to check user login and agreement status.',
+                    status: 403,
+                );
+            }
 
             // Keep first-login behavior consistent across endpoints.
             $isFirstLogin = $this->consumeFirstLoginFlag($user);
@@ -76,7 +98,7 @@ class LiveChatProfilesController extends Controller
 
     private function getUuidFromRequest(Request $request): ?string
     {
-        $uuid = $request->header('user-uuid');
+        $uuid = $request->header(self::USER_UUID_HEADER);
         if (!is_string($uuid)) {
             return null;
         }
@@ -85,22 +107,13 @@ class LiveChatProfilesController extends Controller
         return $uuid !== '' ? $uuid : null;
     }
 
-    private function ensureUserExists(string $uuid)
+    private function findUserByUuid(string $uuid): mixed
     {
         $user = $this->usersRepository->firstWhere('uuid', $uuid);
-
-        if (!$user) {
-            $user = $this->usersRepository->create([
-                'uuid' => $uuid,
-                'policy_agreed' => false,
-                'is_first_login' => true,
-            ]);
-        }
-
-        return $user;
+        return $user ?: null;
     }
 
-    private function consumeFirstLoginFlag($user): bool
+    private function consumeFirstLoginFlag(mixed $user): bool
     {
         $wasFirstLogin = (bool) $user->is_first_login;
 
