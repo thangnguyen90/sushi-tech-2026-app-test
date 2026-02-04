@@ -234,13 +234,25 @@ class MatchingPartnerService
         $query->whereNotExists(function ($sub) use ($ctx) {
             $sub->selectRaw('1')
                 ->from('matching_users as mu')
-                ->whereNull('mu.deleted_at');
+                ->whereNull('mu.deleted_at')
+
+            ;
             if(!empty($ctx['user_uuid'])) {
-                $sub->where('mu.owner_user_id', $ctx['exhibitor_administrator_id'])
+                $sub->where(function ($q) use ($ctx) {
+                    $q->whereColumn('mu.owner_user_id', 'live_chat_profiles.exhibitor_administrator_id')
+                        ->orWhereColumn('mu.peer_user_id', 'live_chat_profiles.exhibitor_administrator_id');
+                })->where(function ($q) use ($ctx) {
+                    $q->where('mu.owner_user_id', $ctx['exhibitor_administrator_id'])
                         ->where('mu.peer_user_id', $ctx['exhibitor_administrator_id']);
+                    });
             } else {
-                $sub->where('mu.owner_user_id', $ctx['user_id'])
+                $sub->where(function ($q){
+                    $q->whereColumn('mu.owner_user_id', 'live_chat_profiles.user_id')
+                        ->orWhereColumn('mu.peer_user_id', 'live_chat_profiles.user_id');
+                })->where(function ($q) use ($ctx) {
+                    $q->where('mu.owner_user_id', $ctx['user_id'])
                         ->where('mu.peer_user_id', $ctx['user_id']);
+                });
             }
         });
     }
