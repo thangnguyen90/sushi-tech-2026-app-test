@@ -30,7 +30,7 @@
         "@vee-validate/i18n": "^4.15.1",
         "@vee-validate/rules": "^4.15.1",
         "@vitejs/plugin-vue": "^6.0.2",
-        "@vueuse/core": "^14.1.0",
+        "@vueuse/core": "^14.2.0",
         "bootstrap": "^5.3.8",
         "date-fns": "^4.1.0",
         "embla-carousel-autoplay": "^8.6.0",
