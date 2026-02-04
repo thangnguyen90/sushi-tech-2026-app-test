@@ -34,6 +34,7 @@ class MatchingPartnerController extends Controller
         $userId = (int) $user->user_id ;
         try {
             $result = $service->getPartners([
+                'profile_id' => $user->profile_id,
                 'user_id' => $userId,
                 'exhibitor_administrator_id' =>  $user->exhibitor_administrator_id,
                 'data_source_id' => $validated['live_chat_data_source_id']??config('eventos.live_chat_data_source_id'),

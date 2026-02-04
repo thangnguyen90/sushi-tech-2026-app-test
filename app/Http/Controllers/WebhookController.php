@@ -102,7 +102,6 @@ class WebhookController extends Controller
 
     }
 
-
     public function businessApprovement(Request $request): JsonResponse
     {
         $data = $request->all();
