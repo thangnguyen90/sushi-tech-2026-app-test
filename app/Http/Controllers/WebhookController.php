@@ -110,7 +110,6 @@ class WebhookController extends Controller
     public function businessApprovement(Request $request): JsonResponse
     {
         $data = $request->all();
-        Log::channel('webhook')->info($data);
 
         $this->businessApproveWebhookService->process($data);
         return $this->responseService->success('Webhook processed successfully', 200, status: 201);
@@ -119,7 +118,6 @@ class WebhookController extends Controller
     public function userRegistration(Request $request): JsonResponse
     {
         $data = $request->all();
-        Log::channel('webhook')->info($data);
         if ($data["module_code"] === "Register") {
             $this->usersRepository->create([
                 'uuid' => $data['user']['user_uuid'],

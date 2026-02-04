@@ -128,11 +128,9 @@ return [
         ],
 
         'webhook' => [
-            'driver' => 'monolog',
-            'handler' => StreamHandler::class,
-            'with' => [
-                'stream' => storage_path('logs/webhook/laravel.log'),
-            ],
+            'driver' => 'daily',
+            'days' => env('LOG_DAILY_DAYS', 14),
+            'path' => storage_path('logs/webhook/laravel.log'),
             'level' => env('LOG_LEVEL', 'debug'),
             'processors' => [PsrLogMessageProcessor::class],
         ],
