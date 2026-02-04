@@ -30,21 +30,8 @@ class WebhookController extends Controller
         // 1) Body is an array of items: [ {name, fileurl}, ... ]
         // 2) Body wrapped: { "data": [ ... ] } or { "items": [ ... ] }
         $items = $request->all();
-
-        $validator = Validator::make(['items' => $items], [
-            'items' => ['required', 'array'],
-            'items.*.name' => ['required', 'string', 'max:191'],
-            'items.*.fileurl' => ['required', 'string', 'max:2048'],
-        ]);
-        if ($validator->fails()) {
-            return $this->responseService->error(
-                'Invalid payload',
-                422,
-                $validator->errors()->toArray(),
-                422
-            );
-        }
-        $collection = collect($validator->validated()['items'])
+        Log::channel('webhook')->info(json_encode($items));
+        $collection = collect($items)
             ->map(static function (array $item): array {
                 return [
                     'name' => trim((string)$item['name']),
