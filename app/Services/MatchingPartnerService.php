@@ -227,31 +227,63 @@ class MatchingPartnerService
         return $this->attachTags($results, $ctx['data_source_id'] ?? null, $ctx['language_id'] ?? 1);
     }
 
+//    private function removeUserTalked(Builder $query, array $ctx): void
+//    {
+//        $query->whereNotExists(function ($sub) use ($ctx) {
+//            $sub->selectRaw('1')
+//                ->from('matching_users as mu')
+//                ->whereNull('mu.deleted_at')
+//
+//            ;
+//            if(!empty($ctx['user_uuid'])) {
+//                $sub->where(function ($q) use ($ctx) {
+//                    $q->whereColumn('mu.owner_user_id', 'live_chat_profiles.exhibitor_administrator_id')
+//                        ->orWhereColumn('mu.peer_user_id', 'live_chat_profiles.exhibitor_administrator_id');
+//                })->where(function ($q) use ($ctx) {
+//                    $q->where('mu.owner_user_id', $ctx['exhibitor_administrator_id'])
+//                        ->where('mu.peer_user_id', $ctx['exhibitor_administrator_id']);
+//                    });
+//            } else {
+//                $sub->where(function ($q){
+//                    $q->whereColumn('mu.owner_user_id', 'live_chat_profiles.user_id')
+//                        ->orWhereColumn('mu.peer_user_id', 'live_chat_profiles.user_id');
+//                })->where(function ($q) use ($ctx) {
+//                    $q->where('mu.owner_user_id', $ctx['user_id'])
+//                        ->where('mu.peer_user_id', $ctx['user_id']);
+//                });
+//            }
+//        });
+//    }
+
     private function removeUserTalked(Builder $query, array $ctx): void
     {
-        $query->whereNotExists(function ($sub) use ($ctx) {
+        // current user id: ưu tiên exhibitor_administrator_id nếu có user_uuid (theo logic code cũ của bạn)
+        $currentId = !empty($ctx['user_uuid'])
+            ? (int) ($ctx['exhibitor_administrator_id'] ?? 0)
+            : (int) ($ctx['user_id'] ?? 0);
+
+        if ($currentId <= 0) {
+            return; // không có current id hợp lệ thì không áp filter
+        }
+
+        $query->whereNotExists(function ($sub) use ($currentId) {
+            $candidateIdExpr = "COALESCE(live_chat_profiles.user_id, live_chat_profiles.exhibitor_administrator_id)";
+
             $sub->selectRaw('1')
                 ->from('matching_users as mu')
                 ->whereNull('mu.deleted_at')
-
-            ;
-            if(!empty($ctx['user_uuid'])) {
-                $sub->where(function ($q) use ($ctx) {
-                    $q->whereColumn('mu.owner_user_id', 'live_chat_profiles.exhibitor_administrator_id')
-                        ->orWhereColumn('mu.peer_user_id', 'live_chat_profiles.exhibitor_administrator_id');
-                })->where(function ($q) use ($ctx) {
-                    $q->where('mu.owner_user_id', $ctx['exhibitor_administrator_id'])
-                        ->where('mu.peer_user_id', $ctx['exhibitor_administrator_id']);
-                    });
-            } else {
-                $sub->where(function ($q){
-                    $q->whereColumn('mu.owner_user_id', 'live_chat_profiles.user_id')
-                        ->orWhereColumn('mu.peer_user_id', 'live_chat_profiles.user_id');
-                })->where(function ($q) use ($ctx) {
-                    $q->where('mu.owner_user_id', $ctx['user_id'])
-                        ->where('mu.peer_user_id', $ctx['user_id']);
+                ->where(function ($q) use ($currentId, $candidateIdExpr) {
+                    // (current, candidate)
+                    $q->where(function ($qq) use ($currentId, $candidateIdExpr) {
+                        $qq->where('mu.owner_user_id', $currentId)
+                            ->whereRaw("mu.peer_user_id = {$candidateIdExpr}");
+                    })
+                        // OR (candidate, current)
+                        ->orWhere(function ($qq) use ($currentId, $candidateIdExpr) {
+                            $qq->whereRaw("mu.owner_user_id = {$candidateIdExpr}")
+                                ->where('mu.peer_user_id', $currentId);
+                        });
                 });
-            }
         });
     }
 }
