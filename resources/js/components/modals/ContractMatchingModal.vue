@@ -176,6 +176,7 @@ const closeModal = (): void => {
         position: absolute;
         padding: 0 24px 24px 24px;
         bottom: 0;
+        background: #fff;
     }
 }
 </style>
