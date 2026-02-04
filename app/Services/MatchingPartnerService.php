@@ -58,10 +58,7 @@ class MatchingPartnerService
             ->pluck('checkin_app_user_name')
             ->values();
         if ($myNames->isEmpty()) {
-            return [
-                'discover_type' => self::DISCOVER_NETWORKING,
-                'list' => [],
-            ];
+            return [];
         }
 
         $groups = [];
