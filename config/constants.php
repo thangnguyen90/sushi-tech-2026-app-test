@@ -8,4 +8,5 @@ return [
     'STATUS' => [
         'DEAL_DONE' => 4
     ],
+    'CHAT_PROFILE_CONTENTS_DEFAULT_FIELD_KEYS' => env('CHAT_PROFILE_CONTENTS_DEFAULT_FIELD_KEYS', '')
 ];
