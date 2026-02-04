@@ -33,14 +33,35 @@ class WebhookController extends Controller
         Log::channel('webhook')->info(json_encode($items));
         $collection = collect($items)
             ->map(static function (array $item): array {
-                return [
-                    'name' => trim((string)$item['name']),
-                    'fileurl' => ltrim(trim((string)$item['fileurl']), '/'),
-                ];
-            });
-        $deduped = $collection->reverse()->unique('name')->reverse()->values();
-        $skippedDuplicates = $collection->count() - $deduped->count();
+                $name = trim((string) ($item['name'] ?? ''));
+                $fileurlRaw = (string) ($item['fileurl'] ?? '');
 
+                // remove accidental newlines/spaces + normalize leading slash
+                $fileurl = ltrim(preg_replace('/\s+/', '', trim($fileurlRaw)), '/');
+
+                return [
+                    'name' => $name,
+                    'fileurl' => $fileurl,
+                    'ts' => self::extractCsvTimestamp($fileurl), // int|null
+                ];
+            })
+            ->filter(static fn (array $i) => $i['name'] !== '' && $i['fileurl'] !== '');
+
+        // pick newest per name by ts (fallback to fileurl string if ts missing)
+        $deduped = $collection
+            ->groupBy('name')
+            ->map(static function ($group) {
+                return $group
+                    ->sortByDesc(static fn (array $i) => $i['ts'] ?? -1)
+                    ->sortByDesc(static fn (array $i) => $i['fileurl']) // tie-breaker
+                    ->first();
+            })
+            ->values()
+            ->map(static fn (array $i) => [
+                'name' => $i['name'],
+                'fileurl' => $i['fileurl'],
+            ]);
+        $skippedDuplicates = $collection->count() - $deduped->count();
         $queued = 0;
         $failed = [];
 
@@ -114,5 +135,18 @@ class WebhookController extends Controller
             ]);
         }
         return $this->responseService->success('Register user', 200, status: 201);
+    }
+
+    private static function extractCsvTimestamp(string $fileurl): ?int
+    {
+        // csv/2026-02-04-11-17-06_xxx.csv.gz
+        if (preg_match('~\bcsv/(\d{4})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-(\d{2})_~', $fileurl, $m) !== 1) {
+            return null;
+        }
+
+        $dt = sprintf('%04d-%02d-%02d %02d:%02d:%02d', $m[1], $m[2], $m[3], $m[4], $m[5], $m[6]);
+        $ts = strtotime($dt);
+
+        return $ts === false ? null : $ts;
     }
 }
