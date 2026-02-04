@@ -4,12 +4,14 @@ namespace App\Console\Commands;
 
 use App\Repositories\LiveChatProfilesRepository;
 use Illuminate\Console\Command;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use League\Csv\Exception;
 use League\Csv\Reader;
 
-class ImportLiveChatProfile extends Command
+class ImportLiveChatProfile extends Command implements ShouldQueue, ShouldBeUnique
 {
     use CsvTrait;
 

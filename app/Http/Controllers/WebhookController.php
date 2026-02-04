@@ -64,44 +64,7 @@ class WebhookController extends Controller
         $skippedDuplicates = $collection->count() - $deduped->count();
         $queued = 0;
         $failed = [];
-
-        foreach ($deduped as $item) {
-            $commandName = $item['name'];
-            $fileUrl = $item['fileurl'];
-
-            if (!preg_match('/^[a-zA-Z0-9:_-]+$/', $commandName)) {
-                $failed[] = [
-                    'name' => $commandName,
-                    'fileurl' => $fileUrl,
-                    'error' => 'Invalid command name format',
-                ];
-                Log::warning('csv-webhook: invalid command name', ['name' => $commandName]);
-                continue;
-            }
-
-            try {
-                // Safer than string concatenation
-                Process::path(base_path())
-                    ->quietly()
-                    ->start(['php', 'artisan', $commandName, $fileUrl]);
-
-                $queued++;
-            } catch (\Throwable $e) {
-                $failed[] = [
-                    'name' => $commandName,
-                    'fileurl' => $fileUrl,
-                    'error' => $e->getMessage(),
-                ];
-
-                Log::error('csv-webhook: failed to start process', [
-                    'name' => $commandName,
-                    'fileurl' => $fileUrl,
-                    'exception' => $e,
-                ]);
-            }
-        }
-
-        return $this->responseService->success([
+        return tap( $this->responseService->success([
             'received' => $collection->count(),
             'queued' => $queued,
             'skipped_duplicates' => $skippedDuplicates,
@@ -110,8 +73,33 @@ class WebhookController extends Controller
             200,
 
             'Webhook processed successfully',
-            status: 202
-        );
+            status: 201
+        ), static function () use ($deduped, &$queued, &$failed) {
+            foreach ($deduped as $item) {
+                $commandName = $item['name'];
+                $fileUrl = $item['fileurl'];
+                try {
+                    // Safer than string concatenation
+                    $command = "php artisan " . $item['name'] . ' /' . $item['fileurl'];
+//                    dd($command);
+                    Process::path(base_path())->quietly()->start($command);
+                    $queued++;
+                } catch (\Throwable $e) {
+                    $failed[] = [
+                        'name' => $commandName,
+                        'fileurl' => $fileUrl,
+                        'error' => $e->getMessage(),
+                    ];
+
+                    Log::error('csv-webhook: failed to start process', [
+                        'name' => $commandName,
+                        'fileurl' => $fileUrl,
+                        'exception' => $e,
+                    ]);
+                }
+            }
+        });
+
     }
 
 

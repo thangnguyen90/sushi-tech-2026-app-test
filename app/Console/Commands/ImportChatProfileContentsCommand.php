@@ -6,13 +6,16 @@ namespace App\Console\Commands;
 
 use DateTimeImmutable;
 use Illuminate\Console\Command;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use League\Csv\Exception;
 use League\Csv\Reader;
 use Throwable;
 
-final class ImportChatProfileContentsCommand extends Command
+final class ImportChatProfileContentsCommand extends Command implements ShouldQueue, ShouldBeUnique
 {
     use CsvTrait;
 
@@ -68,6 +71,7 @@ final class ImportChatProfileContentsCommand extends Command
      */
     public function handle(): int
     {
+        Log::info('ImportChatProfileContentsCommand started');
         $filePath = (string) $this->argument('file');
         $diskName = (string) ($this->option('disk') ?: self::DISK);
 

@@ -4,11 +4,13 @@ namespace App\Console\Commands;
 
 use App\Repositories\CheckinHistoryRepository;
 use Illuminate\Console\Command;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use League\Csv\Exception;
 use League\Csv\Reader;
 use Illuminate\Support\Facades\Storage;
 
-class ImportCheckinHistoriesFromCsvCommand extends Command
+class ImportCheckinHistoriesFromCsvCommand extends Command implements ShouldQueue, ShouldBeUnique
 {
     use CsvTrait;
 

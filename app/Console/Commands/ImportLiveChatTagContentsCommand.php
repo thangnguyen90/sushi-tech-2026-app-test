@@ -4,11 +4,13 @@ namespace App\Console\Commands;
 
 use App\Repositories\LiveChatTagContentRepository;
 use Illuminate\Console\Command;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use League\Csv\Exception;
 use League\Csv\Reader;
 use Illuminate\Support\Facades\Storage;
 
-class ImportLiveChatTagContentsCommand extends Command
+class ImportLiveChatTagContentsCommand extends Command implements ShouldQueue, ShouldBeUnique
 {
     use CsvTrait;
 
