@@ -171,8 +171,6 @@ class MatchingPartnerService
         }
         $this->applyOptionValueFilter($query, $ctx['option_values'] ?? []);
         $this->removeUserTalked($query, $ctx);
-        dd($query->distinct()->inRandomOrder()
-            ->limit($ctx['limit_exhibitors'])->toSql());
         $results = $query->distinct()->inRandomOrder()
             ->limit($ctx['limit_exhibitors'])
             ->get([
