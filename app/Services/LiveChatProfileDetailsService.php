@@ -31,7 +31,7 @@ class LiveChatProfileDetailsService
         return [
             'live_chat_data_source_id' => (int) $profile->live_chat_data_source_id,
             'live_chat_user_id' => (string) $profile->live_chat_user_id,
-            'profile_id' => (int) $profile->id,
+            'profile_id' => (int) $profile->profile_id,
             'uuid' => (string) $profile->uuid,
             'nickname' => (string) $profile->nickname,
             'company' => $profile->company !== null ? (string) $profile->company : null,
