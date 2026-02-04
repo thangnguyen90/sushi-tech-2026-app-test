@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Validator;
 
 class WebhookController extends Controller
 {
@@ -25,24 +26,89 @@ class WebhookController extends Controller
 
     public function handleCsvListTriggerWebhook(Request $request): JsonResponse
     {
-        // Handle the webhook logic here
-        // For example, process the CSV list trigger
-        //        $key = $request->header('x-api-key');
-        //        $privateKey = config('eventos.trigger_command_key');
-        //        if ($key !== $privateKey) {
-        //            return $this->responseService->error( 'Unauthorized',401,  [], 401);
-        //        }
-        $data = $request->all();
-        foreach ($data as $item) {
-            tap(
-                $item['name'] ,
-                static function ($item) {
-                    Process::path(base_path())->quietly()->start("php artisan " . $item['name'] . ' /' . $item['fileurl']);
-                }
+        // Accept either:
+        // 1) Body is an array of items: [ {name, fileurl}, ... ]
+        // 2) Body wrapped: { "data": [ ... ] } or { "items": [ ... ] }
+        $items = $request->all();
+
+        $validator = Validator::make(['items' => $items], [
+            'items' => ['required', 'array'],
+            'items.*.name' => ['required', 'string', 'max:191'],
+            'items.*.fileurl' => ['required', 'string', 'max:2048'],
+        ]);
+
+        if ($validator->fails()) {
+            return $this->responseService->error(
+                'Invalid payload',
+                422,
+                $validator->errors()->toArray(),
+                422
             );
         }
-        return $this->responseService->success('Webhook processed successfully', 200, status: 201);
+
+        $collection = collect($validator->validated()['items'])
+            ->map(static function (array $item): array {
+                return [
+                    'name' => trim((string)$item['name']),
+                    'fileurl' => ltrim(trim((string)$item['fileurl']), '/'),
+                ];
+            });
+        $deduped = $collection->reverse()->unique('name')->reverse()->values();
+        $skippedDuplicates = $collection->count() - $deduped->count();
+
+        $queued = 0;
+        $failed = [];
+
+        foreach ($deduped as $item) {
+            $commandName = $item['name'];
+            $fileUrl = $item['fileurl'];
+
+            // Basic guard to avoid command injection / weird names
+            if (!preg_match('/^[a-zA-Z0-9:_-]+$/', $commandName)) {
+                $failed[] = [
+                    'name' => $commandName,
+                    'fileurl' => $fileUrl,
+                    'error' => 'Invalid command name format',
+                ];
+                Log::warning('csv-webhook: invalid command name', ['name' => $commandName]);
+                continue;
+            }
+
+            try {
+                // Safer than string concatenation
+                Process::path(base_path())
+                    ->quietly()
+                    ->start(['php', 'artisan', $commandName, $fileUrl]);
+
+                $queued++;
+            } catch (\Throwable $e) {
+                $failed[] = [
+                    'name' => $commandName,
+                    'fileurl' => $fileUrl,
+                    'error' => $e->getMessage(),
+                ];
+
+                Log::error('csv-webhook: failed to start process', [
+                    'name' => $commandName,
+                    'fileurl' => $fileUrl,
+                    'exception' => $e,
+                ]);
+            }
+        }
+
+        return $this->responseService->success([
+            'received' => $collection->count(),
+            'queued' => $queued,
+            'skipped_duplicates' => $skippedDuplicates,
+            'failed' => $failed,
+        ],
+            200,
+
+            'Webhook processed successfully',
+            status: 202
+        );
     }
+
 
     public function businessApprovement(Request $request): JsonResponse
     {
@@ -62,7 +128,7 @@ class WebhookController extends Controller
             if ($user) {
                 $user->user_id = $data['user']['user_id'];
                 $user->save();
-            }else{
+            } else {
                 $this->usersRepository->create([
                     'uuid' => $data['user']['user_uuid'],
                     'user_id' => $data['user']['user_id'],
