@@ -115,10 +115,7 @@ class MatchingPartnerService
             ];
         }
 
-        return [
-            'discover_type' => self::DISCOVER_NETWORKING,
-            'list' => $groups,
-        ];
+        return $groups;
     }
 
     /**
