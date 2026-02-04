@@ -68,7 +68,8 @@ class MatchingUserController extends Controller
             );
         }
         $status = (int) $matchingRequest->status;
-        $ownerUserId = (int) $user->user_id;
+        $ownerUserId = (int) $user->profile_id;
+
 
         $peerUserId = $matchingRequest['peer_user_id'];
         $ok = $this->matchingUserRepository->markDealDoneIfMutual(
@@ -92,7 +93,7 @@ class MatchingUserController extends Controller
 
         return $this->responseService->success(
             data: [
-                'owner_user_id' => $ownerUserId,
+                'owner_user_id' => $user->user_id ?? $user->exhibitor_administrator_id,
                 'peer_user_ids' => [$peerUserId],
             ],
             code: 'OK',

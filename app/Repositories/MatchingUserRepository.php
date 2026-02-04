@@ -51,8 +51,11 @@ class MatchingUserRepository extends BaseRepository
         int $status,
     ): bool {
         $liveChatProfileOwner = LiveChatProfiles::query()
-            ->where('user_id', $ownerUserId)
+            ->where('profile_id', $ownerUserId)
             ->first();
+
+        $ownerUserId = $liveChatProfileOwner->user_id ?? $liveChatProfileOwner->exhibitor_administrator_id;
+
         $liveChatProfilePeer = LiveChatProfiles::query()
             ->whereIn('profile_id', $peerUserId)
             ->cursor()
