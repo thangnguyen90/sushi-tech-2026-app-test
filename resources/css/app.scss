@@ -231,6 +231,15 @@ input.common-input {
     animation: opacityIn 0.5s forwards;
 }
 
+.offline-modal-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    animation: opacityIn 0.5s forwards;
+}
+
 @keyframes opacityIn {
     from {
         opacity: 0;
