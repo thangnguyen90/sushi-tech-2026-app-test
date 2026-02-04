@@ -11,3 +11,5 @@ export const EVENTOS_MODULE_MATCHING_WEB_LINK = import.meta.env.VITE_EVENTOS_MOD
 export const EVENTOS_MODULE_CHAT = import.meta.env.VITE_EVENTOS_MODULE_CHAT
 export const EVENTOS_MODULE_CHAT_WEB_LINK = import.meta.env.VITE_EVENTOS_MODULE_CHAT_WEB_LINK
 export const CHAT_EVENT_ID = import.meta.env.VITE_CHAT_EVENT_ID
+export const BUSINESS_MODULE_ID = import.meta.env.VITE_BUSINESS_MODULE_ID
+export const BUSINESS_LINK_ID = import.meta.env.VITE_BUSINESS_LINK_ID
