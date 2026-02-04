@@ -36,7 +36,6 @@ class WebhookController extends Controller
             'items.*.name' => ['required', 'string', 'max:191'],
             'items.*.fileurl' => ['required', 'string', 'max:2048'],
         ]);
-
         if ($validator->fails()) {
             return $this->responseService->error(
                 'Invalid payload',
@@ -45,7 +44,6 @@ class WebhookController extends Controller
                 422
             );
         }
-
         $collection = collect($validator->validated()['items'])
             ->map(static function (array $item): array {
                 return [
