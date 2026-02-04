@@ -38,13 +38,13 @@ class UserAuthenticationMiddleware
         }
         if (Str::isUuid($userUuid)) {
             try {
-                $user = $this->usersRepository->query()
-                    ->where('uuid', $userUuid)
-                    ->first();
-                if (empty($user) || empty($user->user_id)) {
-                    return new JsonResponse(['message' => 'Unauthorized', 'error' => 'Unauthorized'], 401);
-                }
-                $userProfile = $this->liveChatProfilesRepository->getProfileByUserId($user->user_id);
+//                $user = $this->usersRepository->query()
+//                    ->where('uuid', $userUuid)
+//                    ->first();
+//                if (empty($user) || empty($user->user_id)) {
+//                    return new JsonResponse(['message' => 'Unauthorized', 'error' => 'Unauthorized'], 401);
+//                }
+                $userProfile = $this->liveChatProfilesRepository->getProfileByUuid($userUuid);
                 if(!$userProfile){
                     return new JsonResponse(['message' => 'Unauthorized live chat profile not register', 'error' => 'Unauthorized'], 403);
                 }
