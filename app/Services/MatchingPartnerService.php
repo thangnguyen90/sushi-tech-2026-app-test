@@ -171,6 +171,8 @@ class MatchingPartnerService
         }
         $this->applyOptionValueFilter($query, $ctx['option_values'] ?? []);
         $this->removeUserTalked($query, $ctx);
+        dd($query->distinct()->inRandomOrder()
+            ->limit($ctx['limit_exhibitors'])->toSql());
         $results = $query->distinct()->inRandomOrder()
             ->limit($ctx['limit_exhibitors'])
             ->get([
@@ -233,16 +235,12 @@ class MatchingPartnerService
             $sub->selectRaw('1')
                 ->from('matching_users as mu')
                 ->whereNull('mu.deleted_at');
-            if(empty($ctx['user_uuid'])) {
-                $sub->where(function ($q1) use ($ctx) {
-                    $q1->where('mu.owner_user_id', $ctx['exhibitor_administrator_id'])
+            if(!empty($ctx['user_uuid'])) {
+                $sub->where('mu.owner_user_id', $ctx['exhibitor_administrator_id'])
                         ->where('mu.peer_user_id', $ctx['exhibitor_administrator_id']);
-                });
             } else {
-                $sub->where(function ($q1) use ($ctx) {
-                    $q1->where('mu.owner_user_id', $ctx['user_id'])
+                $sub->where('mu.owner_user_id', $ctx['user_id'])
                         ->where('mu.peer_user_id', $ctx['user_id']);
-                });
             }
         });
     }
