@@ -135,12 +135,18 @@ final class SlackWebhookService
     private function buildMetaContextBlock(): array
     {
         $nowIso = now()->toIso8601String();
-
-        $parts = [
-            '<!channel> ',
-            '*[' . $this->escapeInlineCode($this->environment) . ']*',
-            '*time* `' . $this->escapeInlineCode($nowIso) . '`',
-        ];
+        if( $this->environment !== 'production' ){
+            $parts = [
+                '*[' . $this->escapeInlineCode($this->environment) . ']*',
+                '*time* `' . $this->escapeInlineCode($nowIso) . '`',
+            ];
+        }else{
+            $parts = [
+                '<!channel> ',
+                '*[' . $this->escapeInlineCode($this->environment) . ']*',
+                '*time* `' . $this->escapeInlineCode($nowIso) . '`',
+            ];
+        }
 
         if ($this->appUrl !== null) {
             $parts[] = '*url* `' . $this->escapeInlineCode($this->appUrl) . '`';
