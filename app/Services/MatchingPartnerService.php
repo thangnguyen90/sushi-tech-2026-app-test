@@ -125,12 +125,16 @@ class MatchingPartnerService
             return;
         }
 
-        $query->whereExists(function ($sub) use ($vals) {
+        $requiredCount = count($vals);
+
+        $query->whereExists(function ($sub) use ($vals, $requiredCount) {
             $sub->selectRaw('1')
                 ->from('live_chat_profile_field_options as fo')
                 ->whereNull('fo.deleted_at')
                 ->whereColumn('fo.profile_id', 'live_chat_profiles.profile_id')
-                ->whereIn('fo.option_value', $vals);
+                ->whereIn('fo.option_value', $vals)
+                ->groupBy('fo.profile_id')
+                ->havingRaw('COUNT(DISTINCT fo.option_value) = ?', [$requiredCount]);
         });
     }
 
