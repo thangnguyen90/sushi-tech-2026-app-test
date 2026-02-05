@@ -27,7 +27,7 @@ class MatchingPartnerService
 
         return array_values([
             [
-                "discover_type" => "NETWORKING",
+                "discover_type" => self::DISCOVER_NETWORKING,
                 "list" => $networking
             ],
             [
@@ -43,10 +43,12 @@ class MatchingPartnerService
 
     private function getNetworking(array $ctx): array
     {
-        $query = CheckinHistory::query()->limit(config('constants.NET_WORKING_LIMIT') ?? 5);
-        if ($ctx['user_id']) {
+        $query = CheckinHistory::query()
+            ->limit(config('constants.NET_WORKING_LIMIT') ?? 5);
+
+        if (!empty($ctx['user_id'])) {
             $query->where('user_id', $ctx['user_id']);
-        } elseif ($ctx['exhibitor_administrator_id']) {
+        } elseif (!empty($ctx['exhibitor_administrator_id'])) {
             $query->where('exhibitor_administrator_id', $ctx['exhibitor_administrator_id']);
         } else {
             return [];
@@ -56,55 +58,90 @@ class MatchingPartnerService
             ->distinct()
             ->pluck('checkin_app_user_name')
             ->values();
+
         if ($myNames->isEmpty()) {
             return [];
         }
 
         $groups = [];
+
         foreach ($myNames as $name) {
-            $query = CheckinHistory::query()
+
+            /** -------------------------------
+             * Query 1: JOIN by user_id
+             * -------------------------------- */
+            $qUser = CheckinHistory::query()
+                ->whereNotNull('checkin_histories.user_id')
                 ->where('checkin_app_user_name', $name)
-                ->limit($ctx['limit_networking_per_name']);
-            $checkinsTableName = (new CheckinHistory)->getTable();
-            if ($ctx['user_id']) {
-                $query->where($checkinsTableName . '.user_id', '<>', $ctx['user_id']);
+                ->join(
+                    'live_chat_profiles',
+                    'checkin_histories.user_id',
+                    '=',
+                    'live_chat_profiles.user_id'
+                );
+
+            if (!empty($ctx['user_id'])) {
+                $qUser->where('checkin_histories.user_id', '<>', $ctx['user_id']);
             }
-            if ($ctx['exhibitor_administrator_id']) {
-                $query->where($checkinsTableName . '.exhibitor_administrator_id', '<>', $ctx['exhibitor_administrator_id']);
+
+            /** -------------------------------
+             * Query 2: JOIN by exhibitor_administrator_id
+             * -------------------------------- */
+            $qExhibitor = CheckinHistory::query()
+                ->whereNull('checkin_histories.user_id')
+                ->where('checkin_app_user_name', $name)
+                ->join(
+                    'live_chat_profiles',
+                    'checkin_histories.exhibitor_administrator_id',
+                    '=',
+                    'live_chat_profiles.exhibitor_administrator_id'
+                );
+
+            if (!empty($ctx['exhibitor_administrator_id'])) {
+                $qExhibitor->where(
+                    'checkin_histories.exhibitor_administrator_id',
+                    '<>',
+                    $ctx['exhibitor_administrator_id']
+                );
             }
-            if (!$query->exists()) {
+
+            /** -------------------------------
+             * Apply shared filters
+             * -------------------------------- */
+            foreach ([$qUser, $qExhibitor] as $q) {
+
+                if (!empty($ctx['keyword'])) {
+                    $keyword = $ctx['keyword'];
+                    $q->where(function ($sub) use ($keyword) {
+                        $sub->where('nickname', 'like', "%{$keyword}%")
+                            ->orWhere('company', 'like', "%{$keyword}%");
+                    });
+                }
+
+                $this->applyOptionValueFilter($q, $ctx['option_values'] ?? []);
+                $this->removeUserTalked($q, $ctx);
+
+                $q->select($this->baseLiveChatSelect());
+            }
+
+            /** -------------------------------
+             * UNION ALL + LIMIT
+             * -------------------------------- */
+            $checkins = $qUser
+                ->unionAll($qExhibitor)
+                ->limit($ctx['limit_networking_per_name'])
+                ->get();
+
+            if ($checkins->isEmpty()) {
                 continue;
             }
 
-            $query->join('live_chat_profiles', function ($join) {
-                $join->on('checkin_histories.user_id', '=', 'live_chat_profiles.user_id')
-                    ->orOn('checkin_histories.exhibitor_administrator_id', '=', 'live_chat_profiles.exhibitor_administrator_id');
-            });
-            if (!empty($ctx['keyword'])) {
-                $keyword = $ctx['keyword'];
+            $checkins = $this->attachTags(
+                $checkins,
+                $ctx['data_source_id'] ?? null,
+                $ctx['language_id'] ?? 1
+            );
 
-                $query->where(function ($q) use ($keyword) {
-                    $q->where('nickname', 'like', '%' . $keyword . '%')
-                        ->orWhere('company', 'like', '%' . $keyword . '%');
-                });
-            }
-            $this->applyOptionValueFilter($query, $ctx['option_values'] ?? []);
-            $this->removeUserTalked($query, $ctx);
-            $checkins = $query->select(
-                'live_chat_profiles.live_chat_data_source_id',
-                'live_chat_profiles.live_chat_user_id',
-                'live_chat_profiles.profile_id',
-                'live_chat_profiles.uuid',
-                'live_chat_profiles.nickname',
-                'live_chat_profiles.company',
-                'live_chat_profiles.introduction',
-                'live_chat_profiles.icon_image',
-                'live_chat_profiles.background_image',
-                'live_chat_profiles.user_id',
-                'live_chat_profiles.exhibitor_administrator_id'
-            )
-                ->get();
-            $checkins = $this->attachTags($checkins, $ctx['data_source_id'] ?? null, $ctx['language_id'] ?? 1);
             $groups[] = [
                 'checkin_app_user_name' => $name,
                 'items' => $checkins,
@@ -305,5 +342,22 @@ class MatchingPartnerService
                 'exhibitor_administrator_id',
             ]);
         return $this->attachTags($results, $ctx['data_source_id'] ?? null, $ctx['language_id'] ?? 1);
+    }
+
+    private function baseLiveChatSelect()
+    {
+        return [
+            'live_chat_profiles.live_chat_data_source_id',
+            'live_chat_profiles.live_chat_user_id',
+            'live_chat_profiles.profile_id',
+            'live_chat_profiles.uuid',
+            'live_chat_profiles.nickname',
+            'live_chat_profiles.company',
+            'live_chat_profiles.introduction',
+            'live_chat_profiles.icon_image',
+            'live_chat_profiles.background_image',
+            'live_chat_profiles.user_id',
+            'live_chat_profiles.exhibitor_administrator_id',
+        ];
     }
 }
