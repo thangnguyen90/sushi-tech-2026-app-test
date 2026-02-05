@@ -155,7 +155,7 @@ import {
 } from "@/composables/auth";
 import { EVENTOS_MODULE_CHAT, EVENTOS_MODULE_CHAT_WEB_LINK, EVENTOS_MODULE_MATCHING, EVENTOS_MODULE_MATCHING_WEB_LINK } from "@/shared/constants/env";
 import { useAuthStore } from "@/stores/AuthStore";
-import { BusinessWebLink, LiveChatRedirect } from "@/utils/constantUrl";
+import { BusinessWebLink, ExhibitorWebLink, LiveChatRedirect } from "@/utils/constantUrl";
 import { defineAsyncComponent, ref, watch } from "vue";
 
 const storeAuth = useAuthStore();
@@ -227,6 +227,7 @@ const toNegotiateManagement = () => {
 }
 
 const toExhibitor = () => {
+    window.location.href = ExhibitorWebLink();
 }
 
 watch(
