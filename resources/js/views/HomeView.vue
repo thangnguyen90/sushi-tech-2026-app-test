@@ -1,6 +1,6 @@
 <template>
     <div class="top">
-        <img class="top__ai-logo" src="@/assets/images/sushi_ai_chat.png" alt="">
+        <img v-if="isPhase2" class="top__ai-logo" src="@/assets/images/sushi_ai_chat.png" alt="">
         <div class="d-flex justify-content-between align-items-center top__header">
             <img class="main-logo" src="@/assets/images/sushi_logo.png" alt="" />
             <!-- <div class="d-flex flex-column align-items-center">
@@ -161,6 +161,7 @@ import { defineAsyncComponent, ref, watch } from "vue";
 const storeAuth = useAuthStore();
 const contractModal = ref<boolean>(false);
 const qrModal = ref<boolean>(false);
+const isPhase2 = ref<boolean>(false);
 const moduleMatchingId = EVENTOS_MODULE_MATCHING;
 const matchingWebLinkId = EVENTOS_MODULE_MATCHING_WEB_LINK;
 const moduleChatId = EVENTOS_MODULE_CHAT;
