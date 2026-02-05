@@ -58,8 +58,8 @@ class ImportLiveChatProfile extends Command implements ShouldQueue, ShouldBeUniq
                 'live_chat_user_id' => $row['live_chat_user_id'] ?? null,
                 'uuid' => $row['uuid'] ?? null,
                 'nickname' => $row['nickname'] ?? null,
-                'icon_image' => $this->normalizeNullableString($row['icon_image'] ?? null),
-                'background_image' => $this->normalizeNullableString($row['background_image'] ?? null),
+                'icon_image' => $this->normalizeJsonField($row['icon_image'] ?? null),
+                'background_image' => $this->normalizeJsonField($row['background_image'] ?? null),
                 'introduction' => $row['introduction'] ?? null,
                 'mail_address' => $row['mail_address'] ?? null,
                 'company' => $row['company'] ?? null,
@@ -91,6 +91,35 @@ class ImportLiveChatProfile extends Command implements ShouldQueue, ShouldBeUniq
         }
 
         return $v;
+    }
+
+    /**
+     * Normalize JSON field from CSV.
+     * - If null/empty/"null" string: return null
+     * - If valid JSON string: decode and return array
+     * - If already array: return as-is
+     */
+    private function normalizeJsonField(mixed $value): ?array
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        if (is_array($value)) {
+            return $value;
+        }
+
+        $v = trim((string) $value);
+        if ($v === '' || strcasecmp($v, 'null') === 0) {
+            return null;
+        }
+
+        $decoded = json_decode($v, true);
+        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+            return $decoded;
+        }
+
+        return null;
     }
 
     /**
