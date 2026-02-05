@@ -136,6 +136,19 @@ class MatchingPartnerService
                 continue;
             }
 
+            // Decode JSON fields manually since unionAll returns stdClass objects
+            $checkins = $checkins->map(function ($item) {
+                if (is_string($item->icon_image ?? null)) {
+                    $decoded = json_decode($item->icon_image, true);
+                    $item->icon_image = (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) ? $decoded : null;
+                }
+                if (is_string($item->background_image ?? null)) {
+                    $decoded = json_decode($item->background_image, true);
+                    $item->background_image = (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) ? $decoded : null;
+                }
+                return $item;
+            });
+
             $checkins = $this->attachTags(
                 $checkins,
                 $ctx['data_source_id'] ?? null,
