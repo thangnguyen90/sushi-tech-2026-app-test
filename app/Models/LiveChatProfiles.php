@@ -19,6 +19,6 @@ class LiveChatProfiles extends Authenticatable
     ];
 
     protected $hidden = [
-        'custom_fields'
+//        'custom_fields'
     ];
 }
