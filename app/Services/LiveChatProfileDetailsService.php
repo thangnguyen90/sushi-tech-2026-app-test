@@ -4,7 +4,7 @@ namespace App\Services;
 
 use App\Models\LiveChatProfiles;
 use App\Models\LiveChatProfileTag;
-use App\Models\LiveChatTagContent;
+use Illuminate\Support\Collection;
 use App\Repositories\LiveChatProfileFieldOptionRepository;
 use App\Repositories\ChatProfileContentRepository;
 use JsonException;
@@ -27,6 +27,7 @@ class LiveChatProfileDetailsService
         $profile = $this->attachTagsOne($profile, $languageId);
         $customFields = $this->liveChatProfileFieldOptionRepository
             ->getResolvedCustomFields((int) $profile->profile_id, (string) $ctx['lang']);
+        $introduction = $profile->custom_fields[config('constants.CHAT_PROFILE_INFORMATION')] ?? null;
 
         return [
             'live_chat_data_source_id' => (int) $profile->live_chat_data_source_id,
@@ -35,7 +36,7 @@ class LiveChatProfileDetailsService
             'uuid' => (string) $profile->uuid,
             'nickname' => (string) $profile->nickname,
             'company' => $profile->company !== null ? (string) $profile->company : null,
-            'introduction' => $profile->introduction !== null ? (string) $profile->introduction : null,
+            'introduction' => $introduction,
             'icon_image' => $profile->icon_image??null,
             'background_image' => $profile->background_image??null,
             'user_id' => $profile->user_id !== null ? (int) $profile->user_id : null,
