@@ -146,8 +146,16 @@ class MatchingPartnerService
                     $decoded = json_decode($item->background_image, true);
                     $item->background_image = (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) ? $decoded : null;
                 }
+                if (is_string($item->custom_fields ?? null)) {
+                    $decoded = json_decode($item->custom_fields, true);
+                    $item->custom_fields = (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) ? $decoded : [];
+                } elseif (!is_array($item->custom_fields ?? null)) {
+                    $item->custom_fields = [];
+                }
                 return $item;
             });
+
+            $checkins = $this->hydrateInformationField($checkins);
 
             $checkins = $this->attachTags(
                 $checkins,
@@ -272,8 +280,10 @@ class MatchingPartnerService
                 'background_image',
                 'user_id',
                 'exhibitor_administrator_id',
+                'custom_fields'
             ]);
-        return $this->attachTags($results, $ctx['data_source_id'] ?? null, $ctx['language_id'] ?? 1);
+        $results = $this->attachTags($results, $ctx['data_source_id'] ?? null, $ctx['language_id'] ?? 1);
+        return $this->hydrateInformationField($results);
     }
 
     //    private function removeUserTalked(Builder $query, array $ctx): void
@@ -353,8 +363,10 @@ class MatchingPartnerService
                 'background_image',
                 'user_id',
                 'exhibitor_administrator_id',
+                'custom_fields'
             ]);
-        return $this->attachTags($results, $ctx['data_source_id'] ?? null, $ctx['language_id'] ?? 1);
+        $results = $this->attachTags($results, $ctx['data_source_id'] ?? null, $ctx['language_id'] ?? 1);
+        return $this->hydrateInformationField($results);
     }
 
     private function baseLiveChatSelect()
@@ -371,6 +383,30 @@ class MatchingPartnerService
             'live_chat_profiles.background_image',
             'live_chat_profiles.user_id',
             'live_chat_profiles.exhibitor_administrator_id',
+            'live_chat_profiles.custom_fields'
         ];
+    }
+
+    private function hydrateInformationField(Collection $profiles): Collection
+    {
+        return $profiles->map(function ($row) {
+            $customFields = $row->custom_fields ?? null;
+
+            if (is_string($customFields)) {
+                $decoded = json_decode($customFields, true);
+                $customFields = (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) ? $decoded : null;
+            }
+
+            if (!is_array($customFields)) {
+                $customFields = [];
+            }
+
+            $value = $customFields[config('constants.CHAT_PROFILE_INFORMATION')] ?? null;
+            $value = is_string($value) ? trim($value) : $value;
+
+            $row->introduction = $value;
+//            $row->custom_fields = $customFields;
+            return $row;
+        });
     }
 }
