@@ -63,7 +63,7 @@ class ImportLiveChatProfile extends Command implements ShouldQueue, ShouldBeUniq
                 'introduction' => $row['introduction'] ?? null,
                 'mail_address' => $row['mail_address'] ?? null,
                 'company' => $row['company'] ?? null,
-                'custom_fields' => $row['custom_fields'] ?? [],
+                'custom_fields' => $this->normalizeJsonField($row['custom_fields'] ?? null),
                 'exhibitor_administrator_id' => ($row['exhibitor_administrator_id'] ?? '') !== '' ? (int) $row['exhibitor_administrator_id'] : null,
                 'last_portal_id' => (int) (is_numeric($row['last_portal_id']) ? $row['last_portal_id'] : 0),
                 'last_event_id' => (int) (is_numeric($row['last_event_id']) ? $row['last_event_id'] : 0),
