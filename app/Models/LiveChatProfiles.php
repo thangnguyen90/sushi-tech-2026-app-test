@@ -17,4 +17,8 @@ class LiveChatProfiles extends Authenticatable
         'icon_image' => 'array',
         'background_image' => 'array'
     ];
+
+    protected $hidden = [
+        'custom_fields'
+    ];
 }
