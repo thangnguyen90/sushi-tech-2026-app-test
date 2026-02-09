@@ -8,6 +8,7 @@ use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Exception\ServerException;
 use Illuminate\Support\Facades\Cache;
+use Throwable;
 
 final class UserService extends EventosClient
 {
@@ -20,7 +21,7 @@ final class UserService extends EventosClient
     /**
      * Get users bvy uuid.
      *
-     * @throws Exception
+     * @throws Exception | GuzzleException | Throwable
      */
     public function getUsersByUuid(string $uuid, int $cacheDuration = 60): array
     {
@@ -45,7 +46,7 @@ final class UserService extends EventosClient
                 }
             }
 
-            throw new Exception('Failed to get user by UUID. Status: ');
+            throw new \RuntimeException('Failed to get user by UUID. Status: ');
         };
 
         if ($cacheDuration === 0) {
@@ -82,7 +83,7 @@ final class UserService extends EventosClient
     }
 
     /**
-     * @throws \Throwable
+     * @throws Throwable
      * @throws GuzzleException
      */
     public function getTickets(string $uuid, int $moduleId = null): array

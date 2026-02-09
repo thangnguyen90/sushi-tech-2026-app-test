@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Repositories\UsersRepository;
 use App\Services\ResponseService;
+use App\Services\Eventos\User\UserService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,6 +17,7 @@ class LiveChatProfilesController extends Controller
     public function __construct(
         private readonly UsersRepository $usersRepository,
         private readonly ResponseService $responseService,
+        private readonly UserService $userService
     ) {
     }
 
@@ -34,9 +36,18 @@ class LiveChatProfilesController extends Controller
 
             $user = $this->findUserByUuid($uuid);
             if ($user === null) {
-                return $this->responseService->error(
-                    message: 'Failed to check user login and agreement status.',
-                );
+                // create user
+                $this->userService->getUsersByUuid($uuid, 0);
+                $this->usersRepository->create([
+                    'uuid' => $uuid,
+                    'webhook_data' => null,
+                    'is_first_login' => true,
+                    'policy_agreed' => false,
+                ]);
+                return $this->responseService->success(data: [
+                    'is_first_login' => true,
+                    'policy_agreed' => false,
+                ]);
             }
 
             $isFirstLogin = $this->consumeFirstLoginFlag($user);
@@ -69,10 +80,20 @@ class LiveChatProfilesController extends Controller
 
             $user = $this->findUserByUuid($uuid);
             if ($user === null) {
-                return $this->responseService->error(
-                    message: 'Failed to check user login and agreement status.',
-                    status: 403,
-                );
+                try{
+                    $this->userService->getUsersByUuid($uuid, 0);
+                }catch (\Exception $e){
+                    return $this->responseService->error(
+                        message: 'Failed to check user login and agreement status.',
+                        status: 500
+                    );
+                }
+                $this->usersRepository->create([
+                    'uuid' => $uuid,
+                    'webhook_data' => null,
+                    'is_first_login' => true,
+                    'policy_agreed' => false,
+                ]);
             }
 
             // Keep first-login behavior consistent across endpoints.

@@ -114,12 +114,20 @@ class WebhookController extends Controller
     {
         $data = $request->all();
         if ($data["module_code"] === "Register") {
-            $this->usersRepository->create([
-                'uuid' => $data['user']['user_uuid'],
-                'user_id' => $data['user']['user_id'],
-                'webhook_data' => $data['user'],
-                'is_first_login' => true,
-            ]);
+            $user = $this->usersRepository->findByUuid($data['user']['user_uuid']);
+            if ($user) {
+                $user->user_id = $data['user']['user_id'];
+                $user->webhook_data = $data['user'];
+                $user->save();
+            } else {
+                $this->usersRepository->create([
+                    'uuid' => $data['user']['user_uuid'],
+                    'user_id' => $data['user']['user_id'],
+                    'is_first_login' => true,
+                    'webhook_data' => $data['user'],
+                ]);
+
+            }
         }
         return $this->responseService->success('Register user', 200, status: 201);
     }
