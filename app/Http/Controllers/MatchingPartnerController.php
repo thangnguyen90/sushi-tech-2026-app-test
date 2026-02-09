@@ -20,23 +20,23 @@ class MatchingPartnerController extends Controller
 
     public function index(MatchingPartnerIndexRequest $request, MatchingPartnerService $service): JsonResponse
     {
-        $user = $request->user();
-        if (!$user || !isset($user->id)) {
-            return $this->responseService->error(
-                message: 'Unauthorized.',
-                code: 'UNAUTHORIZED',
-                data: null,
-                status: 401
-            );
-        }
+        $user = $request?->user() ;
+//        if (!$user || !isset($user->id)) {
+//            return $this->responseService->error(
+//                message: 'Unauthorized.',
+//                code: 'UNAUTHORIZED',
+//                data: null,
+//                status: 401
+//            );
+//        }
 
         $validated = $request->validated();
-        $userId = (int) $user->user_id ;
+        $userId =  isset($user->user_id) ? (int) $user?->user_id : null;
         try {
             $result = $service->getPartners([
-                'profile_id' => $user->profile_id,
+                'profile_id' => $user->profile_id ?? null,
                 'user_id' => $userId,
-                'exhibitor_administrator_id' =>  $user->exhibitor_administrator_id,
+                'exhibitor_administrator_id' =>  $user->exhibitor_administrator_id ?? null,
                 'data_source_id' => $validated['live_chat_data_source_id']??config('eventos.live_chat_data_source_id'),
                 'event_id' => config('eventos.event'),
                 'language_id' => (int) ($validated['language_id'] ?? 1),

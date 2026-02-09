@@ -19,7 +19,7 @@ class UserAuthenticationMiddleware
 
     public function __construct(
         LiveChatProfilesRepository       $liveChatProfilesRepository,
-        private readonly UsersRepository $usersRepository,
+//        private readonly UsersRepository $usersRepository,
     )
     {
         $this->liveChatProfilesRepository = $liveChatProfilesRepository;
@@ -46,6 +46,7 @@ class UserAuthenticationMiddleware
 //                }
                 $userProfile = $this->liveChatProfilesRepository->getProfileByUuid($userUuid);
                 if(!$userProfile){
+                    return $next($request);
                     return new JsonResponse(['message' => 'Unauthorized live chat profile not register', 'error' => 'Unauthorized'], 403);
                 }
                 Auth::login($userProfile);

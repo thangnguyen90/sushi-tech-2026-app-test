@@ -23,16 +23,16 @@ class MatchingUserController extends Controller
     public function negotiationsList(Request $request): JsonResponse
     {
         $user = $request->user();
-        if (!$user || !isset($user->id)) {
-            return $this->responseService->error(
-                message: 'Unauthorized.',
-                code: 'UNAUTHORIZED',
-                data: null,
-                status: 401
-            );
-        }
+//        if (!$user || !isset($user->id)) {
+//            return $this->responseService->error(
+//                message: 'Unauthorized.',
+//                code: 'UNAUTHORIZED',
+//                data: null,
+//                status: 401
+//            );
+//        }
 
-        $ownerUserId = (int) $user->user_id;
+        $ownerUserId = isset( $user->user_id)? (int) $user->user_id : null;
 
         $rows = $this->matchingUserRepository->getDealDoneListAllForOwner(
             ownerUserId: $ownerUserId,
@@ -59,17 +59,16 @@ class MatchingUserController extends Controller
     public function markDealDone(MarkMatchingRequest $matchingRequest): JsonResponse
     {
         $user = $matchingRequest->user();
-        if (!$user || !isset($user->id)) {
-            return $this->responseService->error(
-                message: 'Unauthorized.',
-                code: 'UNAUTHORIZED',
-                data: null,
-                status: 401
-            );
-        }
+//        if (!$user || !isset($user->id)) {
+//            return $this->responseService->error(
+//                message: 'Unauthorized.',
+//                code: 'UNAUTHORIZED',
+//                data: null,
+//                status: 401
+//            );
+//        }
         $status = (int) $matchingRequest->status;
-        $ownerUserId = (int) $user->profile_id;
-
+        $ownerUserId = isset( $user->user_id)? (int) $user->user_id : null;
 
         $peerUserId = $matchingRequest['peer_user_id'];
         $ok = $this->matchingUserRepository->markDealDoneIfMutual(

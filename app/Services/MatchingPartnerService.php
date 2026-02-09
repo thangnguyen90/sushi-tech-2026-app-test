@@ -198,13 +198,12 @@ class MatchingPartnerService
 
     private function removeUserTalked(Builder $query, array $ctx): void
     {
-        // current user id: ưu tiên exhibitor_administrator_id nếu có user_uuid (theo logic code cũ của bạn)
         $currentId = !empty($ctx['user_uuid'])
             ? (int)($ctx['exhibitor_administrator_id'] ?? 0)
             : (int)($ctx['user_id'] ?? 0);
 
         if ($currentId <= 0) {
-            return; // không có current id hợp lệ thì không áp filter
+            return;
         }
 
         $query->whereNotExists(function ($sub) use ($currentId) {

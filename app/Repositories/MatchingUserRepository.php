@@ -21,7 +21,7 @@ class MatchingUserRepository extends BaseRepository
      * @return Collection<int, object> Each item contains: peer_user_id, updated_at
      */
     public function getDealDoneListAllForOwner(
-        int $ownerUserId,
+        ?int $ownerUserId,
         int $status,
         ?int $eventId = null
     ): Collection {
