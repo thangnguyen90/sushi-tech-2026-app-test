@@ -220,7 +220,11 @@ const toMatchingList = () => {
 }
 
 const toChatList = () => {
-    window.location.href = LiveChatRedirect(moduleChatId, chatWebLinkId);
+    if (storeAuth.user?.policy_agreed) {
+        window.location.href = LiveChatRedirect(moduleChatId, chatWebLinkId);
+        return
+    }
+    contractModal.value = true;
 }
 
 const toNegotiateManagement = () => {
