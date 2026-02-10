@@ -68,7 +68,19 @@ class MatchingUserController extends Controller
 //            );
 //        }
         $status = (int) $matchingRequest->status;
-        $ownerUserId = isset( $user->user_id)? (int) $user->user_id : null;
+        $ownerUserId = isset( $user->profile_id)? (int) $user->profile_id : null;
+        if (!$ownerUserId) {
+            return $this->responseService->error(
+                message: '表示する参加者がみつかりません',
+                code: 'OWNER_USER_NOT_FOUND',
+                data: [
+                    'owner_user_id' => $ownerUserId,
+                    'status' => $status,
+                    'peer_user_ids' => [],
+                ],
+                status: 409
+            );
+        }
 
         $peerUserId = $matchingRequest['peer_user_id'];
         $ok = $this->matchingUserRepository->markDealDoneIfMutual(
