@@ -398,6 +398,11 @@ watch(
                     font-style: normal;
                     font-weight: 700;
                     line-height: 24px;
+                    display: -webkit-box;
+                    word-break: break-word;
+                    overflow: hidden;
+                    -webkit-line-clamp: 2;
+                    -webkit-box-orient: vertical;
                 }
                 .note {
                     color: var(--White, #FFF);
@@ -405,6 +410,11 @@ watch(
                     font-style: normal;
                     font-weight: 400;
                     line-height: 160%;
+                    display: -webkit-box;
+                    word-break: break-word;
+                    overflow: hidden;
+                    -webkit-line-clamp: 2;
+                    -webkit-box-orient: vertical;
                 }
             }
             >img {

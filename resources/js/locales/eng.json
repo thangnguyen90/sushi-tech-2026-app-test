@@ -64,12 +64,12 @@
         },
         "menu": {
             "qr": {
-                "label": "Member QR Code",
-                "note": "You can exchange business cards and contact information.",
+                "label": "QR Business Card Exchange",
+                "note": "Exchange business cards by scanning QR codes.",
                 "details": {
-                    "view": "View",
-                    "read": "Read",
-                    "history": "Exchange history"
+                    "view": "Display / Show QR",
+                    "read": "Scan",
+                    "history": "Exchange History"
                 }
             },
             "businessCardHistory": {
@@ -78,19 +78,19 @@
             },
             "matchingList": {
                 "label": "Matching List",
-                "note": "Search for participants at the event venue and connect for meetings and business matching."
+                "note": "Connect for business meetings and matching."
             },
             "appointment": {
-                "label": "Find participants",
-                "note": "You can see the participants who have been matched."
+                "label": "Find Participants / Search for Attendees",
+                "note": "View participants you have matched with."
             },
             "negotiateManagement": {
-                "label": "Negotiation Management",
-                "note": "You can check and manage reservation status."
+                "label": "Meeting Management",
+                "note": "Check and manage your reservation status."
             },
             "exhibitor": {
-                "label": "Find exhibitors",
-                "note": "Find exhibitors at SusHi Tech Tokyo 2026."
+                "label": "Find Exhibitors",
+                "note": "Search for exhibitors participating in SusHi Tech Tokyo 2026."
             }
         },
         "stage": {
