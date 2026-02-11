@@ -367,6 +367,7 @@ watch(
                 align-items: stretch;
                 .top__list-content-item-child {
                     min-height: 82px;
+                    line-height: normal;
                 }
             }
             &-child {

@@ -39,7 +39,7 @@
                     {{ $t("contract.purpose.description") }}
                 </div>
             </div>
-            <div class="contract-note">
+            <div class="contract-note" :class="{ 'italy': storeAuth?.languageCode === 'eng' }">
                 {{ $t("contract.note") }}
             </div>
         </div>
@@ -55,6 +55,7 @@
 </template>
 
 <script lang="ts" setup>
+import { useAuthStore } from "@/stores/AuthStore";
 import { computed } from "vue";
 
 export interface Props {
@@ -76,6 +77,8 @@ const showModal = computed({
         emits("update:modelValue", value);
     },
 });
+
+const storeAuth = useAuthStore();
 
 const confirmPolicy = (): void => {
     emits("update:confirm");
@@ -120,6 +123,9 @@ const closeModal = (): void => {
         font-style: normal;
         font-weight: 400;
         line-height: 24px;
+        &.italy {
+            font-style: italic;
+        }
     }
 
     .details-contract {
