@@ -100,23 +100,23 @@
         }
     },
     "contract": {
-        "title": "Regarding the use of the business matching function",
-        "description": "This event offers a \"business matching function\" to promote interaction between participants. By using this function, we ask that you agree to the disclosure and provision of the following information.",
+        "title": "Using the Business Matching Feature",
+        "description": "This event provides a \"Business Matching Feature\" to facilitate networking among participants. To use this feature, please agree to the disclosure and provision of the following information:",
         "confirm": "Agree",
         "deny": "Disagree",
         "publicInfo": {
-            "label": "Information to Be Disclosed",
-            "description": "Name, company name, department, job title, profile photo, and self-introduction (information entered during registration)"
+            "label": "Information to be Disclosed",
+            "description": "Name, Company Name, Department, Job Title, Profile Picture, and Self-introduction (items entered during registration)."
         },
         "publicScope": {
             "label": "Scope of Disclosure",
-            "description": "Participants logged into the event application and users with whom a match has been established"
+            "description": "Participants logged into the event app and individuals with whom a match has been established."
         },
         "purpose": {
             "label": "Purpose",
-            "description": "Networking between participants, chat, meeting reservations, and lead utilization by exhibitors"
+            "description": "Networking among participants, chat, meeting reservations, and lead generation by exhibitors."
         },
-        "note": "*You can change your profile visibility (privacy settings) at any time from the settings screen."
+        "note": "Note: You can change your profile visibility (Privacy Settings) at any time from the Settings screen."
     },
     "emptyMessages": {
         "program": "This field becomes available after selecting program.",
