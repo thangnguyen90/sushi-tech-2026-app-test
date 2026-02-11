@@ -364,6 +364,7 @@ watch(
                 justify-content: center;
                 gap: 8px;
                 background: unset;
+                align-items: stretch;
                 .top__list-content-item-child {
                     min-height: 82px;
                 }
