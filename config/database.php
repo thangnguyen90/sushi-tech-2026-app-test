@@ -162,6 +162,7 @@ return [
         ],
 
         'default' => [
+            'scheme' =>  env('REDIS_TLS','tcp'),
             'url' => env('REDIS_URL'),
             'host' => env('REDIS_HOST', '127.0.0.1'),
             'username' => env('REDIS_USERNAME'),
@@ -175,6 +176,7 @@ return [
         ],
 
         'cache' => [
+            'scheme' => env('REDIS_TLS','tcp'),
             'url' => env('REDIS_URL'),
             'host' => env('REDIS_HOST', '127.0.0.1'),
             'username' => env('REDIS_USERNAME'),
