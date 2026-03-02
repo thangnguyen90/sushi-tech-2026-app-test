@@ -120,7 +120,6 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldQu
                 $lineNo = (int) $i + 2;
 
                 $mappedRows = $this->mapRowToMany($row, $now, $lineNo);
-                dd($mappedRows);
                 if (empty($mappedRows)) {
                     $skipped++;
                     continue;
