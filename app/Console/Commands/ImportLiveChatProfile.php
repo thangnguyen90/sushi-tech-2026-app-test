@@ -45,6 +45,8 @@ class ImportLiveChatProfile extends Command implements ShouldQueue, ShouldBeUniq
         $repository = app(LiveChatProfilesRepository::class);
 
         foreach ($csv->getRecords() as $row) {
+            $isExhibitor = $this->isExhibitorText($row['exhibitor_text'] ?? null);
+
             $attributes = [
                 'uuid' => $row['uuid'] ?? null,
                 'user_id' => is_numeric($row['user_id']) && $row['user_id'] !== '' ? (int) $row['user_id'] : null,
@@ -67,6 +69,7 @@ class ImportLiveChatProfile extends Command implements ShouldQueue, ShouldBeUniq
                 'exhibitor_administrator_id' => ($row['exhibitor_administrator_id'] ?? '') !== '' ? (int) $row['exhibitor_administrator_id'] : null,
                 'last_portal_id' => (int) (is_numeric($row['last_portal_id']) ? $row['last_portal_id'] : 0),
                 'last_event_id' => (int) (is_numeric($row['last_event_id']) ? $row['last_event_id'] : 0),
+                'is_exhibitor' => $isExhibitor,
             ]);
 
             // Persist selected dropdown options into live_chat_profile_field_options
@@ -91,6 +94,25 @@ class ImportLiveChatProfile extends Command implements ShouldQueue, ShouldBeUniq
         }
 
         return $v;
+    }
+
+    private function isExhibitorText(mixed $exhibitorText): bool
+    {
+        $normalizedExhibitorText = $this->normalizeNullableString($exhibitorText);
+
+        if ($normalizedExhibitorText === null) {
+            return false;
+        }
+
+        $expectedExhibitorText = $this->normalizeNullableString(
+            config('constants.LIVE_CHAT_EXHIBITOR_TEXT', '出展者')
+        );
+
+        if ($expectedExhibitorText === null) {
+            return false;
+        }
+
+        return $normalizedExhibitorText === $expectedExhibitorText;
     }
 
     /**
@@ -171,7 +193,7 @@ class ImportLiveChatProfile extends Command implements ShouldQueue, ShouldBeUniq
 
             // Only store option-like values (dropdown selections)
             // If you also want to store "gender=female" etc. remove this condition.
-            if (!str_starts_with($optionValue, 'option')) {
+            if (! str_starts_with($optionValue, 'option')) {
                 continue;
             }
 

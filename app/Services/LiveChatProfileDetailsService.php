@@ -40,7 +40,7 @@ class LiveChatProfileDetailsService
             'icon_image' => $profile->icon_image??null,
             'background_image' => $profile->background_image??null,
             'user_id' => $profile->user_id !== null ? (int) $profile->user_id : null,
-            'exhibitor_administrator_id' => $profile->exhibitor_administrator_id !== null ? (int) $profile->exhibitor_administrator_id : null,
+            'is_exhibitor' => (bool) ($profile->is_exhibitor ?? false),
             'tags' => $profile->tags ?? [],
             'custom_fields' => $customFields,
         ];
@@ -63,7 +63,7 @@ class LiveChatProfileDetailsService
                 'icon_image',
                 'background_image',
                 'user_id',
-                'exhibitor_administrator_id',
+                'is_exhibitor',
                 'custom_fields', // ensure cast to array in model
             ]);
     }

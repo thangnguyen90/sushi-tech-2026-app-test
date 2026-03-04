@@ -43,16 +43,14 @@ class MatchingPartnerService
 
     private function getNetworking(array $ctx): array
     {
-        $query = CheckinHistory::query()
-            ->limit(config('constants.NET_WORKING_LIMIT') ?? 5);
-
-        if (!empty($ctx['user_id'])) {
-            $query->where('user_id', $ctx['user_id']);
-        } elseif (!empty($ctx['exhibitor_administrator_id'])) {
-            $query->where('exhibitor_administrator_id', $ctx['exhibitor_administrator_id']);
-        } else {
+        $currentActorId = $this->resolveCurrentActorId($ctx);
+        if (!$currentActorId) {
             return [];
         }
+
+        $query = CheckinHistory::query()
+            ->limit(config('constants.NET_WORKING_LIMIT') ?? 5)
+            ->where('user_id', $currentActorId);
 
         $myNames = $query
             ->distinct()
@@ -67,9 +65,6 @@ class MatchingPartnerService
 
         foreach ($myNames as $name) {
 
-            /** -------------------------------
-             * Query 1: JOIN by user_id
-             * -------------------------------- */
             $qUser = CheckinHistory::query()
                 ->whereNotNull('checkin_histories.user_id')
                 ->where('checkin_app_user_name', $name)
@@ -80,55 +75,21 @@ class MatchingPartnerService
                     'live_chat_profiles.user_id'
                 );
 
-            if (!empty($ctx['user_id'])) {
-                $qUser->where('checkin_histories.user_id', '<>', $ctx['user_id']);
+            $qUser->where('checkin_histories.user_id', '<>', $currentActorId);
+
+            if (!empty($ctx['keyword'])) {
+                $keyword = $ctx['keyword'];
+                $qUser->where(function ($sub) use ($keyword) {
+                    $sub->where('nickname', 'like', "%{$keyword}%")
+                        ->orWhere('company', 'like', "%{$keyword}%");
+                });
             }
 
-            /** -------------------------------
-             * Query 2: JOIN by exhibitor_administrator_id
-             * -------------------------------- */
-            $qExhibitor = CheckinHistory::query()
-                ->whereNull('checkin_histories.user_id')
-                ->where('checkin_app_user_name', $name)
-                ->join(
-                    'live_chat_profiles',
-                    'checkin_histories.exhibitor_administrator_id',
-                    '=',
-                    'live_chat_profiles.exhibitor_administrator_id'
-                );
+            $this->applyOptionValueFilter($qUser, $ctx['option_values'] ?? []);
+            $this->removeUserTalked($qUser, $ctx);
 
-            if (!empty($ctx['exhibitor_administrator_id'])) {
-                $qExhibitor->where(
-                    'checkin_histories.exhibitor_administrator_id',
-                    '<>',
-                    $ctx['exhibitor_administrator_id']
-                );
-            }
-
-            /** -------------------------------
-             * Apply shared filters
-             * -------------------------------- */
-            foreach ([$qUser, $qExhibitor] as $q) {
-
-                if (!empty($ctx['keyword'])) {
-                    $keyword = $ctx['keyword'];
-                    $q->where(function ($sub) use ($keyword) {
-                        $sub->where('nickname', 'like', "%{$keyword}%")
-                            ->orWhere('company', 'like', "%{$keyword}%");
-                    });
-                }
-
-                $this->applyOptionValueFilter($q, $ctx['option_values'] ?? []);
-                $this->removeUserTalked($q, $ctx);
-
-                $q->select($this->baseLiveChatSelect());
-            }
-
-            /** -------------------------------
-             * UNION ALL + LIMIT
-             * -------------------------------- */
             $checkins = $qUser
-                ->unionAll($qExhibitor)
+                ->select($this->baseLiveChatSelect())
                 ->limit($ctx['limit_networking_per_name'])
                 ->get();
 
@@ -198,29 +159,24 @@ class MatchingPartnerService
 
     private function removeUserTalked(Builder $query, array $ctx): void
     {
-        $currentId = !empty($ctx['user_uuid'])
-            ? (int)($ctx['exhibitor_administrator_id'] ?? 0)
-            : (int)($ctx['user_id'] ?? 0);
-
-        if ($currentId <= 0) {
+        $currentId = $this->resolveCurrentActorId($ctx);
+        if (!$currentId) {
             return;
         }
 
         $query->whereNotExists(function ($sub) use ($currentId) {
-            $candidateIdExpr = "COALESCE(live_chat_profiles.user_id, live_chat_profiles.exhibitor_administrator_id)";
-
             $sub->selectRaw('1')
                 ->from('matching_users as mu')
                 ->whereNull('mu.deleted_at')
-                ->where(function ($q) use ($currentId, $candidateIdExpr) {
+                ->where(function ($q) use ($currentId) {
                     // (current, candidate)
-                    $q->where(function ($qq) use ($currentId, $candidateIdExpr) {
+                    $q->where(function ($qq) use ($currentId) {
                         $qq->where('mu.owner_user_id', $currentId)
-                            ->whereRaw("mu.peer_user_id = {$candidateIdExpr}");
+                            ->whereColumn('mu.peer_user_id', 'live_chat_profiles.user_id');
                     })
                         // OR (candidate, current)
-                        ->orWhere(function ($qq) use ($currentId, $candidateIdExpr) {
-                            $qq->whereRaw("mu.owner_user_id = {$candidateIdExpr}")
+                        ->orWhere(function ($qq) use ($currentId) {
+                            $qq->whereColumn('mu.owner_user_id', 'live_chat_profiles.user_id')
                                 ->where('mu.peer_user_id', $currentId);
                         });
                 });
@@ -250,10 +206,11 @@ class MatchingPartnerService
     private function getRandomExhibitors(array $ctx): Collection
     {
         $query = LiveChatProfiles::query()
+            ->whereNull('deleted_at')
             ->where('live_chat_data_source_id', $ctx['data_source_id'])
             ->where('last_event_id', $ctx['event_id'])
             ->where('profile_id', '<>', $ctx['profile_id'])
-            ->whereNull('user_id'); // exhibitor
+            ->where('is_exhibitor', true);
         if (!empty($ctx['keyword'])) {
             $keyword = $ctx['keyword'];
 
@@ -278,56 +235,12 @@ class MatchingPartnerService
                 'icon_image',
                 'background_image',
                 'user_id',
-                'exhibitor_administrator_id',
+                'is_exhibitor',
                 'custom_fields'
             ]);
         $results = $this->attachTags($results, $ctx['data_source_id'] ?? null, $ctx['language_id'] ?? 1);
         return $this->hydrateInformationField($results);
     }
-
-    //    private function removeUserTalked(Builder $query, array $ctx): void
-    //    {
-
-    // neu van loi dung thu nay
-    //        $targetUserId = $ctx['user_id'] ?? $ctx['exhibitor_administrator_id'] ?? null;
-    //        $query->whereNotExists(function ($sub) use ($targetUserId) {
-    //            $sub->selectRaw('1')
-    //                ->from('matching_users as mu')
-    //                ->whereNull('mu.deleted_at')
-    //                // mu phải chứa user mục tiêu
-    //                ->where(function ($q) use ($targetUserId) {
-    //                    $q->where('mu.owner_user_id', $targetUserId)
-    //                        ->orWhere('mu.peer_user_id', $targetUserId);
-    //                })
-    //                //
-    //                ->where(function ($q) use ($targetUserId) {
-    //                    $q->orWhere(function ($qq) use ($targetUserId) {
-    //                        $qq->whereNotNull('live_chat_profiles.user_id')
-    //                            ->where(function ($q2) use ($targetUserId) {
-    //                                $q2->where(function ($x) use ($targetUserId) {
-    //                                    $x->where('mu.owner_user_id', $targetUserId)
-    //                                        ->whereColumn('mu.peer_user_id', 'live_chat_profiles.user_id');
-    //                                })->orWhere(function ($x) use ($targetUserId) {
-    //                                    $x->where('mu.peer_user_id', $targetUserId)
-    //                                        ->whereColumn('mu.owner_user_id', 'live_chat_profiles.user_id');
-    //                                });
-    //                            });
-    //                    })
-    //                        ->orWhere(function ($qq) use ($targetUserId) {
-    //                            $qq->whereNotNull('live_chat_profiles.exhibitor_administrator_id')
-    //                                ->where(function ($q2) use ($targetUserId) {
-    //                                    $q2->where(function ($x) use ($targetUserId) {
-    //                                        $x->where('mu.owner_user_id', $targetUserId)
-    //                                            ->whereColumn('mu.peer_user_id', 'live_chat_profiles.exhibitor_administrator_id');
-    //                                    })->orWhere(function ($x) use ($targetUserId) {
-    //                                        $x->where('mu.peer_user_id', $targetUserId)
-    //                                            ->whereColumn('mu.owner_user_id', 'live_chat_profiles.exhibitor_administrator_id');
-    //                                    });
-    //                                });
-    //                        });
-    //                });
-    //        });
-    //    }
 
     private function getRandomVisitors(array $ctx): Collection
     {
@@ -336,7 +249,7 @@ class MatchingPartnerService
             ->where('live_chat_data_source_id', $ctx['data_source_id'])
             ->where('last_event_id', $ctx['event_id'])
             ->where('profile_id', '<>', $ctx['profile_id'])
-            ->whereNotNull('user_id');
+            ->where('is_exhibitor', false);
         if (!empty($ctx['keyword'])) {
             $keyword = $ctx['keyword'];
 
@@ -361,7 +274,7 @@ class MatchingPartnerService
                 'icon_image',
                 'background_image',
                 'user_id',
-                'exhibitor_administrator_id',
+                'is_exhibitor',
                 'custom_fields'
             ]);
         $results = $this->attachTags($results, $ctx['data_source_id'] ?? null, $ctx['language_id'] ?? 1);
@@ -381,9 +294,19 @@ class MatchingPartnerService
             'live_chat_profiles.icon_image',
             'live_chat_profiles.background_image',
             'live_chat_profiles.user_id',
-            'live_chat_profiles.exhibitor_administrator_id',
+            'live_chat_profiles.is_exhibitor',
             'live_chat_profiles.custom_fields'
         ];
+    }
+
+    private function resolveCurrentActorId(array $ctx): ?int
+    {
+        $userId = $ctx['user_id'] ?? null;
+        if (is_numeric($userId) && (int) $userId > 0) {
+            return (int) $userId;
+        }
+
+        return null;
     }
 
     private function hydrateInformationField(Collection $profiles): Collection
