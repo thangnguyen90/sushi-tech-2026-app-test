@@ -16,7 +16,6 @@ class LiveChatProfilesRepository extends BaseRepository
     {
         return $this->query()
             ->where('user_id', $id)
-            ->orWhere('exhibitor_administrator_id', $id)
             ->first();
     }
     public function getProfileByUuid(?string $uuid): ?LiveChatProfiles
