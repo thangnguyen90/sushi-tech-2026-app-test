@@ -15,7 +15,7 @@ use League\Csv\Exception;
 use League\Csv\Reader;
 use Throwable;
 
-final class ImportChatProfileContentsCommand extends Command implements ShouldQueue, ShouldBeUnique
+final class ImportChatProfileContentsCommand extends Command implements ShouldBeUnique, ShouldQueue
 {
     use CsvTrait;
 
@@ -29,26 +29,8 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldQu
     public const string DISK = 's3';
 
     private const string TARGET_TABLE = 'chat_profile_contents';
+
     private const int FIELD_KEY_LIMIT_FOR_IN_CLAUSE = 500;
-
-    /**
-     * ENV:
-     * - CHAT_PROFILE_CONTENTS_DEFAULT_FIELD_KEYS="a,b,c"
-     *
-     * If env is empty/invalid => fallback to DEFAULT_ALLOWED_FIELD_KEYS_FALLBACK.
-     */
-
-    /**
-     * Hard fallback if env is missing (avoid breaking import).
-     */
-    private const array DEFAULT_ALLOWED_FIELD_KEYS_FALLBACK = [
-        'additional17696550228982',
-        'additional176965522945130',
-        'additional176965542127377',
-        'additional1769655594356123',
-        'additional1769655653708138',
-        'additional1769655751624155',
-    ];
 
     /**
      * Storage disk instance (set at runtime by CsvTrait usage).
@@ -56,13 +38,6 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldQu
      * @var mixed
      */
     protected $disk;
-
-    /**
-     * Cached allowed field keys (assoc-set).
-     *
-     * @var array<string, true>|null
-     */
-    private ?array $allowedFieldKeySet = null;
 
     /**
      * Execute the console command.
@@ -78,17 +53,16 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldQu
         $chunkSize = (int) ($this->option('chunk') ?? 500);
         if ($chunkSize < 1) {
             $this->error('--chunk must be >= 1');
+
             return self::INVALID;
         }
 
         $this->disk = Storage::disk($diskName);
 
-        $allowedKeys = $this->getAllowedFieldKeys();
         $this->info('Import chat_profile_contents');
         $this->line("Disk: {$diskName}");
         $this->line("File: {$filePath}");
         $this->line("Chunk: {$chunkSize}");
-        $this->line('Allowed field_keys: ' . (empty($allowedKeys) ? '(none)' : implode(',', $allowedKeys)));
 
         try {
             $file = $this->getFileContent($filePath);
@@ -104,7 +78,7 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldQu
                 ->skipEmptyRecords()
                 ->setHeaderOffset(0);
 
-            $now = new DateTimeImmutable();
+            $now = new DateTimeImmutable;
             $nowStr = $now->format('Y-m-d H:i:s');
 
             // Track what (field_key, option_value) exists in CSV
@@ -122,6 +96,7 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldQu
                 $mappedRows = $this->mapRowToMany($row, $now, $lineNo);
                 if (empty($mappedRows)) {
                     $skipped++;
+
                     continue;
                 }
 
@@ -130,12 +105,6 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldQu
 
                     $fieldKey = (string) $r['field_key'];
                     $optionValue = (string) $r['option_value'];
-
-                    // Safety: should already be filtered, but keep invariant.
-                    if (!$this->isAllowedFieldKey($fieldKey)) {
-                        $skipped++;
-                        continue;
-                    }
 
                     $touchedFieldKeys[$fieldKey] = true;
                     $csvPairs[$fieldKey][$optionValue] = true;
@@ -157,7 +126,7 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldQu
             $deleted = 0;
 
             $fieldKeys = array_keys($touchedFieldKeys);
-            if (!empty($fieldKeys)) {
+            if (! empty($fieldKeys)) {
                 foreach (array_chunk($fieldKeys, self::FIELD_KEY_LIMIT_FOR_IN_CLAUSE) as $fieldKeyChunk) {
                     $dbRows = DB::table(self::TARGET_TABLE)
                         ->select(['field_key', 'option_value'])
@@ -170,7 +139,7 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldQu
                         $fk = (string) $dbRow->field_key;
                         $ov = (string) $dbRow->option_value;
 
-                        if (!isset($csvPairs[$fk][$ov])) {
+                        if (! isset($csvPairs[$fk][$ov])) {
                             $toDeleteByField[$fk][] = $ov;
                         }
                     }
@@ -191,9 +160,11 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldQu
             }
 
             $this->info("Import completed successfully. imported={$imported}, skipped={$skipped}, soft_deleted={$deleted}");
+
             return self::SUCCESS;
         } catch (Throwable $e) {
             $this->error($e->getMessage());
+
             return self::FAILURE;
         }
     }
@@ -202,82 +173,9 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldQu
     {
         $firstLine = strtok($file, "\n") ?: '';
         $tabCount = substr_count($firstLine, "\t");
-        $commaCount = substr_count($firstLine, ",");
+        $commaCount = substr_count($firstLine, ',');
 
-        return $tabCount > $commaCount ? "\t" : ",";
-    }
-
-    /**
-     * @return array<int, string>
-     */
-    private function getAllowedFieldKeys(): array
-    {
-        $set = $this->getAllowedFieldKeySet();
-        return array_keys($set);
-    }
-
-    /**
-     * @return array<string, true>
-     */
-    private function getAllowedFieldKeySet(): array
-    {
-        if ($this->allowedFieldKeySet !== null) {
-            return $this->allowedFieldKeySet;
-        }
-
-        $raw = (string) config('constants.CHAT_PROFILE_CONTENTS_DEFAULT_FIELD_KEYS');
-        $keys = $this->parseCsvStringToList($raw);
-
-        if (empty($keys)) {
-            $keys = self::DEFAULT_ALLOWED_FIELD_KEYS_FALLBACK;
-        }
-
-        $set = [];
-        foreach ($keys as $k) {
-            $k = trim($k);
-            if ($k !== '') {
-                $set[$k] = true;
-            }
-        }
-
-        $this->allowedFieldKeySet = $set;
-        return $set;
-    }
-
-    private function isAllowedFieldKey(string $fieldKey): bool
-    {
-        $fieldKey = trim($fieldKey);
-        if ($fieldKey === '') {
-            return false;
-        }
-
-        $set = $this->getAllowedFieldKeySet();
-        return isset($set[$fieldKey]);
-    }
-
-    /**
-     * Parse comma-separated string: "a,b, c" => ["a","b","c"]
-     *
-     * @return array<int, string>
-     */
-    private function parseCsvStringToList(string $raw): array
-    {
-        $raw = trim($raw);
-        if ($raw === '') {
-            return [];
-        }
-
-        $parts = explode(',', $raw);
-        $out = [];
-
-        foreach ($parts as $p) {
-            $p = trim($p);
-            if ($p !== '') {
-                $out[] = $p;
-            }
-        }
-
-        return $out;
+        return $tabCount > $commaCount ? "\t" : ',';
     }
 
     /**
@@ -294,10 +192,6 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldQu
         $optionValue = trim((string) ($row['option_value'] ?? $row['optionValue'] ?? ''));
 
         if ($fieldKey !== '' && $optionValue !== '') {
-            if (!$this->isAllowedFieldKey($fieldKey)) {
-                return [];
-            }
-
             $labelEng = trim((string) ($row['label_eng'] ?? $row['labelEng'] ?? ''));
             $labelJpn = trim((string) ($row['label_jpn'] ?? $row['labelJpn'] ?? ''));
 
@@ -310,6 +204,7 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldQu
 
             if ($labelEng === '' && $labelJpn === '') {
                 $this->warn("Line {$lineNo}: missing both label_eng/label_jpn => skipped");
+
                 return [];
             }
 
@@ -346,12 +241,14 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldQu
         $jsonStr = trim((string) ($row['json'] ?? ''));
         if ($jsonStr === '') {
             $this->warn("Line {$lineNo}: missing field_key/option_value and missing json => skipped");
+
             return [];
         }
 
         $decoded = json_decode($jsonStr, true);
-        if (!is_array($decoded)) {
-            $this->warn("Line {$lineNo}: invalid json => skipped. error=" . json_last_error_msg());
+        if (! is_array($decoded)) {
+            $this->warn("Line {$lineNo}: invalid json => skipped. error=".json_last_error_msg());
+
             return [];
         }
 
@@ -368,7 +265,7 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldQu
     }
 
     /**
-     * @param array<string, mixed> $decoded
+     * @param  array<string, mixed>  $decoded
      * @return array<int, array<string, mixed>>
      */
     private function extractRowsFromSchemaJson(array $decoded, string $createdAt, string $updatedAt): array
@@ -376,12 +273,12 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldQu
         $rows = [];
 
         $customFields = $decoded['custom_fields'] ?? null;
-        if (!is_array($customFields)) {
+        if (! is_array($customFields)) {
             return [];
         }
 
         foreach ($customFields as $cf) {
-            if (!is_array($cf)) {
+            if (! is_array($cf)) {
                 continue;
             }
 
@@ -392,21 +289,17 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldQu
                 continue;
             }
 
-            if (!$this->isAllowedFieldKey($cfKey)) {
-                continue;
-            }
-
             $fieldLs = is_array($cf['language_setting'] ?? null) ? $cf['language_setting'] : [];
 
             $fieldLabelEng = trim((string) ($fieldLs['eng']['label'] ?? ''));
             $fieldLabelJpn = trim((string) ($fieldLs['jpn']['label'] ?? ''));
-            $fieldDescEng  = trim((string) ($fieldLs['eng']['description'] ?? ''));
-            $fieldDescJpn  = trim((string) ($fieldLs['jpn']['description'] ?? ''));
+            $fieldDescEng = trim((string) ($fieldLs['eng']['description'] ?? ''));
+            $fieldDescJpn = trim((string) ($fieldLs['jpn']['description'] ?? ''));
 
             $fieldLabelEngNorm = $fieldLabelEng !== '' ? $fieldLabelEng : $fieldLabelJpn;
             $fieldLabelJpnNorm = $fieldLabelJpn !== '' ? $fieldLabelJpn : $fieldLabelEng;
-            $fieldDescEngNorm  = $fieldDescEng  !== '' ? $fieldDescEng  : $fieldDescJpn;
-            $fieldDescJpnNorm  = $fieldDescJpn  !== '' ? $fieldDescJpn  : $fieldDescEng;
+            $fieldDescEngNorm = $fieldDescEng !== '' ? $fieldDescEng : $fieldDescJpn;
+            $fieldDescJpnNorm = $fieldDescJpn !== '' ? $fieldDescJpn : $fieldDescEng;
 
             $fieldLanguageSettingJson = $this->buildLanguageSettingJson(
                 $fieldLabelEngNorm,
@@ -416,14 +309,14 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldQu
             );
 
             $options = $cf['options'] ?? null;
-            if (!is_array($options)) {
+            if (! is_array($options)) {
                 continue;
             }
 
             $sortOrder = 0;
 
             foreach ($options as $opt) {
-                if (!is_array($opt)) {
+                if (! is_array($opt)) {
                     continue;
                 }
 
@@ -485,14 +378,14 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldQu
 
         $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         if ($json === false) {
-            return '{"eng":{"label":"' . addslashes($labelEng) . '","description":""},"jpn":{"label":"' . addslashes($labelJpn) . '","description":""}}';
+            return '{"eng":{"label":"'.addslashes($labelEng).'","description":""},"jpn":{"label":"'.addslashes($labelJpn).'","description":""}}';
         }
 
         return $json;
     }
 
     /**
-     * @param array<int, array<string, mixed>> $buffer
+     * @param  array<int, array<string, mixed>>  $buffer
      */
     private function flush(array $buffer): int
     {
@@ -518,7 +411,7 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldQu
 
         $v = str_replace(',', '', $v);
 
-        if (!is_numeric($v)) {
+        if (! is_numeric($v)) {
             return null;
         }
 
