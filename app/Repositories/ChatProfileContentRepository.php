@@ -15,8 +15,7 @@ class ChatProfileContentRepository extends BaseRepository
     /**
      * Return filter fields grouped by field_key with language-specific texts.
      *
-     * @param string $lang eng|jpn
-     * @param bool $onlyEnabled
+     * @param  string  $lang  eng|jpn
      * @return array<int, array<string, mixed>>
      */
     public function getFilterFields(string $lang = 'jpn', bool $onlyEnabled = false): array
@@ -48,7 +47,7 @@ class ChatProfileContentRepository extends BaseRepository
         foreach ($rows as $row) {
             $fieldKey = (string) $row->field_key;
 
-            if (!isset($grouped[$fieldKey])) {
+            if (! isset($grouped[$fieldKey])) {
                 // language_setting is already casted to array in model
                 $ls = is_array($row->language_setting) ? $row->language_setting : [];
                 $fieldText = $this->pickFieldText($ls, $lang);
@@ -70,12 +69,20 @@ class ChatProfileContentRepository extends BaseRepository
             ];
         }
 
+        foreach ($grouped as $fieldKey => $field) {
+            array_unshift($grouped[$fieldKey]['options'], [
+                'value' => '',
+                'label' => $this->pickDefaultOptionLabel($lang),
+            ]);
+        }
+
         return array_values($grouped);
     }
 
     private function normalizeLang(string $lang): string
     {
         $l = strtolower(trim($lang));
+
         return $l === 'eng' ? 'eng' : 'jpn';
     }
 
@@ -83,7 +90,7 @@ class ChatProfileContentRepository extends BaseRepository
      * Pick field label/description from field-level language_setting.
      * No fallback: return only requested language.
      *
-     * @param array<string, mixed> $languageSetting
+     * @param  array<string, mixed>  $languageSetting
      * @return array{label:string, description:string}
      */
     private function pickFieldText(array $languageSetting, string $lang): array
@@ -99,5 +106,12 @@ class ChatProfileContentRepository extends BaseRepository
         return $lang === 'eng'
             ? (string) ($row->label_eng ?? '')
             : (string) ($row->label_jpn ?? '');
+    }
+
+    private function pickDefaultOptionLabel(string $lang): string
+    {
+        return $lang === 'eng'
+            ? 'Please select'
+            : '選択してください';
     }
 }
