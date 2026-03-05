@@ -70,10 +70,10 @@
             },
             "appointment": {
                 "label": "参加者を探す",
-                "note": "マッチングした参加者が見れます。"
+                "note": "マッチングした参加者が見られます。"
             },
             "negotiateManagement": {
-                "label": "商談管理",
+                "label": "商談予約一覧",
                 "note": "予約状況を確認・管理できます。"
             },
             "exhibitor": {
