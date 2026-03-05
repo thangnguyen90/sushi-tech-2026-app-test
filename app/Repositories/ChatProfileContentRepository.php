@@ -21,6 +21,7 @@ class ChatProfileContentRepository extends BaseRepository
     public function getFilterFields(string $lang = 'jpn', bool $onlyEnabled = false): array
     {
         $lang = $this->normalizeLang($lang);
+        $defaultFieldKeys = $this->getDefaultFieldKeysForFilters();
 
         $query = $this->query()
             ->select([
@@ -34,6 +35,10 @@ class ChatProfileContentRepository extends BaseRepository
             ])
             ->orderBy('field_key')
             ->orderBy('sort_order');
+
+        if ($defaultFieldKeys !== []) {
+            $query->whereIn('field_key', $defaultFieldKeys);
+        }
 
         if ($onlyEnabled) {
             $query->where('is_enabled', 1);
@@ -113,5 +118,28 @@ class ChatProfileContentRepository extends BaseRepository
         return $lang === 'eng'
             ? 'Please select'
             : '選択してください';
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function getDefaultFieldKeysForFilters(): array
+    {
+        $raw = (string) config('constants.CHAT_PROFILE_CONTENTS_DEFAULT_FIELD_KEYS');
+        $raw = trim($raw);
+
+        if ($raw === '') {
+            return [];
+        }
+
+        $fieldKeys = [];
+        foreach (explode(',', $raw) as $fieldKey) {
+            $fieldKey = trim($fieldKey);
+            if ($fieldKey !== '') {
+                $fieldKeys[] = $fieldKey;
+            }
+        }
+
+        return array_values(array_unique($fieldKeys));
     }
 }
