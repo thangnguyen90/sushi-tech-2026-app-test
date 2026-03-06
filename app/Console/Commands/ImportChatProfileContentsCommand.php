@@ -24,12 +24,12 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldBe
         {--disk=s3 : Storage disk name (e.g. s3, local)}
         {--chunk=500 : Number of rows per batch upsert}';
 
-    protected $description = 'Import data into chat_profile_contents table from CSV/TSV. Keep single row per field_key and update in place.';
+    protected $description = 'Import data into chat_profile_contents table from CSV/TSV. Upsert by (field_key, option_value) and soft-delete missing rows.';
 
     public const string DISK = 's3';
 
     private const string TARGET_TABLE = 'chat_profile_contents';
-    private const string SINGLE_OPTION_VALUE = '__field_meta__';
+    private const string FREE_TEXT_OPTION_VALUE = '__free_text__';
 
     private const int FIELD_KEY_LIMIT_FOR_IN_CLAUSE = 500;
 
@@ -160,8 +160,7 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldBe
                 }
             }
 
-            $hardDeleted = $this->hardDeleteDuplicateRowsByFieldKey();
-            $this->info("Import completed successfully. imported={$imported}, skipped={$skipped}, soft_deleted={$deleted}, hard_deleted={$hardDeleted}");
+            $this->info("Import completed successfully. imported={$imported}, skipped={$skipped}, soft_deleted={$deleted}");
 
             return self::SUCCESS;
         } catch (Throwable $e) {
@@ -191,7 +190,9 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldBe
     {
         // Case 1: new format (direct columns)
         $fieldKey = trim((string) ($row['field_key'] ?? $row['fieldKey'] ?? ''));
-        if ($fieldKey !== '') {
+        $optionValue = trim((string) ($row['option_value'] ?? $row['optionValue'] ?? ''));
+
+        if ($fieldKey !== '' && $optionValue !== '') {
             $labelEng = trim((string) ($row['label_eng'] ?? $row['labelEng'] ?? ''));
             $labelJpn = trim((string) ($row['label_jpn'] ?? $row['labelJpn'] ?? ''));
 
@@ -218,6 +219,7 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldBe
                 $descJpn = $descEng;
             }
 
+            $sortOrder = $this->toNullableInt($row['sort_order'] ?? $row['sortOrder'] ?? null) ?? 0;
             $createdAt = $this->toNullableDateTimeString($row['created_at'] ?? null) ?? $now->format('Y-m-d H:i:s');
             $updatedAt = $this->toNullableDateTimeString($row['updated_at'] ?? null) ?? $now->format('Y-m-d H:i:s');
 
@@ -225,11 +227,11 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldBe
 
             return [[
                 'field_key' => $fieldKey,
-                'option_value' => self::SINGLE_OPTION_VALUE,
+                'option_value' => $optionValue,
                 'label_eng' => $labelEng,
                 'label_jpn' => $labelJpn,
                 'language_setting' => $languageSettingJson,
-                'sort_order' => 0,
+                'sort_order' => (int) $sortOrder,
                 'created_at' => $createdAt,
                 'updated_at' => $updatedAt,
                 'deleted_at' => null,
@@ -307,12 +309,63 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldBe
                 $fieldDescJpnNorm
             );
 
+            $options = $cf['options'] ?? null;
+            $options = is_array($options) ? $options : [];
+            $sortOrder = 0;
+            $importedOptionCount = 0;
+
+            foreach ($options as $opt) {
+                if (! is_array($opt)) {
+                    continue;
+                }
+
+                $optionValue = trim((string) ($opt['value'] ?? ''));
+                if ($optionValue === '') {
+                    continue;
+                }
+
+                $optLs = $opt['language_setting'] ?? [];
+                $labelEng = trim((string) (($optLs['eng']['label'] ?? '') ?: ''));
+                $labelJpn = trim((string) (($optLs['jpn']['label'] ?? '') ?: ''));
+
+                if ($labelEng === '' && $labelJpn !== '') {
+                    $labelEng = $labelJpn;
+                }
+                if ($labelJpn === '' && $labelEng !== '') {
+                    $labelJpn = $labelEng;
+                }
+
+                if ($labelEng === '' && $labelJpn === '') {
+                    $labelEng = $optionValue;
+                    $labelJpn = $optionValue;
+                }
+
+                $sortOrder++;
+                $importedOptionCount++;
+
+                $rows[] = [
+                    'field_key' => $cfKey,
+                    'option_value' => $optionValue,
+                    'label_eng' => $labelEng,
+                    'label_jpn' => $labelJpn,
+                    'language_setting' => $fieldLanguageSettingJson,
+                    'sort_order' => $sortOrder,
+                    'created_at' => $createdAt,
+                    'updated_at' => $updatedAt,
+                    'deleted_at' => null,
+                ];
+            }
+
+            if ($importedOptionCount > 0) {
+                continue;
+            }
+
             $labelEng = $fieldLabelEngNorm !== '' ? $fieldLabelEngNorm : ($cfType !== '' ? $cfType : $cfKey);
             $labelJpn = $fieldLabelJpnNorm !== '' ? $fieldLabelJpnNorm : $labelEng;
 
             $rows[] = [
                 'field_key' => $cfKey,
-                'option_value' => self::SINGLE_OPTION_VALUE,
+                'option_value' => self::FREE_TEXT_OPTION_VALUE,
                 'label_eng' => $labelEng,
                 'label_jpn' => $labelJpn,
                 'language_setting' => $fieldLanguageSettingJson,
@@ -356,53 +409,13 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldBe
      */
     private function flush(array $buffer): int
     {
-        $rowsByFieldKey = [];
-        foreach ($buffer as $row) {
-            $fieldKey = trim((string) ($row['field_key'] ?? ''));
-            if ($fieldKey === '') {
-                continue;
-            }
+        DB::table(self::TARGET_TABLE)->upsert(
+            $buffer,
+            ['field_key', 'option_value'],
+            ['label_eng', 'label_jpn', 'language_setting', 'sort_order', 'updated_at', 'deleted_at']
+        );
 
-            $rowsByFieldKey[$fieldKey] = $row;
-        }
-
-        foreach ($rowsByFieldKey as $row) {
-            DB::table(self::TARGET_TABLE)->updateOrInsert(
-                ['field_key' => (string) $row['field_key']],
-                [
-                    'option_value' => (string) ($row['option_value'] ?? self::SINGLE_OPTION_VALUE),
-                    'label_eng' => (string) ($row['label_eng'] ?? ''),
-                    'label_jpn' => (string) ($row['label_jpn'] ?? ''),
-                    'language_setting' => (string) ($row['language_setting'] ?? ''),
-                    'sort_order' => 0,
-                    'created_at' => (string) ($row['created_at'] ?? now()->format('Y-m-d H:i:s')),
-                    'updated_at' => (string) ($row['updated_at'] ?? now()->format('Y-m-d H:i:s')),
-                    'deleted_at' => null,
-                ]
-            );
-        }
-
-        return count($rowsByFieldKey);
-    }
-
-    private function hardDeleteDuplicateRowsByFieldKey(): int
-    {
-        $keepIds = DB::table(self::TARGET_TABLE)
-            ->selectRaw('MIN(id) as id')
-            ->groupBy('field_key')
-            ->pluck('id')
-            ->map(fn ($id): int => (int) $id)
-            ->filter()
-            ->values()
-            ->all();
-
-        if (empty($keepIds)) {
-            return 0;
-        }
-
-        return DB::table(self::TARGET_TABLE)
-            ->whereNotIn('id', $keepIds)
-            ->delete();
+        return count($buffer);
     }
 
     private function toNullableInt(mixed $value): ?int
