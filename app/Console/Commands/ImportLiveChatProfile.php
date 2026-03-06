@@ -49,14 +49,14 @@ class ImportLiveChatProfile extends Command implements ShouldQueue, ShouldBeUniq
 
             $attributes = [
                 'uuid' => $row['uuid'] ?? null,
-                'user_id' => is_numeric($row['user_id']) && $row['user_id'] !== '' ? (int) $row['user_id'] : null,
-                'live_chat_data_source_id' => (int) (is_numeric($row['live_chat_data_source_id'] ?? null) ? $row['live_chat_data_source_id'] : 0),
+                'user_id' => $this->toNullableInt($row['user_id'] ?? null),
+                'live_chat_data_source_id' => $this->toInt($row['live_chat_data_source_id'] ?? null),
                 'live_chat_user_id' => $row['live_chat_user_id'] ?? null,
             ];
             $profile = $repository->updateOrCreate($attributes, [
-                'profile_id' => is_numeric($row['id']) && $row['id'] !== '' ? (int) $row['id'] : null,
-                'user_id' => is_numeric($row['user_id']) && $row['user_id'] !== '' ? (int) $row['user_id'] : null,
-                'live_chat_data_source_id' => (int) (is_numeric($row['live_chat_data_source_id']) ? $row['live_chat_data_source_id'] : 0),
+                'profile_id' => $this->toNullableInt($row['id'] ?? null),
+                'user_id' => $this->toNullableInt($row['user_id'] ?? null),
+                'live_chat_data_source_id' => $this->toInt($row['live_chat_data_source_id'] ?? null),
                 'live_chat_user_id' => $row['live_chat_user_id'] ?? null,
                 'uuid' => $row['uuid'] ?? null,
                 'nickname' => $row['nickname'] ?? null,
@@ -66,9 +66,9 @@ class ImportLiveChatProfile extends Command implements ShouldQueue, ShouldBeUniq
                 'mail_address' => $row['mail_address'] ?? null,
                 'company' => $row['company'] ?? null,
                 'custom_fields' => $this->normalizeJsonField($row['custom_fields'] ?? null),
-                'exhibitor_administrator_id' => ($row['exhibitor_administrator_id'] ?? '') !== '' ? (int) $row['exhibitor_administrator_id'] : null,
-                'last_portal_id' => (int) (is_numeric($row['last_portal_id']) ? $row['last_portal_id'] : 0),
-                'last_event_id' => (int) (is_numeric($row['last_event_id']) ? $row['last_event_id'] : 0),
+                'exhibitor_administrator_id' => $this->toNullableInt($row['exhibitor_administrator_id'] ?? null),
+                'last_portal_id' => $this->toInt($row['last_portal_id'] ?? null),
+                'last_event_id' => $this->toInt($row['last_event_id'] ?? null),
                 'is_exhibitor' => $isExhibitor,
             ]);
 
@@ -80,6 +80,48 @@ class ImportLiveChatProfile extends Command implements ShouldQueue, ShouldBeUniq
         }
 
         $this->info('Import completed successfully.');
+    }
+
+    private function toInt(mixed $value, int $default = 0): int
+    {
+        $normalized = $this->normalizeIntegerString($value);
+
+        if ($normalized === null) {
+            return $default;
+        }
+
+        return (int) $normalized;
+    }
+
+    private function toNullableInt(mixed $value): ?int
+    {
+        $normalized = $this->normalizeIntegerString($value);
+
+        if ($normalized === null) {
+            return null;
+        }
+
+        return (int) $normalized;
+    }
+
+    private function normalizeIntegerString(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $trimmed = trim((string) $value);
+        if ($trimmed === '' || strcasecmp($trimmed, 'null') === 0) {
+            return null;
+        }
+
+        $normalized = str_replace([',', ' '], '', $trimmed);
+
+        if (preg_match('/^-?\d+$/', $normalized) !== 1) {
+            return null;
+        }
+
+        return $normalized;
     }
 
     private function normalizeNullableString(mixed $value): ?string
@@ -155,9 +197,10 @@ class ImportLiveChatProfile extends Command implements ShouldQueue, ShouldBeUniq
      *   "address": { ... }
      * }
      *
-     * We only store "select-like" fields (best-effort):
+     * We store:
      * - value must be scalar (string/number/bool)
-     * - option_value should look like "option123..." (recommended)
+     * - option-like values (option123...)
+     * - text values for dynamic additional fields (additional...)
      *
      * Table constraint: unique(profile_id, field_key) => one selection per field key.
      */
@@ -191,13 +234,13 @@ class ImportLiveChatProfile extends Command implements ShouldQueue, ShouldBeUniq
                 continue;
             }
 
-            // Only store option-like values (dropdown selections)
-            // If you also want to store "gender=female" etc. remove this condition.
-            if (! str_starts_with($optionValue, 'option')) {
+            if (! $this->shouldPersistFieldValue($fieldKey, $optionValue)) {
                 continue;
             }
 
-            $optionId = $this->extractOptionId($optionValue);
+            $optionId = $this->isOptionLikeValue($optionValue)
+                ? $this->extractOptionId($optionValue)
+                : null;
 
             DB::table('live_chat_profile_field_options')->updateOrInsert(
                 [
@@ -213,6 +256,20 @@ class ImportLiveChatProfile extends Command implements ShouldQueue, ShouldBeUniq
                 ]
             );
         }
+    }
+
+    private function shouldPersistFieldValue(string $fieldKey, string $optionValue): bool
+    {
+        if ($this->isOptionLikeValue($optionValue)) {
+            return true;
+        }
+
+        return str_starts_with(strtolower($fieldKey), 'additional');
+    }
+
+    private function isOptionLikeValue(string $optionValue): bool
+    {
+        return str_starts_with(strtolower($optionValue), 'option');
     }
 
     /**

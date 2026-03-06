@@ -29,6 +29,7 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldBe
     public const string DISK = 's3';
 
     private const string TARGET_TABLE = 'chat_profile_contents';
+    private const string FREE_TEXT_OPTION_VALUE = '__free_text__';
 
     private const int FIELD_KEY_LIMIT_FOR_IN_CLAUSE = 500;
 
@@ -258,7 +259,7 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldBe
         $rows = $this->extractRowsFromSchemaJson($decoded, $createdAt, $updatedAt);
 
         if (empty($rows)) {
-            $this->warn("Line {$lineNo}: json parsed but no selectable options found => skipped");
+            $this->warn("Line {$lineNo}: json parsed but no importable fields found => skipped");
         }
 
         return $rows;
@@ -285,7 +286,7 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldBe
             $cfKey = trim((string) ($cf['key'] ?? ''));
             $cfType = trim((string) ($cf['type'] ?? ''));
 
-            if ($cfKey === '' || $cfType !== 'select') {
+            if ($cfKey === '') {
                 continue;
             }
 
@@ -309,11 +310,9 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldBe
             );
 
             $options = $cf['options'] ?? null;
-            if (! is_array($options)) {
-                continue;
-            }
-
+            $options = is_array($options) ? $options : [];
             $sortOrder = 0;
+            $importedOptionCount = 0;
 
             foreach ($options as $opt) {
                 if (! is_array($opt)) {
@@ -337,10 +336,12 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldBe
                 }
 
                 if ($labelEng === '' && $labelJpn === '') {
-                    continue;
+                    $labelEng = $optionValue;
+                    $labelJpn = $optionValue;
                 }
 
                 $sortOrder++;
+                $importedOptionCount++;
 
                 $rows[] = [
                     'field_key' => $cfKey,
@@ -354,6 +355,25 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldBe
                     'deleted_at' => null,
                 ];
             }
+
+            if ($importedOptionCount > 0) {
+                continue;
+            }
+
+            $labelEng = $fieldLabelEngNorm !== '' ? $fieldLabelEngNorm : ($cfType !== '' ? $cfType : $cfKey);
+            $labelJpn = $fieldLabelJpnNorm !== '' ? $fieldLabelJpnNorm : $labelEng;
+
+            $rows[] = [
+                'field_key' => $cfKey,
+                'option_value' => self::FREE_TEXT_OPTION_VALUE,
+                'label_eng' => $labelEng,
+                'label_jpn' => $labelJpn,
+                'language_setting' => $fieldLanguageSettingJson,
+                'sort_order' => 0,
+                'created_at' => $createdAt,
+                'updated_at' => $updatedAt,
+                'deleted_at' => null,
+            ];
         }
 
         return $rows;

@@ -25,13 +25,11 @@ class LiveChatProfileFieldOptionRepository extends BaseRepository
     {
         $lang = $this->normalizeLang($lang);
 
-        // IMPORTANT:
-        // We join by (field_key, option_value) because option_value in field_options matches option_value in contents.
-        // If your schema instead wants join by option_id, adjust accordingly.
         $rows = DB::table('live_chat_profile_field_options as fo')
-            ->leftJoin('chat_profile_contents as c', function ($join) {
-                $join->on('c.field_key', '=', 'fo.field_key')
-                    ->on('c.option_value', '=', 'fo.option_value');
+            ->leftJoin('chat_profile_contents as c_option', function ($join) {
+                $join->on('c_option.field_key', '=', 'fo.field_key')
+                    ->on('c_option.option_value', '=', 'fo.option_value')
+                    ->whereNull('c_option.deleted_at');
             })
             ->whereNull('fo.deleted_at')
             ->where('fo.profile_id', $profileId)
@@ -41,12 +39,24 @@ class LiveChatProfileFieldOptionRepository extends BaseRepository
                 'fo.field_key',
                 'fo.option_id',
                 'fo.option_value',
-                'c.label_eng',
-                'c.label_jpn',
-                'c.language_setting',
+                'c_option.label_eng',
+                'c_option.label_jpn',
             ]);
 
-        // Group by field_key (support multi-select: multiple rows per field_key)
+        if ($rows->isEmpty()) {
+            return [];
+        }
+
+        $fieldMetaByKey = $this->loadFieldMetaByFieldKey(
+            $rows->pluck('field_key')
+                ->map(fn (mixed $fieldKey): string => trim((string) $fieldKey))
+                ->filter()
+                ->unique()
+                ->values()
+                ->all(),
+            $lang
+        );
+
         $grouped = [];
 
         foreach ($rows as $r) {
@@ -56,16 +66,20 @@ class LiveChatProfileFieldOptionRepository extends BaseRepository
             }
 
             if (!isset($grouped[$fieldKey])) {
-                $ls = is_array($r->language_setting) ? $r->language_setting : (json_decode((string) ($r->language_setting ?? ''), true) ?: []);
+                $fieldMeta = $fieldMetaByKey[$fieldKey] ?? ['label' => '', 'description' => ''];
+
                 $grouped[$fieldKey] = [
                     'field_key' => $fieldKey,
-                    'label' => (string) ($ls[$lang]['label'] ?? ''),
-                    'description' => (string) ($ls[$lang]['description'] ?? ''),
+                    'label' => $fieldMeta['label'],
+                    'description' => $fieldMeta['description'],
                     'values' => [],
                 ];
             }
 
             $optionLabel = $lang === 'eng' ? (string) ($r->label_eng ?? '') : (string) ($r->label_jpn ?? '');
+            if ($optionLabel === '') {
+                $optionLabel = (string) ($r->option_value ?? '');
+            }
 
             $grouped[$fieldKey]['values'][] = [
                 'option_value' => (string) ($r->option_value ?? ''),
@@ -80,5 +94,64 @@ class LiveChatProfileFieldOptionRepository extends BaseRepository
     {
         $l = strtolower(trim($lang));
         return $l === 'eng' ? 'eng' : 'jpn';
+    }
+
+    /**
+     * @param  array<int, string>  $fieldKeys
+     * @return array<string, array{label:string,description:string}>
+     */
+    private function loadFieldMetaByFieldKey(array $fieldKeys, string $lang): array
+    {
+        if ($fieldKeys === []) {
+            return [];
+        }
+
+        $rows = DB::table('chat_profile_contents')
+            ->whereNull('deleted_at')
+            ->whereIn('field_key', $fieldKeys)
+            ->orderBy('field_key')
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get([
+                'field_key',
+                'language_setting',
+            ]);
+
+        $metaByKey = [];
+
+        foreach ($rows as $row) {
+            $fieldKey = trim((string) ($row->field_key ?? ''));
+            if ($fieldKey === '' || isset($metaByKey[$fieldKey])) {
+                continue;
+            }
+
+            $languageSetting = $this->decodeLanguageSetting($row->language_setting ?? null);
+
+            $metaByKey[$fieldKey] = [
+                'label' => (string) ($languageSetting[$lang]['label'] ?? ''),
+                'description' => (string) ($languageSetting[$lang]['description'] ?? ''),
+            ];
+        }
+
+        return $metaByKey;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function decodeLanguageSetting(mixed $languageSetting): array
+    {
+        if (is_array($languageSetting)) {
+            return $languageSetting;
+        }
+
+        if (is_string($languageSetting)) {
+            $decoded = json_decode($languageSetting, true);
+            if (is_array($decoded)) {
+                return $decoded;
+            }
+        }
+
+        return [];
     }
 }
