@@ -63,7 +63,13 @@ class ChatProfileContentRepository extends BaseRepository
                     'label' => $fieldText['label'],
                     'description' => $fieldText['description'],
                     'options' => [],
+                    'min_sort_order' => (int) $row->sort_order,
                 ];
+            } else {
+                $grouped[$fieldKey]['min_sort_order'] = min(
+                    $grouped[$fieldKey]['min_sort_order'],
+                    (int) $row->sort_order
+                );
             }
 
             $grouped[$fieldKey]['options'][] = [
@@ -74,14 +80,30 @@ class ChatProfileContentRepository extends BaseRepository
             ];
         }
 
-        foreach ($grouped as $fieldKey => $field) {
-            array_unshift($grouped[$fieldKey]['options'], [
+        $result = array_values($grouped);
+
+        usort($result, function (array $a, array $b): int {
+            return $a['min_sort_order'] <=> $b['min_sort_order'];
+        });
+
+        foreach ($result as &$field) {
+            unset($field['min_sort_order']);
+
+            // Depending on requirements, we can also sort options internally or rely on query order
+            usort($field['options'], function (array $a, array $b): int {
+                return $a['sort_order'] <=> $b['sort_order'];
+            });
+
+            array_unshift($field['options'], [
                 'value' => '',
                 'label' => $this->pickDefaultOptionLabel($lang),
+                'sort_order' => -1,
+                'is_enabled' => true,
             ]);
         }
+        unset($field);
 
-        return array_values($grouped);
+        return $result;
     }
 
     private function normalizeLang(string $lang): string
