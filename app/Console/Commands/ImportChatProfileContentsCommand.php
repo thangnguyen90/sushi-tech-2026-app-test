@@ -29,6 +29,7 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldBe
     public const string DISK = 's3';
 
     private const string TARGET_TABLE = 'chat_profile_contents';
+
     private const string FREE_TEXT_OPTION_VALUE = '__free_text__';
 
     private const int FIELD_KEY_LIMIT_FOR_IN_CLAUSE = 500;
@@ -90,11 +91,12 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldBe
             $buffer = [];
             $imported = 0;
             $skipped = 0;
+            $sortOrderCounter = 1;
 
             foreach ($csv->getRecords() as $i => $row) {
                 $lineNo = (int) $i + 2;
 
-                $mappedRows = $this->mapRowToMany($row, $now, $lineNo);
+                $mappedRows = $this->mapRowToMany($row, $now, $lineNo, $sortOrderCounter);
                 if (empty($mappedRows)) {
                     $skipped++;
 
@@ -186,7 +188,7 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldBe
      *
      * @return array<int, array<string, mixed>>
      */
-    private function mapRowToMany(array $row, DateTimeImmutable $now, int $lineNo): array
+    private function mapRowToMany(array $row, DateTimeImmutable $now, int $lineNo, int &$sortOrderCounter): array
     {
         // Case 1: new format (direct columns)
         $fieldKey = trim((string) ($row['field_key'] ?? $row['fieldKey'] ?? ''));
@@ -219,7 +221,7 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldBe
                 $descJpn = $descEng;
             }
 
-            $sortOrder = $this->toNullableInt($row['sort_order'] ?? $row['sortOrder'] ?? null) ?? 0;
+            $sortOrder = $this->toNullableInt($row['sort_order'] ?? $row['sortOrder'] ?? null) ?? $sortOrderCounter++;
             $createdAt = $this->toNullableDateTimeString($row['created_at'] ?? null) ?? $now->format('Y-m-d H:i:s');
             $updatedAt = $this->toNullableDateTimeString($row['updated_at'] ?? null) ?? $now->format('Y-m-d H:i:s');
 
@@ -256,7 +258,7 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldBe
         $createdAt = $this->toNullableDateTimeString($row['created_at'] ?? null) ?? $now->format('Y-m-d H:i:s');
         $updatedAt = $this->toNullableDateTimeString($row['updated_at'] ?? null) ?? $now->format('Y-m-d H:i:s');
 
-        $rows = $this->extractRowsFromSchemaJson($decoded, $createdAt, $updatedAt);
+        $rows = $this->extractRowsFromSchemaJson($decoded, $createdAt, $updatedAt, $sortOrderCounter);
 
         if (empty($rows)) {
             $this->warn("Line {$lineNo}: json parsed but no importable fields found => skipped");
@@ -269,7 +271,7 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldBe
      * @param  array<string, mixed>  $decoded
      * @return array<int, array<string, mixed>>
      */
-    private function extractRowsFromSchemaJson(array $decoded, string $createdAt, string $updatedAt): array
+    private function extractRowsFromSchemaJson(array $decoded, string $createdAt, string $updatedAt, int &$sortOrderCounter): array
     {
         $rows = [];
 
@@ -311,7 +313,6 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldBe
 
             $options = $cf['options'] ?? null;
             $options = is_array($options) ? $options : [];
-            $sortOrder = 0;
             $importedOptionCount = 0;
 
             foreach ($options as $opt) {
@@ -340,7 +341,6 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldBe
                     $labelJpn = $optionValue;
                 }
 
-                $sortOrder++;
                 $importedOptionCount++;
 
                 $rows[] = [
@@ -349,7 +349,7 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldBe
                     'label_eng' => $labelEng,
                     'label_jpn' => $labelJpn,
                     'language_setting' => $fieldLanguageSettingJson,
-                    'sort_order' => $sortOrder,
+                    'sort_order' => $sortOrderCounter++,
                     'created_at' => $createdAt,
                     'updated_at' => $updatedAt,
                     'deleted_at' => null,
@@ -369,7 +369,7 @@ final class ImportChatProfileContentsCommand extends Command implements ShouldBe
                 'label_eng' => $labelEng,
                 'label_jpn' => $labelJpn,
                 'language_setting' => $fieldLanguageSettingJson,
-                'sort_order' => 0,
+                'sort_order' => $sortOrderCounter++,
                 'created_at' => $createdAt,
                 'updated_at' => $updatedAt,
                 'deleted_at' => null,
