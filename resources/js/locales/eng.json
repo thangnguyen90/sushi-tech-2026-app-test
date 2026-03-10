@@ -78,11 +78,11 @@
             },
             "matchingList": {
                 "label": "Matching List",
-                "note": "Connect for business meetings and matching."
+                "note": "Find partners and send meeting requests."
             },
             "appointment": {
                 "label": "Find Participants / Search for Attendees",
-                "note": "View participants you have matched with."
+                "note": "View received requests and matched partners."
             },
             "negotiateManagement": {
                 "label": "Meeting Management",
