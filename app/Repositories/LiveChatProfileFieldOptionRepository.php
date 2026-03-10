@@ -40,6 +40,7 @@ class LiveChatProfileFieldOptionRepository extends BaseRepository
                 'fo.field_key',
                 'fo.option_id',
                 'fo.option_value',
+                'c_option.id as c_option_id',
                 'c_option.label_eng',
                 'c_option.label_jpn',
                 'c_option.sort_order',
@@ -68,7 +69,7 @@ class LiveChatProfileFieldOptionRepository extends BaseRepository
             }
 
             if (! isset($grouped[$fieldKey])) {
-                $fieldMeta = $fieldMetaByKey[$fieldKey] ?? ['label' => '', 'description' => '', 'sort_order' => 999999];
+                $fieldMeta = $fieldMetaByKey[$fieldKey] ?? ['label' => '', 'description' => '', 'sort_order' => 999999, 'is_free_text' => false];
 
                 $grouped[$fieldKey] = [
                     'field_key' => $fieldKey,
@@ -82,6 +83,14 @@ class LiveChatProfileFieldOptionRepository extends BaseRepository
             $optionLabel = $lang === 'eng' ? (string) ($r->label_eng ?? '') : (string) ($r->label_jpn ?? '');
             if ($optionLabel === '') {
                 $optionLabel = (string) ($r->option_value ?? '');
+            }
+
+            $isFreeText = $fieldMetaByKey[$fieldKey]['is_free_text'] ?? false;
+            $isOptionFound = ! is_null($r->c_option_id ?? null);
+
+            if (! $isFreeText && ! $isOptionFound) {
+                // Dropdown/checkbox field, but option not found (deleted/missing)
+                $optionLabel = null;
             }
 
             $grouped[$fieldKey]['values'][] = [
@@ -141,23 +150,33 @@ class LiveChatProfileFieldOptionRepository extends BaseRepository
                 'field_key',
                 'language_setting',
                 'sort_order',
+                'option_value',
             ]);
 
         $metaByKey = [];
 
         foreach ($rows as $row) {
             $fieldKey = trim((string) ($row->field_key ?? ''));
-            if ($fieldKey === '' || isset($metaByKey[$fieldKey])) {
+            if ($fieldKey === '') {
                 continue;
             }
 
-            $languageSetting = $this->decodeLanguageSetting($row->language_setting ?? null);
+            $isFreeText = ($row->option_value === '__free_text__');
 
-            $metaByKey[$fieldKey] = [
-                'label' => (string) ($languageSetting[$lang]['label'] ?? ''),
-                'description' => (string) ($languageSetting[$lang]['description'] ?? ''),
-                'sort_order' => (int) ($row->sort_order ?? 999999),
-            ];
+            if (! isset($metaByKey[$fieldKey])) {
+                $languageSetting = $this->decodeLanguageSetting($row->language_setting ?? null);
+
+                $metaByKey[$fieldKey] = [
+                    'label' => (string) ($languageSetting[$lang]['label'] ?? ''),
+                    'description' => (string) ($languageSetting[$lang]['description'] ?? ''),
+                    'sort_order' => (int) ($row->sort_order ?? 999999),
+                    'is_free_text' => $isFreeText,
+                ];
+            } else {
+                if ($isFreeText) {
+                    $metaByKey[$fieldKey]['is_free_text'] = true;
+                }
+            }
         }
 
         return $metaByKey;
