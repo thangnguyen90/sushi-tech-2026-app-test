@@ -66,11 +66,11 @@
             },
             "matchingList": {
                 "label": "マッチングリスト",
-                "note": "商談やマッチングにつなげます。"
+                "note": "相手を探して商談依頼します。"
             },
             "appointment": {
                 "label": "参加者を探す",
-                "note": "マッチングした参加者が見られます。"
+                "note": "届いた依頼やマッチング相手が見られます。"
             },
             "negotiateManagement": {
                 "label": "商談予約一覧",
