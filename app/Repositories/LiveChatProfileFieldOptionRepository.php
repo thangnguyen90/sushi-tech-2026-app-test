@@ -34,13 +34,16 @@ class LiveChatProfileFieldOptionRepository extends BaseRepository
             ->whereNull('fo.deleted_at')
             ->where('fo.profile_id', $profileId)
             ->orderBy('fo.field_key')
+            ->orderBy('c_option.sort_order')
             ->orderBy('fo.id')
             ->get([
                 'fo.field_key',
                 'fo.option_id',
                 'fo.option_value',
+                'c_option.id as c_option_id',
                 'c_option.label_eng',
                 'c_option.label_jpn',
+                'c_option.sort_order',
             ]);
 
         if ($rows->isEmpty()) {
@@ -65,13 +68,14 @@ class LiveChatProfileFieldOptionRepository extends BaseRepository
                 continue;
             }
 
-            if (!isset($grouped[$fieldKey])) {
-                $fieldMeta = $fieldMetaByKey[$fieldKey] ?? ['label' => '', 'description' => ''];
+            if (! isset($grouped[$fieldKey])) {
+                $fieldMeta = $fieldMetaByKey[$fieldKey] ?? ['label' => '', 'description' => '', 'sort_order' => 999999, 'is_free_text' => false];
 
                 $grouped[$fieldKey] = [
                     'field_key' => $fieldKey,
                     'label' => $fieldMeta['label'],
                     'description' => $fieldMeta['description'],
+                    'sort_order' => $fieldMeta['sort_order'],
                     'values' => [],
                 ];
             }
@@ -81,18 +85,48 @@ class LiveChatProfileFieldOptionRepository extends BaseRepository
                 $optionLabel = (string) ($r->option_value ?? '');
             }
 
+            $isFreeText = $fieldMetaByKey[$fieldKey]['is_free_text'] ?? false;
+            $isOptionFound = ! is_null($r->c_option_id ?? null);
+
+            if (! $isFreeText && ! $isOptionFound) {
+                // Dropdown/checkbox field, but option not found (deleted/missing)
+                $optionLabel = null;
+            }
+
             $grouped[$fieldKey]['values'][] = [
                 'option_value' => (string) ($r->option_value ?? ''),
                 'label' => $optionLabel,
+                'sort_order' => (int) ($r->sort_order ?? 999999),
             ];
         }
 
-        return array_values($grouped);
+        $result = array_values($grouped);
+
+        usort($result, function (array $a, array $b): int {
+            return $a['sort_order'] <=> $b['sort_order'];
+        });
+
+        foreach ($result as &$field) {
+            unset($field['sort_order']);
+
+            usort($field['values'], function (array $a, array $b): int {
+                return $a['sort_order'] <=> $b['sort_order'];
+            });
+
+            foreach ($field['values'] as &$val) {
+                unset($val['sort_order']);
+            }
+            unset($val);
+        }
+        unset($field);
+
+        return $result;
     }
 
     private function normalizeLang(string $lang): string
     {
         $l = strtolower(trim($lang));
+
         return $l === 'eng' ? 'eng' : 'jpn';
     }
 
@@ -115,22 +149,34 @@ class LiveChatProfileFieldOptionRepository extends BaseRepository
             ->get([
                 'field_key',
                 'language_setting',
+                'sort_order',
+                'option_value',
             ]);
 
         $metaByKey = [];
 
         foreach ($rows as $row) {
             $fieldKey = trim((string) ($row->field_key ?? ''));
-            if ($fieldKey === '' || isset($metaByKey[$fieldKey])) {
+            if ($fieldKey === '') {
                 continue;
             }
 
-            $languageSetting = $this->decodeLanguageSetting($row->language_setting ?? null);
+            $isFreeText = ($row->option_value === '__free_text__');
 
-            $metaByKey[$fieldKey] = [
-                'label' => (string) ($languageSetting[$lang]['label'] ?? ''),
-                'description' => (string) ($languageSetting[$lang]['description'] ?? ''),
-            ];
+            if (! isset($metaByKey[$fieldKey])) {
+                $languageSetting = $this->decodeLanguageSetting($row->language_setting ?? null);
+
+                $metaByKey[$fieldKey] = [
+                    'label' => (string) ($languageSetting[$lang]['label'] ?? ''),
+                    'description' => (string) ($languageSetting[$lang]['description'] ?? ''),
+                    'sort_order' => (int) ($row->sort_order ?? 999999),
+                    'is_free_text' => $isFreeText,
+                ];
+            } else {
+                if ($isFreeText) {
+                    $metaByKey[$fieldKey]['is_free_text'] = true;
+                }
+            }
         }
 
         return $metaByKey;
