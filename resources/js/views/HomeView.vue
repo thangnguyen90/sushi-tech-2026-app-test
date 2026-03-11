@@ -69,7 +69,7 @@
             </div>
             <div class="top__list-content-items" @click="toChatList">
                 <div class="top__list-content-item">
-                    <img src="@/assets/images/calendar_apointment.png" alt="">
+                    <img src="@/assets/images/matching.svg" alt="">
                     <div class="top__list-content-item-details">
                         <div class="label">
                             {{ $t('top.menu.matchingList.label') }}
