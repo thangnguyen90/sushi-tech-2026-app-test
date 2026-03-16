@@ -13,6 +13,8 @@ class AiRecommendRequest extends BaseRequest
     {
         return [
             'content' => ['required', 'string'],
+            'user_uuid_list' => ['nullable', 'array'],
+            'user_uuid_list.*' => ['string', 'uuid', 'distinct'],
         ];
     }
 }

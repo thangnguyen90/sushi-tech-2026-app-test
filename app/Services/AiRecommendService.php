@@ -18,10 +18,13 @@ class AiRecommendService
         '9b86fd81-427b-4bbf-aa6b-c17d47c727c8',
     ];
 
-    public function buildRecommendResult(string $userUuid, string $content): array
+    public function buildRecommendResult(string $userUuid, string $content, array $overrideUserUuidList = []): array
     {
-        $recommendResponse = $this->fetchThirdPartyRecommend($userUuid, $content)
-            ?? $this->buildMockAiResponse($userUuid, $content);
+        $overrideUuids = $this->normalizeOverrideUserUuids($overrideUserUuidList, $userUuid);
+        $recommendResponse = !empty($overrideUuids)
+            ? $this->buildOverrideMockResponse($overrideUuids, $content)
+            : ($this->fetchThirdPartyRecommend($userUuid, $content)
+                ?? $this->buildMockAiResponse($userUuid, $content));
         $profiles = $this->getProfilesByUuids($recommendResponse['user_uuid_list']);
 
         if ($profiles->isEmpty()) {
@@ -32,6 +35,29 @@ class AiRecommendService
             'user_uuid_list' => $profiles->pluck('uuid')->values()->all(),
             'reason' => $recommendResponse['reason'],
             'items' => $profiles->values()->toArray(),
+        ];
+    }
+
+    private function normalizeOverrideUserUuids(array $userUuids, string $excludeUserUuid): array
+    {
+        $normalized = array_values(array_unique(array_filter(
+            $userUuids,
+            static fn (mixed $uuid): bool => is_string($uuid) && Str::isUuid($uuid) && $uuid !== $excludeUserUuid
+        )));
+
+        return $normalized;
+    }
+
+    private function buildOverrideMockResponse(array $overrideUuids, string $content): array
+    {
+        $trimmedContent = Str::of($content)->trim()->limit(80, '...');
+
+        return [
+            'user_uuid_list' => $overrideUuids,
+            'reason' => sprintf(
+                'Mock AI suggest users from request override related to: %s',
+                $trimmedContent
+            ),
         ];
     }
 
