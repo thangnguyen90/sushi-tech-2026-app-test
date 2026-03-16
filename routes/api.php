@@ -29,6 +29,9 @@ Route::middleware(UserAuthenticationMiddleware::class)->group(function (): void 
 
             Route::get('/matching/{profile_id}/details', 'show')
                 ->name('matching-partners-details');
+
+            Route::post('/matching/ai-recommend', 'aiRecommend')
+                ->name('matching.ai-recommend');
         });
 
     // GET /api/chat-profile/filters?lang=eng|jpn&only_enabled=0|1

@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\AiRecommendRequest;
 use App\Http\Requests\MatchingPartnerIndexRequest;
+use App\Services\AiRecommendService;
 use App\Services\MatchingPartnerService;
 use App\Services\ResponseService;
 use Illuminate\Http\Request;
@@ -73,6 +75,24 @@ class MatchingPartnerController extends Controller
         ];
 
         $result = $this->liveChatProfileDetailsService->getDetail($ctx);
+
+        return $this->responseService->success(
+            data: $result,
+            code: 'OK',
+            message: ''
+        );
+    }
+
+    public function aiRecommend(AiRecommendRequest $request, AiRecommendService $service): JsonResponse
+    {
+        $validated = $request->validated();
+        $currentUserUuid = (string) ($request->user()?->uuid ?? $request->header('user-uuid', ''));
+
+        $result = $service->buildRecommendResult(
+            userUuid: $currentUserUuid,
+            content: $validated['content'],
+            overrideUserUuidList: $validated['user_uuid_list'] ?? []
+        );
 
         return $this->responseService->success(
             data: $result,

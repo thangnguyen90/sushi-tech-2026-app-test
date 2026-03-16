@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'ai_recommend' => [
+        'url' => env('AI_RECOMMEND_URL'),
+        'timeout' => env('AI_RECOMMEND_TIMEOUT', 10),
+    ],
+
 ];
