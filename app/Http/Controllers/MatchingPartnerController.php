@@ -10,6 +10,7 @@ use App\Services\ResponseService;
 use Illuminate\Http\Request;
 use App\Services\LiveChatProfileDetailsService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Str;
 use JsonException;
 
 class MatchingPartnerController extends Controller
@@ -34,6 +35,12 @@ class MatchingPartnerController extends Controller
 
         $validated = $request->validated();
         $userId =  isset($user->user_id) ? (int) $user?->user_id : null;
+        $partnerType = $validated['type'] ?? null;
+        $seed = $validated['seed'] ?? Str::uuid()->toString();
+        $defaultPerPage = $partnerType === 'exhibitor'
+            ? (int) ($validated['limit_exhibitors'] ?? config('constants.LIMIT_EXHIBITORS'))
+            : (int) ($validated['limit_visitors'] ?? config('constants.LIMIT_VISITORS'));
+
         try {
             $result = $service->getPartners([
                 'profile_id' => $user->profile_id ?? null,
@@ -44,6 +51,10 @@ class MatchingPartnerController extends Controller
                 'limit_exhibitors' => (int) ($validated['limit_exhibitors'] ?? config('constants.LIMIT_EXHIBITORS')),
                 'limit_visitors' => (int) ($validated['limit_visitors'] ?? config('constants.LIMIT_VISITORS')),
                 'limit_networking_per_name' => (int) ($validated['limit_networking_per_name'] ?? config('constants.LIMIT_NETWORKING_PER_NAME')),
+                'type' => $partnerType,
+                'seed' => $seed,
+                'page' => (int) ($validated['page'] ?? 1),
+                'per_page' => (int) ($validated['per_page'] ?? $defaultPerPage),
                 'keyword' => $validated['keyword']??null,
                 'option_values' => $validated['option_values'] ?? [],
             ]);
