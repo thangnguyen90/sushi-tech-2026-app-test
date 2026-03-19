@@ -15,3 +15,9 @@ export const BUSINESS_MODULE_ID = import.meta.env.VITE_BUSINESS_MODULE_ID
 export const BUSINESS_LINK_ID = import.meta.env.VITE_BUSINESS_LINK_ID
 export const EXHIBITOR_MODULE_ID = import.meta.env.VITE_EXHIBITOR_MODULE_ID
 export const EXHIBITOR_LINK_ID = import.meta.env.VITE_EXHIBITOR_LINK_ID
+
+export const AI_SCRIPT_URL = import.meta.env.VITE_AI_SCRIPT_URL
+export const READ_QR_MODULE_ID = import.meta.env.VITE_READ_QR_MODULE_ID
+export const READ_QR_LINK_ID = import.meta.env.VITE_READ_QR_LINK_ID
+export const HISTORY_QR_MODULE_ID = import.meta.env.VITE_HISTORY_QR_MODULE_ID
+export const HISTORY_QR_LINK_ID = import.meta.env.VITE_HISTORY_QR_LINK_ID
