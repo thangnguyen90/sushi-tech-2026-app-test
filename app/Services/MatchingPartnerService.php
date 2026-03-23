@@ -35,6 +35,14 @@ class MatchingPartnerService
                 "discover_type" => self::DISCOVER_NETWORKING,
                 "list" => $networking
             ],
+            [
+                'discover_type' => self::DISCOVER_EXHIBITOR,
+                'items' => [],
+            ],
+            [
+                'discover_type' => self::DISCOVER_VISITOR,
+                'items' => [],
+            ]
         ];
     }
 
