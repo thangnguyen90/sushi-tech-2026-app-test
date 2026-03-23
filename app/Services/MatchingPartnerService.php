@@ -29,24 +29,13 @@ class MatchingPartnerService
         }
 
         $networking = $this->getNetworking($ctx);
-        $exhibitors = $this->getRandomExhibitors($ctx);
-        $visitors = $this->getRandomVisitors($ctx);
-
-
-        return array_values([
+        
+        return [
             [
                 "discover_type" => self::DISCOVER_NETWORKING,
                 "list" => $networking
             ],
-            [
-                'discover_type' => self::DISCOVER_EXHIBITOR,
-                'items' => $exhibitors,
-            ],
-            [
-                'discover_type' => self::DISCOVER_VISITOR,
-                'items' => $visitors,
-            ],
-        ]);
+        ];
     }
 
     private function getPaginatedPartnersByType(array $ctx): array
@@ -56,8 +45,11 @@ class MatchingPartnerService
         $perPage = max((int) ($ctx['per_page'] ?? 1), 1);
         $seed = $this->resolveSeed($ctx);
         $seedNumber = $this->resolveSeedNumber($seed);
+        $typedPartnerQuery = $this->getTypedPartnerQuery($ctx, $isExhibitor);
+        $total = (clone $typedPartnerQuery)->count();
+        $limitedTotal = min($total, self::MAX_TYPED_RESULTS);
 
-        $orderedIds = $this->getTypedPartnerQuery($ctx, $isExhibitor)
+        $orderedIds = $typedPartnerQuery
             ->distinct()
             ->orderByRaw('(live_chat_profiles.id * ? + ?) % 2147483647', [$seedNumber, $seedNumber % 97])
             ->orderBy('live_chat_profiles.id')
@@ -65,7 +57,6 @@ class MatchingPartnerService
             ->pluck('live_chat_profiles.id')
             ->values();
 
-        $total = $orderedIds->count();
         $offset = ($page - 1) * $perPage;
         $pageIds = $orderedIds->slice($offset, $perPage)->values();
 
@@ -87,7 +78,7 @@ class MatchingPartnerService
             $ctx['language_id'] ?? 1
         );
         $items = $this->hydrateInformationField($items);
-        $paginator = new LengthAwarePaginator($items, $total, $perPage, $page);
+        $paginator = new LengthAwarePaginator($items, $limitedTotal, $perPage, $page);
 
         return [
             'discover_type' => $isExhibitor ? self::DISCOVER_EXHIBITOR : self::DISCOVER_VISITOR,
