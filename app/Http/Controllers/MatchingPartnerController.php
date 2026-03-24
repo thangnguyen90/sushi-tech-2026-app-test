@@ -101,8 +101,7 @@ class MatchingPartnerController extends Controller
 
         $result = $service->buildRecommendResult(
             userUuid: $currentUserUuid,
-            content: $validated['content'],
-            overrideUserUuidList: $validated['user_uuid_list'] ?? []
+            content: $validated['content']
         );
 
         return $this->responseService->success(

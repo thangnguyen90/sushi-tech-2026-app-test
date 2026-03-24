@@ -7,29 +7,15 @@ use App\Models\LiveChatProfileTag;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use Throwable;
 
 class AiRecommendService
 {
-    private const array MOCK_RECOMMENDED_USER_UUIDS = [
-        '336bef36-0e67-48c1-9b8d-3c591dcd6876',
-        '247a364a-2eb8-472c-96b0-29e906e497c9',
-        '9b86fd81-427b-4bbf-aa6b-c17d47c727c8',
-    ];
-
-    public function buildRecommendResult(string $userUuid, string $content, array $overrideUserUuidList = []): array
+    public function buildRecommendResult(string $userUuid, string $content): array
     {
-        $overrideUuids = $this->normalizeOverrideUserUuids($overrideUserUuidList, $userUuid);
-        $recommendResponse = !empty($overrideUuids)
-            ? $this->buildOverrideMockResponse($overrideUuids, $content)
-            : ($this->fetchThirdPartyRecommend($userUuid, $content)
-                ?? $this->buildMockAiResponse($userUuid, $content));
+        $recommendResponse = $this->fetchThirdPartyRecommend($userUuid, $content)
+            ?? $this->buildEmptyRecommendResponse();
         $profiles = $this->getProfilesByUuids($recommendResponse['user_uuid_list']);
-
-        if ($profiles->isEmpty()) {
-            $profiles = $this->getFallbackProfiles($userUuid);
-        }
 
         return [
             'user_uuid_list' => $profiles->pluck('uuid')->values()->all(),
@@ -38,32 +24,9 @@ class AiRecommendService
         ];
     }
 
-    private function normalizeOverrideUserUuids(array $userUuids, string $excludeUserUuid): array
-    {
-        $normalized = array_values(array_unique(array_filter(
-            $userUuids,
-            static fn (mixed $uuid): bool => is_string($uuid) && Str::isUuid($uuid) && $uuid !== $excludeUserUuid
-        )));
-
-        return $normalized;
-    }
-
-    private function buildOverrideMockResponse(array $overrideUuids, string $content): array
-    {
-        $trimmedContent = Str::of($content)->trim()->limit(80, '...');
-
-        return [
-            'user_uuid_list' => $overrideUuids,
-            'reason' => sprintf(
-                'Mock AI suggest users from request override related to: %s',
-                $trimmedContent
-            ),
-        ];
-    }
-
     private function fetchThirdPartyRecommend(string $userUuid, string $content): ?array
     {
-        $apiUrl = trim((string) config('services.ai_recommend.url', ''));
+        $apiUrl = $this->resolveApiUrl();
         if ($apiUrl === '') {
             return null;
         }
@@ -81,7 +44,7 @@ class AiRecommendService
                     'content' => $content,
                 ]);
 
-            if (!$response->successful()) {
+            if (! $response->successful()) {
                 Log::warning('AI recommend API request failed.', [
                     'status' => $response->status(),
                     'url' => $apiUrl,
@@ -91,12 +54,12 @@ class AiRecommendService
             }
 
             $payload = $response->json();
-            if (!is_array($payload)) {
+            if (! is_array($payload)) {
                 return null;
             }
 
             $result = $payload['result'] ?? $payload;
-            if (!is_array($result)) {
+            if (! is_array($result)) {
                 return null;
             }
 
@@ -125,21 +88,16 @@ class AiRecommendService
         }
     }
 
-    private function buildMockAiResponse(string $userUuid, string $content): array
+    private function resolveApiUrl(): string
     {
-        $recommendedUuids = array_values(array_filter(
-            self::MOCK_RECOMMENDED_USER_UUIDS,
-            static fn (string $uuid): bool => $uuid !== $userUuid
-        ));
+        return trim((string) config('services.ai_recommend.url', ''));
+    }
 
-        $trimmedContent = Str::of($content)->trim()->limit(80, '...');
-
+    private function buildEmptyRecommendResponse(): array
+    {
         return [
-            'user_uuid_list' => $recommendedUuids,
-            'reason' => sprintf(
-                'Mock AI suggest users with similar interests related to: %s',
-                $trimmedContent
-            ),
+            'user_uuid_list' => [],
+            'reason' => '',
         ];
     }
 
@@ -165,24 +123,6 @@ class AiRecommendService
         $sortedProfiles = $this->attachTags($sortedProfiles);
 
         return $this->hydrateInformationField($sortedProfiles);
-    }
-
-    private function getFallbackProfiles(string $excludeUserUuid): Collection
-    {
-        $profiles = LiveChatProfiles::query()
-            ->whereNull('deleted_at')
-            ->whereNotNull('uuid')
-            ->where('uuid', '<>', $excludeUserUuid)
-            ->limit(3)
-            ->get($this->profileColumns());
-
-        if ($profiles->isEmpty()) {
-            return $profiles;
-        }
-
-        $profiles = $this->attachTags($profiles->values());
-
-        return $this->hydrateInformationField($profiles);
     }
 
     private function attachTags(Collection $profiles): Collection
