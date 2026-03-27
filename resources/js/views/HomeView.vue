@@ -1,6 +1,5 @@
 <template>
     <div class="top">
-        <img v-if="isPhase2" class="top__ai-logo" src="@/assets/images/sushi_ai_chat.png" alt="">
         <div class="d-flex justify-content-between align-items-center top__header">
             <img class="main-logo" src="@/assets/images/sushi_logo.png" alt="" />
             <!-- <div class="d-flex flex-column align-items-center">
@@ -30,13 +29,21 @@
                             {{ $t('top.menu.qr.details.view') }}
                         </div>
                     </div>
-                    <div class="top__list-content-item-child disabled">
+                    <div
+                        class="top__list-content-item-child"
+                        :class="{ disabled: !readQrLink }"
+                        @click="handleToWeblink(readQrLink)"
+                    >
                         <img class="icon-item reading" src="@/assets/icons/reading.png" alt="">
                         <div class="top__list-content-item-child__text">
                             {{ $t('top.menu.qr.details.read') }}
                         </div>
                     </div>
-                    <div class="top__list-content-item-child disabled">
+                    <div
+                        class="top__list-content-item-child"
+                        :class="{ disabled: !historyQrLink }"
+                        @click="handleToWeblink(historyQrLink)"
+                    >
                         <img class="icon-item exchange" src="@/assets/icons/exchange.png" alt="">
                         <div class="top__list-content-item-child__text">
                             {{ $t('top.menu.qr.details.history') }}
@@ -69,7 +76,7 @@
             </div>
             <div class="top__list-content-items" @click="toChatList">
                 <div class="top__list-content-item">
-                    <img src="@/assets/images/matching.png" alt="">
+                    <img src="@/assets/images/matching.svg" alt="">
                     <div class="top__list-content-item-details">
                         <div class="label">
                             {{ $t('top.menu.matchingList.label') }}
@@ -153,19 +160,34 @@ import {
     useAgreePolicyMutation,
     useUserPolicyStatus,
 } from "@/composables/auth";
-import { EVENTOS_MODULE_CHAT, EVENTOS_MODULE_CHAT_WEB_LINK, EVENTOS_MODULE_MATCHING, EVENTOS_MODULE_MATCHING_WEB_LINK } from "@/shared/constants/env";
+import {
+    AI_SCRIPT_URL_ENG,
+    AI_SCRIPT_URL_JPN,
+    EVENTOS_MODULE_CHAT,
+    EVENTOS_MODULE_CHAT_WEB_LINK,
+    EVENTOS_MODULE_MATCHING,
+    EVENTOS_MODULE_MATCHING_WEB_LINK,
+} from "@/shared/constants/env";
+import { LOCALE_CODE } from "@/shared/constants/variables";
 import { useAuthStore } from "@/stores/AuthStore";
-import { BusinessWebLink, ExhibitorWebLink, LiveChatRedirect } from "@/utils/constantUrl";
+import type { LOCALE_TYPE } from "@/types";
+import { BusinessWebLink, ExhibitorWebLink, LiveChatRedirect, ReadQrWebLink, HistoryQrWebLink } from "@/utils/constantUrl";
+import { loadScript, unloadScript } from "@/utils/useScript";
 import { defineAsyncComponent, ref, watch } from "vue";
 
 const storeAuth = useAuthStore();
 const contractModal = ref<boolean>(false);
 const qrModal = ref<boolean>(false);
-const isPhase2 = ref<boolean>(false);
 const moduleMatchingId = EVENTOS_MODULE_MATCHING;
 const matchingWebLinkId = EVENTOS_MODULE_MATCHING_WEB_LINK;
 const moduleChatId = EVENTOS_MODULE_CHAT;
 const chatWebLinkId = EVENTOS_MODULE_CHAT_WEB_LINK;
+const readQrLink = ref<string>(ReadQrWebLink());
+const historyQrLink = ref<string>(HistoryQrWebLink());
+const aiScriptUrls: Record<LOCALE_TYPE, string | undefined> = {
+    [LOCALE_CODE.JPN]: AI_SCRIPT_URL_JPN,
+    [LOCALE_CODE.ENG]: AI_SCRIPT_URL_ENG,
+};
 const ContractMatchingModal = defineAsyncComponent(
     () => import("@/components/modals/ContractMatchingModal.vue"),
 );
@@ -227,12 +249,35 @@ const toChatList = () => {
     contractModal.value = true;
 }
 
+const handleToWeblink = (link: string) => {
+    if (link) window.location.href = link;
+}
+
 const toNegotiateManagement = () => {
     window.location.href = BusinessWebLink();
 }
 
 const toExhibitor = () => {
     window.location.href = ExhibitorWebLink();
+}
+
+const normalizeLocale = (languageCode?: string): LOCALE_TYPE => {
+    return languageCode === LOCALE_CODE.ENG ? LOCALE_CODE.ENG : LOCALE_CODE.JPN
+}
+
+const syncAiScript = async (languageCode?: string) => {
+    const locale = normalizeLocale(languageCode)
+    const nextScriptUrl = aiScriptUrls[locale]
+
+    Object.values(aiScriptUrls)
+        .filter((scriptUrl): scriptUrl is string => Boolean(scriptUrl && scriptUrl !== nextScriptUrl))
+        .forEach((scriptUrl) => unloadScript(scriptUrl))
+
+    if (!nextScriptUrl) {
+        return
+    }
+
+    await loadScript(nextScriptUrl)
 }
 
 watch(
@@ -242,6 +287,14 @@ watch(
     },
     { immediate: true },
 );
+
+watch(
+    () => storeAuth.languageCode,
+    async (languageCode) => {
+        await syncAiScript(languageCode)
+    },
+    { immediate: true },
+)
 </script>
 <style lang="scss" scoped>
 .top {

@@ -6,6 +6,7 @@ use App\Models\CheckinHistory;
 use App\Models\LiveChatProfiles;
 use App\Models\LiveChatProfileTag;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use JsonException;
 
@@ -14,31 +15,167 @@ class MatchingPartnerService
     private const string DISCOVER_NETWORKING = 'NETWORKING';
     private const string DISCOVER_EXHIBITOR = 'EXHIBITOR';
     private const string DISCOVER_VISITOR = 'VISITOR';
+    private const string TYPE_EXHIBITOR = 'exhibitor';
+    private const string TYPE_VISITOR = 'visitor';
+    private const int MAX_TYPED_RESULTS = 120;
 
     /**
      * @throws JsonException
      */
     public function getPartners(array $ctx): array
     {
+        if ($this->isPartnerTypeFilterEnabled($ctx)) {
+            return $this->getPaginatedPartnersByType($ctx);
+        }
+
         $networking = $this->getNetworking($ctx);
-        $exhibitors = $this->getRandomExhibitors($ctx);
-        $visitors = $this->getRandomVisitors($ctx);
-
-
-        return array_values([
+        
+        return [
             [
                 "discover_type" => self::DISCOVER_NETWORKING,
                 "list" => $networking
             ],
             [
                 'discover_type' => self::DISCOVER_EXHIBITOR,
-                'items' => $exhibitors,
+                'items' => [],
             ],
             [
                 'discover_type' => self::DISCOVER_VISITOR,
-                'items' => $visitors,
-            ],
-        ]);
+                'items' => [],
+            ]
+        ];
+    }
+
+    private function getPaginatedPartnersByType(array $ctx): array
+    {
+        $isExhibitor = $this->resolveIsExhibitorType($ctx);
+        $page = max((int) ($ctx['page'] ?? 1), 1);
+        $perPage = max((int) ($ctx['per_page'] ?? 1), 1);
+        $seed = $this->resolveSeed($ctx);
+        $seedNumber = $this->resolveSeedNumber($seed);
+        $typedPartnerQuery = $this->getTypedPartnerQuery($ctx, $isExhibitor);
+        $total = (clone $typedPartnerQuery)->count();
+        $limitedTotal = min($total, self::MAX_TYPED_RESULTS);
+
+        $orderedIds = $typedPartnerQuery
+            ->distinct()
+            ->orderByRaw('(live_chat_profiles.id * ? + ?) % 2147483647', [$seedNumber, $seedNumber % 97])
+            ->orderBy('live_chat_profiles.id')
+            ->limit(self::MAX_TYPED_RESULTS)
+            ->pluck('live_chat_profiles.id')
+            ->values();
+
+        $offset = ($page - 1) * $perPage;
+        $pageIds = $orderedIds->slice($offset, $perPage)->values();
+
+        $items = collect();
+        if ($pageIds->isNotEmpty()) {
+            $profiles = LiveChatProfiles::query()
+                ->whereIn('id', $pageIds->all())
+                ->get($this->partnerSelectColumns())
+                ->keyBy('id');
+
+            $items = $pageIds->map(function ($id) use ($profiles) {
+                return $profiles->get($id);
+            })->filter()->values();
+        }
+
+        $items = $this->attachTags(
+            $items,
+            $ctx['data_source_id'] ?? null,
+            $ctx['language_id'] ?? 1
+        );
+        $items = $this->hydrateInformationField($items);
+        $paginator = new LengthAwarePaginator($items, $limitedTotal, $perPage, $page);
+
+        return [
+            'discover_type' => $isExhibitor ? self::DISCOVER_EXHIBITOR : self::DISCOVER_VISITOR,
+            'seed' => $seed,
+            'items' => $items->values()->all(),
+            'total' => $total,
+            'paging' => $this->buildPagingData($paginator),
+        ];
+    }
+
+    private function resolveSeed(array $ctx): string
+    {
+        $seed = trim((string) ($ctx['seed'] ?? ''));
+
+        if ($seed === '') {
+            return '1';
+        }
+
+        return $seed;
+    }
+
+    private function resolveSeedNumber(string $seed): int
+    {
+        $seedNumber = abs(crc32($seed));
+
+        return $seedNumber === 0 ? 1 : $seedNumber;
+    }
+
+    private function getTypedPartnerQuery(array $ctx, bool $isExhibitor): Builder
+    {
+        $query = LiveChatProfiles::query()
+            ->whereNull('deleted_at')
+            ->where('live_chat_data_source_id', $ctx['data_source_id'])
+            ->where('last_event_id', $ctx['event_id'])
+            ->where('profile_id', '<>', $ctx['profile_id'])
+            ->where('is_exhibitor', $isExhibitor);
+
+        if (!empty($ctx['keyword'])) {
+            $keyword = $ctx['keyword'];
+
+            $query->where(function ($q) use ($keyword) {
+                $q->where('nickname', 'like', '%' . $keyword . '%')
+                    ->orWhere('company', 'like', '%' . $keyword . '%');
+            });
+        }
+
+        $this->applyOptionValueFilter($query, $ctx['option_values'] ?? []);
+        $this->removeUserTalked($query, $ctx);
+
+        return $query;
+    }
+
+    private function partnerSelectColumns(): array
+    {
+        return [
+            'id',
+            'profile_id',
+            'live_chat_data_source_id',
+            'live_chat_user_id',
+            'uuid',
+            'nickname',
+            'company',
+            'introduction',
+            'icon_image',
+            'background_image',
+            'user_id',
+            'is_exhibitor',
+            'custom_fields'
+        ];
+    }
+
+    private function buildPagingData(LengthAwarePaginator $paginator): array
+    {
+        return [
+            'page' => $paginator->currentPage(),
+            'per_page' => $paginator->perPage(),
+            'total_pages' => $paginator->lastPage(),
+            'has_more' => $paginator->hasMorePages(),
+        ];
+    }
+
+    private function isPartnerTypeFilterEnabled(array $ctx): bool
+    {
+        return in_array($ctx['type'] ?? null, [self::TYPE_EXHIBITOR, self::TYPE_VISITOR], true);
+    }
+
+    private function resolveIsExhibitorType(array $ctx): bool
+    {
+        return ($ctx['type'] ?? null) === self::TYPE_EXHIBITOR;
     }
 
     private function getNetworking(array $ctx): array

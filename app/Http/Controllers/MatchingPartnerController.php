@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\AiRecommendRequest;
 use App\Http\Requests\MatchingPartnerIndexRequest;
+use App\Services\AiRecommendService;
 use App\Services\MatchingPartnerService;
 use App\Services\ResponseService;
 use Illuminate\Http\Request;
 use App\Services\LiveChatProfileDetailsService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Str;
 use JsonException;
 
 class MatchingPartnerController extends Controller
@@ -32,6 +35,12 @@ class MatchingPartnerController extends Controller
 
         $validated = $request->validated();
         $userId =  isset($user->user_id) ? (int) $user?->user_id : null;
+        $partnerType = $validated['type'] ?? null;
+        $seed = $validated['seed'] ?? Str::uuid()->toString();
+        $defaultPerPage = $partnerType === 'exhibitor'
+            ? (int) ($validated['limit_exhibitors'] ?? config('constants.LIMIT_EXHIBITORS'))
+            : (int) ($validated['limit_visitors'] ?? config('constants.LIMIT_VISITORS'));
+
         try {
             $result = $service->getPartners([
                 'profile_id' => $user->profile_id ?? null,
@@ -42,6 +51,10 @@ class MatchingPartnerController extends Controller
                 'limit_exhibitors' => (int) ($validated['limit_exhibitors'] ?? config('constants.LIMIT_EXHIBITORS')),
                 'limit_visitors' => (int) ($validated['limit_visitors'] ?? config('constants.LIMIT_VISITORS')),
                 'limit_networking_per_name' => (int) ($validated['limit_networking_per_name'] ?? config('constants.LIMIT_NETWORKING_PER_NAME')),
+                'type' => $partnerType,
+                'seed' => $seed,
+                'page' => (int) ($validated['page'] ?? 1),
+                'per_page' => (int) ($validated['per_page'] ?? $defaultPerPage),
                 'keyword' => $validated['keyword']??null,
                 'option_values' => $validated['option_values'] ?? [],
             ]);
@@ -73,6 +86,23 @@ class MatchingPartnerController extends Controller
         ];
 
         $result = $this->liveChatProfileDetailsService->getDetail($ctx);
+
+        return $this->responseService->success(
+            data: $result,
+            code: 'OK',
+            message: ''
+        );
+    }
+
+    public function aiRecommend(AiRecommendRequest $request, AiRecommendService $service): JsonResponse
+    {
+        $validated = $request->validated();
+        $currentUserUuid = (string) ($request->user()?->uuid ?? $request->header('user-uuid', ''));
+
+        $result = $service->buildRecommendResult(
+            userUuid: $currentUserUuid,
+            content: $validated['content']
+        );
 
         return $this->responseService->success(
             data: $result,
