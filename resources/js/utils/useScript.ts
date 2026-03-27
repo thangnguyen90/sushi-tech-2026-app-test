@@ -12,3 +12,7 @@ export const loadScript = (src: string) => {
         document.body.appendChild(script)
     })
 }
+
+export const unloadScript = (src: string) => {
+    document.querySelectorAll(`script[src="${src}"]`).forEach((script) => script.remove())
+}
