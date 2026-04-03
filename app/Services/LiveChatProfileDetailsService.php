@@ -4,9 +4,8 @@ namespace App\Services;
 
 use App\Models\LiveChatProfiles;
 use App\Models\LiveChatProfileTag;
-use Illuminate\Support\Collection;
-use App\Repositories\LiveChatProfileFieldOptionRepository;
 use App\Repositories\ChatProfileContentRepository;
+use App\Repositories\LiveChatProfileFieldOptionRepository;
 use JsonException;
 
 class LiveChatProfileDetailsService
@@ -19,14 +18,14 @@ class LiveChatProfileDetailsService
     public function getDetail(array $ctx): array
     {
         $profile = $this->getProfile($ctx);
-        if (!$profile) {
+        if (! $profile) {
             return [];
         }
 
-        $languageId =  config("language.{$ctx['lang']}", 1);
+        $languageId = config("language.{$ctx['lang']}", 1);
         $profile = $this->attachTagsOne($profile, $languageId);
         $customFields = $this->liveChatProfileFieldOptionRepository
-            ->getResolvedCustomFields((int) $profile->profile_id, (string) $ctx['lang']);
+            ->getResolvedCustomFields((int) $profile->profile_id, (string) $ctx['lang'], $profile->custom_fields);
         $introduction = $profile->custom_fields[config('constants.CHAT_PROFILE_INFORMATION')] ?? null;
 
         return [
@@ -37,8 +36,8 @@ class LiveChatProfileDetailsService
             'nickname' => (string) $profile->nickname,
             'company' => $profile->company !== null ? (string) $profile->company : null,
             'introduction' => $introduction,
-            'icon_image' => $profile->icon_image??null,
-            'background_image' => $profile->background_image??null,
+            'icon_image' => $profile->icon_image ?? null,
+            'background_image' => $profile->background_image ?? null,
             'user_id' => $profile->user_id !== null ? (int) $profile->user_id : null,
             'is_exhibitor' => (bool) ($profile->is_exhibitor ?? false),
             'tags' => $profile->tags ?? [],
@@ -79,8 +78,9 @@ class LiveChatProfileDetailsService
             ->whereNull('deleted_at')
             ->where('user_live_chat_profile_id', (int) $profile->profile_id)
             ->first(['tags']);
-        if (!$row) {
+        if (! $row) {
             $profile->tags = [];
+
             return $profile;
         }
         $profile->tags = $row->tags[$languageId];
@@ -91,6 +91,7 @@ class LiveChatProfileDetailsService
     private function normalizeLang(string $lang): string
     {
         $l = strtolower(trim($lang));
+
         return $l === 'eng' ? 'eng' : 'jpn';
     }
 }
