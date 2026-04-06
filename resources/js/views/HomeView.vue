@@ -105,20 +105,48 @@
         </div>
         <div class="top__title">
             <div class="top__title-text">
-                {{ $t('tabs.exhibitor') }}
+                {{ $t('top.title.search') }}
             </div>
             <div class="top__title-undeline"></div>
         </div>
         <div class="top__list-content">
             <div class="top__list-content-items" @click="toExhibitor">
                 <div class="top__list-content-item">
-                    <img src="@/assets/images/matching_list.png" alt="">
+                    <img src="@/assets/images/exhibitor_list.png" alt="" />
                     <div class="top__list-content-item-details">
                         <div class="label">
                             {{ $t('top.menu.exhibitor.label') }}
                         </div>
                         <div class="note">
                             {{ $t('top.menu.exhibitor.note') }}
+                        </div>
+                    </div>
+                    <img class="arrow-icon" src="@/assets/icons/arrow_white_right.svg" alt="">
+                </div>
+            </div>
+            <div class="top__list-content-items">
+                <div class="top__list-content-item">
+                    <img src="@/assets/images/session_list.png" alt="" />
+                    <div class="top__list-content-item-details">
+                        <div class="label">
+                            {{ $t('top.menu.session.label') }}
+                        </div>
+                        <div class="note">
+                            {{ $t('top.menu.session.note') }}
+                        </div>
+                    </div>
+                    <img class="arrow-icon" src="@/assets/icons/arrow_white_right.svg" alt="">
+                </div>
+            </div>
+            <div class="top__list-content-items">
+                <div class="top__list-content-item">
+                    <img src="@/assets/images/partner_event.png" alt="" />
+                    <div class="top__list-content-item-details">
+                        <div class="label">
+                            {{ $t('top.menu.partnerEvent.label') }}
+                        </div>
+                        <div class="note">
+                            {{ $t('top.menu.partnerEvent.note') }}
                         </div>
                     </div>
                     <img class="arrow-icon" src="@/assets/icons/arrow_white_right.svg" alt="">
@@ -442,6 +470,23 @@ onMounted(async () => {
             }
             >img {
                 width: 45px;
+            }
+            .search-icon {
+                width: 60px;
+                min-width: 60px;
+                color: #FFF;
+                &.exhibitor {
+                    width: 62px;
+                    min-width: 62px;
+                }
+                &.session {
+                    width: 64px;
+                    min-width: 64px;
+                }
+                &.partner-event {
+                    width: 64px;
+                    min-width: 64px;
+                }
             }
             &.qr {
                 background: #ffffff;
