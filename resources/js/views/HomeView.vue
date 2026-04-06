@@ -503,23 +503,6 @@ watch(
             >img {
                 width: 45px;
             }
-            .search-icon {
-                width: 60px;
-                min-width: 60px;
-                color: #FFF;
-                &.exhibitor {
-                    width: 62px;
-                    min-width: 62px;
-                }
-                &.session {
-                    width: 64px;
-                    min-width: 64px;
-                }
-                &.partner-event {
-                    width: 64px;
-                    min-width: 64px;
-                }
-            }
             &.qr {
                 background: #ffffff;
                 color: #FFF;
