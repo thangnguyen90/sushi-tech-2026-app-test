@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\DB;
 
 class LiveChatProfileFieldOptionRepository extends BaseRepository
 {
+    private const int MAX_OPTION_VALUE_LENGTH = 500;
+
     protected function modelClass(): string
     {
         return LiveChatProfileFieldOption::class;
@@ -21,9 +23,10 @@ class LiveChatProfileFieldOptionRepository extends BaseRepository
      *
      * @return array<int, array<string, mixed>>
      */
-    public function getResolvedCustomFields(int $profileId, string $lang = 'jpn'): array
+    public function getResolvedCustomFields(int $profileId, string $lang = 'jpn', ?array $profileCustomFields = null): array
     {
         $lang = $this->normalizeLang($lang);
+        $profileCustomFields = $this->normalizeProfileCustomFields($profileCustomFields);
 
         $rows = DB::table('live_chat_profile_field_options as fo')
             ->leftJoin('chat_profile_contents as c_option', function ($join) {
@@ -68,6 +71,11 @@ class LiveChatProfileFieldOptionRepository extends BaseRepository
                 continue;
             }
 
+            $resolvedOptionValue = $this->resolveOptionValue($r, $profileCustomFields);
+            if ($resolvedOptionValue === null) {
+                continue;
+            }
+
             if (! isset($grouped[$fieldKey])) {
                 $fieldMeta = $fieldMetaByKey[$fieldKey] ?? ['label' => '', 'description' => '', 'sort_order' => 999999, 'is_free_text' => false];
 
@@ -80,21 +88,29 @@ class LiveChatProfileFieldOptionRepository extends BaseRepository
                 ];
             }
 
-            $optionLabel = $lang === 'eng' ? (string) ($r->label_eng ?? '') : (string) ($r->label_jpn ?? '');
-            if ($optionLabel === '') {
-                $optionLabel = (string) ($r->option_value ?? '');
-            }
-
             $isFreeText = $fieldMetaByKey[$fieldKey]['is_free_text'] ?? false;
             $isOptionFound = ! is_null($r->c_option_id ?? null);
+            $storedOptionValue = $this->normalizeScalarString($r->option_value ?? null);
+            $shouldUseRawValue = $this->shouldUseRawValue(
+                $fieldKey,
+                $resolvedOptionValue,
+                $isFreeText,
+                $isOptionFound
+            );
+            $optionLabel = $lang === 'eng' ? (string) ($r->label_eng ?? '') : (string) ($r->label_jpn ?? '');
+            if ($optionLabel === '') {
+                $optionLabel = $resolvedOptionValue ?? '';
+            }
 
-            if (! $isFreeText && ! $isOptionFound) {
+            if ($shouldUseRawValue) {
+                $optionLabel = $resolvedOptionValue;
+            } elseif (! $isOptionFound) {
                 // Dropdown/checkbox field, but option not found (deleted/missing)
                 $optionLabel = null;
             }
 
             $grouped[$fieldKey]['values'][] = [
-                'option_value' => (string) ($r->option_value ?? ''),
+                'option_value' => $resolvedOptionValue ?? '',
                 'label' => $optionLabel,
                 'sort_order' => (int) ($r->sort_order ?? 999999),
             ];
@@ -199,5 +215,77 @@ class LiveChatProfileFieldOptionRepository extends BaseRepository
         }
 
         return [];
+    }
+
+    private function resolveOptionValue(object $row, array $profileCustomFields): ?string
+    {
+        $fieldKey = trim((string) ($row->field_key ?? ''));
+        $rowOptionValue = $this->normalizeScalarString($row->option_value ?? null);
+        if ($rowOptionValue !== null) {
+            return $rowOptionValue;
+        }
+
+        if (! array_key_exists($fieldKey, $profileCustomFields)) {
+            return null;
+        }
+
+        $profileOptionValue = $this->normalizeScalarString($profileCustomFields[$fieldKey]);
+        if ($profileOptionValue === null) {
+            return null;
+        }
+
+        if (mb_strlen($profileOptionValue) <= self::MAX_OPTION_VALUE_LENGTH) {
+            return null;
+        }
+
+        return $profileOptionValue;
+    }
+
+    private function shouldUseRawValue(
+        string $fieldKey,
+        ?string $resolvedOptionValue,
+        bool $isFreeText,
+        bool $isOptionFound
+    ): bool {
+        if ($resolvedOptionValue === null) {
+            return false;
+        }
+
+        if ($isFreeText) {
+            return true;
+        }
+
+        return str_starts_with(strtolower($fieldKey), 'additional')
+            && ! $isOptionFound
+            && ! $this->isOptionLikeValue($resolvedOptionValue);
+    }
+
+    private function isOptionLikeValue(string $optionValue): bool
+    {
+        return str_starts_with(strtolower($optionValue), 'option');
+    }
+
+    private function normalizeProfileCustomFields(?array $profileCustomFields): array
+    {
+        if (! is_array($profileCustomFields)) {
+            return [];
+        }
+
+        return $profileCustomFields;
+    }
+
+    private function normalizeScalarString(mixed $value): ?string
+    {
+        if (is_array($value) || is_object($value) || $value === null) {
+            return null;
+        }
+
+        $normalized = trim((string) $value);
+
+        if ($normalized === '' || strcasecmp($normalized, 'null') === 0) {
+            return null;
+        }
+
+        return $normalized;
     }
 }

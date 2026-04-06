@@ -188,11 +188,20 @@ import {
     useAgreePolicyMutation,
     useUserPolicyStatus,
 } from "@/composables/auth";
-import { AI_SCRIPT_URL, EVENTOS_MODULE_CHAT, EVENTOS_MODULE_CHAT_WEB_LINK, EVENTOS_MODULE_MATCHING, EVENTOS_MODULE_MATCHING_WEB_LINK } from "@/shared/constants/env";
+import {
+    AI_SCRIPT_URL_ENG,
+    AI_SCRIPT_URL_JPN,
+    EVENTOS_MODULE_CHAT,
+    EVENTOS_MODULE_CHAT_WEB_LINK,
+    EVENTOS_MODULE_MATCHING,
+    EVENTOS_MODULE_MATCHING_WEB_LINK,
+} from "@/shared/constants/env";
+import { LOCALE_CODE } from "@/shared/constants/variables";
 import { useAuthStore } from "@/stores/AuthStore";
+import type { LOCALE_TYPE } from "@/types";
 import { BusinessWebLink, ExhibitorWebLink, LiveChatRedirect, ReadQrWebLink, HistoryQrWebLink } from "@/utils/constantUrl";
-import { loadScript } from "@/utils/useScript";
-import { defineAsyncComponent, onMounted, ref, watch } from "vue";
+import { loadScript, unloadScript } from "@/utils/useScript";
+import { defineAsyncComponent, ref, watch } from "vue";
 
 const storeAuth = useAuthStore();
 const contractModal = ref<boolean>(false);
@@ -203,6 +212,10 @@ const moduleChatId = EVENTOS_MODULE_CHAT;
 const chatWebLinkId = EVENTOS_MODULE_CHAT_WEB_LINK;
 const readQrLink = ref<string>(ReadQrWebLink());
 const historyQrLink = ref<string>(HistoryQrWebLink());
+const aiScriptUrls: Record<LOCALE_TYPE, string | undefined> = {
+    [LOCALE_CODE.JPN]: AI_SCRIPT_URL_JPN,
+    [LOCALE_CODE.ENG]: AI_SCRIPT_URL_ENG,
+};
 const ContractMatchingModal = defineAsyncComponent(
     () => import("@/components/modals/ContractMatchingModal.vue"),
 );
@@ -276,8 +289,23 @@ const toExhibitor = () => {
     window.location.href = ExhibitorWebLink();
 }
 
-const scriptInit = async () =>{
-    if (AI_SCRIPT_URL) await loadScript(AI_SCRIPT_URL)
+const normalizeLocale = (languageCode?: string): LOCALE_TYPE => {
+    return languageCode === LOCALE_CODE.ENG ? LOCALE_CODE.ENG : LOCALE_CODE.JPN
+}
+
+const syncAiScript = async (languageCode?: string) => {
+    const locale = normalizeLocale(languageCode)
+    const nextScriptUrl = aiScriptUrls[locale]
+
+    Object.values(aiScriptUrls)
+        .filter((scriptUrl): scriptUrl is string => Boolean(scriptUrl && scriptUrl !== nextScriptUrl))
+        .forEach((scriptUrl) => unloadScript(scriptUrl))
+
+    if (!nextScriptUrl) {
+        return
+    }
+
+    await loadScript(nextScriptUrl)
 }
 
 watch(
@@ -288,9 +316,13 @@ watch(
     { immediate: true },
 );
 
-onMounted(async () => {
-    await scriptInit()
-})
+watch(
+    () => storeAuth.languageCode,
+    async (languageCode) => {
+        await syncAiScript(languageCode)
+    },
+    { immediate: true },
+)
 </script>
 <style lang="scss" scoped>
 .top {
