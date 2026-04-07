@@ -24,3 +24,8 @@ export const READ_QR_MODULE_ID = import.meta.env.VITE_READ_QR_MODULE_ID
 export const READ_QR_LINK_ID = import.meta.env.VITE_READ_QR_LINK_ID
 export const HISTORY_QR_MODULE_ID = import.meta.env.VITE_HISTORY_QR_MODULE_ID
 export const HISTORY_QR_LINK_ID = import.meta.env.VITE_HISTORY_QR_LINK_ID
+
+export const SESSION_QR_MODULE_ID = import.meta.env.VITE_SESSION_MODULE_ID
+export const SESSION_QR_LINK_ID = import.meta.env.VITE_SESSION_LINK_ID
+export const PARTNER_QR_MODULE_ID = import.meta.env.VITE_PARTNER_MODULE_ID
+export const PARTNER_QR_LINK_ID = import.meta.env.VITE_PARTNER_LINK_ID

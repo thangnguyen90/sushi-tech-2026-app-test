@@ -59,6 +59,7 @@
         },
         "title": {
             "business": "Business Networking",
+            "search": "Explore",
             "notice": "Announcements",
             "session": "Session List"
         },
@@ -91,6 +92,14 @@
             "exhibitor": {
                 "label": "Find Exhibitors",
                 "note": "Search for exhibitors participating in SusHi Tech Tokyo 2026."
+            },
+            "session": {
+                "label": "Session List",
+                "note": "Find sessions at SusHi Tech Tokyo 2026."
+            },
+            "partnerEvent": {
+                "label": "Partner Event",
+                "note": "Explore official partner events and meetups."
             }
         },
         "stage": {

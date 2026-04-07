@@ -30,3 +30,11 @@ export const HistoryQrWebLink = () => {
     }
     return '';
 }
+
+export const WebLinkUri = (moduleId: string, webLinkId: string) => {
+    if (moduleId && webLinkId) {
+        const url = `${EVENTOS_CLIENT_URL}/uri/web_link/${EVENTOS_PORTAL_ID}/${CHAT_EVENT_ID}/${moduleId}/${webLinkId}`;
+        return url;
+    }
+    return '';
+}
