@@ -124,7 +124,7 @@
                     <img class="arrow-icon" src="@/assets/icons/arrow_white_right.svg" alt="">
                 </div>
             </div>
-            <div class="top__list-content-items">
+            <div class="top__list-content-items" @click="handleToWeblink(WebLinkUri(SESSION_QR_MODULE_ID, SESSION_QR_LINK_ID))">
                 <div class="top__list-content-item">
                     <img src="@/assets/images/session_list.png" alt="" />
                     <div class="top__list-content-item-details">
@@ -138,7 +138,7 @@
                     <img class="arrow-icon" src="@/assets/icons/arrow_white_right.svg" alt="">
                 </div>
             </div>
-            <div class="top__list-content-items">
+            <div class="top__list-content-items" @click="handleToWeblink(WebLinkUri(PARTNER_QR_MODULE_ID, PARTNER_QR_LINK_ID))">
                 <div class="top__list-content-item">
                     <img src="@/assets/images/partner_event.png" alt="" />
                     <div class="top__list-content-item-details">
@@ -195,11 +195,15 @@ import {
     EVENTOS_MODULE_CHAT_WEB_LINK,
     EVENTOS_MODULE_MATCHING,
     EVENTOS_MODULE_MATCHING_WEB_LINK,
+    SESSION_QR_MODULE_ID,
+    SESSION_QR_LINK_ID,
+    PARTNER_QR_MODULE_ID,
+    PARTNER_QR_LINK_ID
 } from "@/shared/constants/env";
 import { LOCALE_CODE } from "@/shared/constants/variables";
 import { useAuthStore } from "@/stores/AuthStore";
 import type { LOCALE_TYPE } from "@/types";
-import { BusinessWebLink, ExhibitorWebLink, LiveChatRedirect, ReadQrWebLink, HistoryQrWebLink } from "@/utils/constantUrl";
+import { BusinessWebLink, ExhibitorWebLink, LiveChatRedirect, ReadQrWebLink, HistoryQrWebLink, WebLinkUri } from "@/utils/constantUrl";
 import { loadScript, unloadScript } from "@/utils/useScript";
 import { defineAsyncComponent, ref, watch } from "vue";
 
@@ -277,7 +281,7 @@ const toChatList = () => {
     contractModal.value = true;
 }
 
-const handleToWeblink = (link: string) => {
+const handleToWeblink = (link?: string) => {
     if (link) window.location.href = link;
 }
 
