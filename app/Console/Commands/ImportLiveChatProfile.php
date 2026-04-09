@@ -11,9 +11,11 @@ use Illuminate\Support\Facades\Storage;
 use League\Csv\Exception;
 use League\Csv\Reader;
 
-class ImportLiveChatProfile extends Command implements ShouldQueue, ShouldBeUnique
+class ImportLiveChatProfile extends Command implements ShouldBeUnique, ShouldQueue
 {
     use CsvTrait;
+
+    private const int MAX_OPTION_VALUE_LENGTH = 500;
 
     /**
      * The name and signature of the console command.
@@ -28,10 +30,12 @@ class ImportLiveChatProfile extends Command implements ShouldQueue, ShouldBeUniq
      * @var string
      */
     protected $description = 'Command description';
+
     const string DISK = 's3';
 
     /**
      * Execute the console command.
+     *
      * @throws Exception
      */
     public function handle()
@@ -43,43 +47,61 @@ class ImportLiveChatProfile extends Command implements ShouldQueue, ShouldBeUniq
         $csv = Reader::fromString($file)->skipEmptyRecords()->setHeaderOffset(0);
 
         $repository = app(LiveChatProfilesRepository::class);
+        $failedRows = 0;
 
         foreach ($csv->getRecords() as $row) {
-            $isExhibitor = $this->isExhibitorText($row['exhibitor_text'] ?? null);
+            try {
+                DB::transaction(function () use ($repository, $row) {
+                    $isExhibitor = $this->isExhibitorText($row['exhibitor_text'] ?? null);
 
-            $attributes = [
-                'uuid' => $row['uuid'] ?? null,
-                'user_id' => $this->toNullableInt($row['user_id'] ?? null),
-                'live_chat_data_source_id' => $this->toInt($row['live_chat_data_source_id'] ?? null),
-                'live_chat_user_id' => $row['live_chat_user_id'] ?? null,
-            ];
-            $profile = $repository->updateOrCreate($attributes, [
-                'profile_id' => $this->toNullableInt($row['id'] ?? null),
-                'user_id' => $this->toNullableInt($row['user_id'] ?? null),
-                'live_chat_data_source_id' => $this->toInt($row['live_chat_data_source_id'] ?? null),
-                'live_chat_user_id' => $row['live_chat_user_id'] ?? null,
-                'uuid' => $row['uuid'] ?? null,
-                'nickname' => $row['nickname'] ?? null,
-                'icon_image' => $this->normalizeJsonField($row['icon_image'] ?? null),
-                'background_image' => $this->normalizeJsonField($row['background_image'] ?? null),
-                'introduction' => $row['introduction'] ?? null,
-                'mail_address' => $row['mail_address'] ?? null,
-                'company' => $row['company'] ?? null,
-                'custom_fields' => $this->normalizeJsonField($row['custom_fields'] ?? null),
-                'exhibitor_administrator_id' => $this->toNullableInt($row['exhibitor_administrator_id'] ?? null),
-                'last_portal_id' => $this->toInt($row['last_portal_id'] ?? null),
-                'last_event_id' => $this->toInt($row['last_event_id'] ?? null),
-                'is_exhibitor' => $isExhibitor,
-            ]);
+                    $attributes = [
+                        'uuid' => $row['uuid'] ?? null,
+                        'user_id' => $this->toNullableInt($row['user_id'] ?? null),
+                        'live_chat_data_source_id' => $this->toInt($row['live_chat_data_source_id'] ?? null),
+                        'live_chat_user_id' => $row['live_chat_user_id'] ?? null,
+                    ];
+                    $profile = $repository->updateOrCreate($attributes, [
+                        'profile_id' => $this->toNullableInt($row['id'] ?? null),
+                        'user_id' => $this->toNullableInt($row['user_id'] ?? null),
+                        'live_chat_data_source_id' => $this->toInt($row['live_chat_data_source_id'] ?? null),
+                        'live_chat_user_id' => $row['live_chat_user_id'] ?? null,
+                        'uuid' => $row['uuid'] ?? null,
+                        'nickname' => $row['nickname'] ?? null,
+                        'icon_image' => $this->normalizeJsonField($row['icon_image'] ?? null),
+                        'background_image' => $this->normalizeJsonField($row['background_image'] ?? null),
+                        'introduction' => $row['introduction'] ?? null,
+                        'mail_address' => $row['mail_address'] ?? null,
+                        'company' => $row['company'] ?? null,
+                        'custom_fields' => $this->normalizeJsonField($row['custom_fields'] ?? null),
+                        'exhibitor_administrator_id' => $this->toNullableInt($row['exhibitor_administrator_id'] ?? null),
+                        'last_portal_id' => $this->toInt($row['last_portal_id'] ?? null),
+                        'last_event_id' => $this->toInt($row['last_event_id'] ?? null),
+                        'is_exhibitor' => $isExhibitor,
+                    ]);
 
-            // Persist selected dropdown options into live_chat_profile_field_options
-            $this->syncProfileFieldOptionsFromCustomFields(
-                profileId: (int) ($profile->profile_id ?? 0),
-                customFieldsRaw: $row['custom_fields'] ?? null
-            );
+                    // Persist selected dropdown options into live_chat_profile_field_options
+                    $this->syncProfileFieldOptionsFromCustomFields(
+                        profileId: (int) ($profile->profile_id ?? 0),
+                        customFieldsRaw: $row['custom_fields'] ?? null
+                    );
+                });
+            } catch (\Throwable $exception) {
+                $failedRows++;
+
+                $this->warn(sprintf(
+                    'Skipped live chat profile row. profile_id=%s uuid=%s reason=%s',
+                    $row['id'] ?? 'n/a',
+                    $row['uuid'] ?? 'n/a',
+                    $exception->getMessage()
+                ));
+            }
         }
 
         $this->info('Import completed successfully.');
+
+        if ($failedRows > 0) {
+            $this->warn(sprintf('Skipped %d failed row(s).', $failedRows));
+        }
     }
 
     private function toInt(mixed $value, int $default = 0): int
@@ -238,8 +260,9 @@ class ImportLiveChatProfile extends Command implements ShouldQueue, ShouldBeUniq
                 continue;
             }
 
-            $optionId = $this->isOptionLikeValue($optionValue)
-                ? $this->extractOptionId($optionValue)
+            $persistedOptionValue = $this->resolvePersistedOptionValue($optionValue);
+            $optionId = $persistedOptionValue !== null && $this->isOptionLikeValue($persistedOptionValue)
+                ? $this->extractOptionId($persistedOptionValue)
                 : null;
 
             DB::table('live_chat_profile_field_options')->updateOrInsert(
@@ -249,13 +272,22 @@ class ImportLiveChatProfile extends Command implements ShouldQueue, ShouldBeUniq
                 ],
                 [
                     'option_id' => $optionId,
-                    'option_value' => $optionValue,
+                    'option_value' => $persistedOptionValue,
                     'updated_at' => $now,
                     'created_at' => $now,
                     'deleted_at' => null,
                 ]
             );
         }
+    }
+
+    private function resolvePersistedOptionValue(string $optionValue): ?string
+    {
+        if (mb_strlen($optionValue) > self::MAX_OPTION_VALUE_LENGTH) {
+            return null;
+        }
+
+        return $optionValue;
     }
 
     private function shouldPersistFieldValue(string $fieldKey, string $optionValue): bool
