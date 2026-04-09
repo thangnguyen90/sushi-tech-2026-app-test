@@ -154,7 +154,7 @@ class UserService extends EventosClient
      *
      * @throws Exception | GuzzleException | Throwable
      */
-    public function forEachUserListPageParallel(callable $pageProcessor, int $concurrency = 1, int $perPage = 0): void
+    public function forEachUserListPageParallel(callable $pageProcessor, int $concurrency = 1, int $perPage = 100): void
     {
         // Fetch page 1 synchronously to discover pagination metadata
         $firstPayload = $this->requestUsersListPage(1, $perPage);
