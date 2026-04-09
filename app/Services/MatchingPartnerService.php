@@ -29,7 +29,6 @@ class MatchingPartnerService
         }
 
         $networking = $this->getNetworking($ctx);
-        
         return [
             [
                 "discover_type" => self::DISCOVER_NETWORKING,
@@ -124,6 +123,8 @@ class MatchingPartnerService
             ->where('profile_id', '<>', $ctx['profile_id'])
             ->where('is_exhibitor', $isExhibitor);
 
+        $this->applyRequiredProfileFieldsFilter($query);
+
         if (!empty($ctx['keyword'])) {
             $keyword = $ctx['keyword'];
 
@@ -213,6 +214,7 @@ class MatchingPartnerService
                 );
 
             $qUser->where('checkin_histories.user_id', '<>', $currentActorId);
+            $this->applyRequiredProfileFieldsFilter($qUser);
 
             if (!empty($ctx['keyword'])) {
                 $keyword = $ctx['keyword'];
@@ -348,6 +350,7 @@ class MatchingPartnerService
             ->where('last_event_id', $ctx['event_id'])
             ->where('profile_id', '<>', $ctx['profile_id'])
             ->where('is_exhibitor', true);
+        $this->applyRequiredProfileFieldsFilter($query);
         if (!empty($ctx['keyword'])) {
             $keyword = $ctx['keyword'];
 
@@ -387,6 +390,7 @@ class MatchingPartnerService
             ->where('last_event_id', $ctx['event_id'])
             ->where('profile_id', '<>', $ctx['profile_id'])
             ->where('is_exhibitor', false);
+        $this->applyRequiredProfileFieldsFilter($query);
         if (!empty($ctx['keyword'])) {
             $keyword = $ctx['keyword'];
 
@@ -434,6 +438,13 @@ class MatchingPartnerService
             'live_chat_profiles.is_exhibitor',
             'live_chat_profiles.custom_fields'
         ];
+    }
+
+    private function applyRequiredProfileFieldsFilter(Builder $query): void
+    {
+        $query->whereNotNull('live_chat_profiles.nickname')
+            ->whereNotNull('live_chat_profiles.company')
+            ->whereNotNull('live_chat_profiles.custom_fields');
     }
 
     private function resolveCurrentActorId(array $ctx): ?int
