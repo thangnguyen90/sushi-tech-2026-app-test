@@ -29,7 +29,6 @@ class MatchingPartnerService
         }
 
         $networking = $this->getNetworking($ctx);
-
         return [
             [
                 "discover_type" => self::DISCOVER_NETWORKING,
@@ -126,12 +125,12 @@ class MatchingPartnerService
 
         $this->applyRequiredProfileFieldsFilter($query);
 
-        if (! empty($ctx['keyword'])) {
+        if (!empty($ctx['keyword'])) {
             $keyword = $ctx['keyword'];
 
             $query->where(function ($q) use ($keyword) {
-                $q->where('nickname', 'like', '%'.$keyword.'%')
-                    ->orWhere('company', 'like', '%'.$keyword.'%');
+                $q->where('nickname', 'like', '%' . $keyword . '%')
+                    ->orWhere('company', 'like', '%' . $keyword . '%');
             });
         }
 
@@ -156,7 +155,7 @@ class MatchingPartnerService
             'background_image',
             'user_id',
             'is_exhibitor',
-            'custom_fields',
+            'custom_fields'
         ];
     }
 
@@ -183,7 +182,7 @@ class MatchingPartnerService
     private function getNetworking(array $ctx): array
     {
         $currentActorId = $this->resolveCurrentActorId($ctx);
-        if (! $currentActorId) {
+        if (!$currentActorId) {
             return [];
         }
 
@@ -250,7 +249,7 @@ class MatchingPartnerService
                 if (is_string($item->custom_fields ?? null)) {
                     $decoded = json_decode($item->custom_fields, true);
                     $item->custom_fields = (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) ? $decoded : [];
-                } elseif (! is_array($item->custom_fields ?? null)) {
+                } elseif (!is_array($item->custom_fields ?? null)) {
                     $item->custom_fields = [];
                 }
                 return $item;
@@ -300,7 +299,7 @@ class MatchingPartnerService
     private function removeUserTalked(Builder $query, array $ctx): void
     {
         $currentId = $this->resolveCurrentActorId($ctx);
-        if (! $currentId) {
+        if (!$currentId) {
             return;
         }
 
@@ -437,7 +436,7 @@ class MatchingPartnerService
             'live_chat_profiles.background_image',
             'live_chat_profiles.user_id',
             'live_chat_profiles.is_exhibitor',
-            'live_chat_profiles.custom_fields',
+            'live_chat_profiles.custom_fields'
         ];
     }
 
