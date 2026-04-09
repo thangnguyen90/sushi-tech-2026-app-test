@@ -27,15 +27,19 @@ class UpdateUserIdInTableUsersCommandTest extends TestCase
         ]);
 
         $this->mock(UserService::class, function (MockInterface $mock): void {
-            $mock->shouldReceive('getUsersList')
+            $mock->shouldReceive('forEachUserListPage')
                 ->once()
-                ->with(0)
-                ->andReturn([
-                    'data' => [
-                        ['user_id' => 101, 'user_qrcode' => 'QR-101'],
-                        ['user_id' => 202, 'user_qrcode' => 'QR-202'],
-                    ],
-                ]);
+                ->andReturnUsing(function (callable $pageProcessor): void {
+                    $pageProcessor([
+                        'total' => 2,
+                        'page' => 1,
+                        'per_page' => 25,
+                        'data' => [
+                            ['user_id' => 101, 'user_qrcode' => 'QR-101'],
+                            ['user_id' => 202, 'user_qrcode' => 'QR-202'],
+                        ],
+                    ], 1);
+                });
 
             $mock->shouldReceive('getUsersByUuid')
                 ->once()
@@ -84,14 +88,18 @@ class UpdateUserIdInTableUsersCommandTest extends TestCase
         ]);
 
         $this->mock(UserService::class, function (MockInterface $mock): void {
-            $mock->shouldReceive('getUsersList')
+            $mock->shouldReceive('forEachUserListPage')
                 ->once()
-                ->with(0)
-                ->andReturn([
-                    'data' => [
-                        ['user_id' => 101, 'user_qrcode' => 'QR-101'],
-                    ],
-                ]);
+                ->andReturnUsing(function (callable $pageProcessor): void {
+                    $pageProcessor([
+                        'total' => 1,
+                        'page' => 1,
+                        'per_page' => 25,
+                        'data' => [
+                            ['user_id' => 101, 'user_qrcode' => 'QR-101'],
+                        ],
+                    ], 1);
+                });
 
             $mock->shouldReceive('getUsersByUuid')
                 ->once()
@@ -134,14 +142,18 @@ class UpdateUserIdInTableUsersCommandTest extends TestCase
         ]);
 
         $this->mock(UserService::class, function (MockInterface $mock): void {
-            $mock->shouldReceive('getUsersList')
+            $mock->shouldReceive('forEachUserListPage')
                 ->once()
-                ->with(0)
-                ->andReturn([
-                    'data' => [
-                        ['user_id' => 303, 'user_qrcode' => 'QR-303'],
-                    ],
-                ]);
+                ->andReturnUsing(function (callable $pageProcessor): void {
+                    $pageProcessor([
+                        'total' => 1,
+                        'page' => 1,
+                        'per_page' => 25,
+                        'data' => [
+                            ['user_id' => 303, 'user_qrcode' => 'QR-303'],
+                        ],
+                    ], 1);
+                });
 
             $mock->shouldReceive('getUsersByUuid')
                 ->once()

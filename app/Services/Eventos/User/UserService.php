@@ -8,6 +8,7 @@ use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Exception\ServerException;
 use Illuminate\Support\Facades\Cache;
+use RuntimeException;
 use Throwable;
 
 class UserService extends EventosClient
@@ -46,9 +47,11 @@ class UserService extends EventosClient
                     $errorMessage = json_decode($e->getResponse()->getBody(), true);
                     throw new Exception($errorMessage['error_message'], 404, $e);
                 }
+
+                throw $e;
             }
 
-            throw new \RuntimeException('Failed to get user by UUID. Status: ');
+            throw new RuntimeException('Failed to get user by UUID. Status: ');
         };
 
         if ($cacheDuration === 0) {
@@ -91,13 +94,55 @@ class UserService extends EventosClient
     public function getUsersList(int $cacheDuration = 60): array
     {
         $cacheKey = 'user_list';
-        $fetchUsers = fn (): array => $this->fetchAllUsersListPages();
+        $fetchUsers = function (): array {
+            $allUsers = [];
+            $firstPayload = null;
+
+            $this->forEachUserListPage(function (array $payload, int $page) use (&$allUsers, &$firstPayload): void {
+                $firstPayload ??= $payload;
+
+                foreach ($this->extractUsersListItems($payload) as $user) {
+                    $allUsers[] = $user;
+                }
+            });
+
+            return $this->mergeUsersListItemsIntoPayload($firstPayload ?? [], $allUsers);
+        };
 
         if ($cacheDuration === 0) {
             return $fetchUsers();
         }
 
         return Cache::remember($cacheKey, $cacheDuration, $fetchUsers);
+    }
+
+    /**
+     * @param  callable(array, int): void  $pageProcessor
+     *
+     * @throws Exception | GuzzleException | Throwable
+     */
+    public function forEachUserListPage(callable $pageProcessor): void
+    {
+        $page = 1;
+        $pagesFetched = 0;
+
+        while ($pagesFetched < self::MAX_USER_LIST_PAGES) {
+            $pagesFetched++;
+            $payload = $this->requestUsersListPage($page);
+            $pageProcessor($payload, $page);
+
+            $nextPage = $this->resolveNextUsersListPage($payload, $page);
+            if ($nextPage === null || $nextPage <= $page) {
+                return;
+            }
+
+            $page = $nextPage;
+        }
+
+        throw new RuntimeException(sprintf(
+            'Reached the maximum allowed page count while fetching Eventos user list (%d pages).',
+            self::MAX_USER_LIST_PAGES
+        ));
     }
 
     /**
@@ -127,39 +172,7 @@ class UserService extends EventosClient
             throw $e;
         }
 
-        throw new \RuntimeException('Failed to get user list. Status: ');
-    }
-
-    /**
-     * @return array<string, mixed>|array<int, mixed>
-     *
-     * @throws Exception | GuzzleException | Throwable
-     */
-    private function fetchAllUsersListPages(): array
-    {
-        $allUsers = [];
-        $page = 1;
-        $pagesFetched = 0;
-        $firstPayload = null;
-
-        while ($pagesFetched < self::MAX_USER_LIST_PAGES) {
-            $payload = $this->requestUsersListPage($page);
-            $firstPayload ??= $payload;
-            $allUsers = [
-                ...$allUsers,
-                ...$this->extractUsersListItems($payload),
-            ];
-
-            $nextPage = $this->resolveNextUsersListPage($payload, $page);
-            if ($nextPage === null || $nextPage <= $page) {
-                break;
-            }
-
-            $page = $nextPage;
-            $pagesFetched++;
-        }
-
-        return $this->mergeUsersListItemsIntoPayload($firstPayload ?? [], $allUsers);
+        throw new RuntimeException('Failed to get user list. Status: ');
     }
 
     /**
