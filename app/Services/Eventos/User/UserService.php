@@ -7,6 +7,7 @@ use Exception;
 use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Exception\ServerException;
+use GuzzleHttp\Promise\EachPromise;
 use Illuminate\Support\Facades\Cache;
 use RuntimeException;
 use Throwable;
@@ -14,10 +15,6 @@ use Throwable;
 class UserService extends EventosClient
 {
     private const int MAX_USER_LIST_PAGES = 500;
-
-    private const int DEFAULT_PER_PAGE = 100;
-
-    private const int DEFAULT_CONCURRENCY = 10;
 
     public function __construct()
     {
@@ -125,14 +122,14 @@ class UserService extends EventosClient
      *
      * @throws Exception | GuzzleException | Throwable
      */
-    public function forEachUserListPage(callable $pageProcessor, int $perPage = self::DEFAULT_PER_PAGE): void
+    public function forEachUserListPage(callable $pageProcessor): void
     {
         $page = 1;
         $pagesFetched = 0;
 
         while ($pagesFetched < self::MAX_USER_LIST_PAGES) {
             $pagesFetched++;
-            $payload = $this->requestUsersListPage($page, $perPage);
+            $payload = $this->requestUsersListPage($page);
             $pageProcessor($payload, $page);
 
             $nextPage = $this->resolveNextUsersListPage($payload, $page);
@@ -150,72 +147,126 @@ class UserService extends EventosClient
     }
 
     /**
-     * Fetch all pages concurrently. Fetches page 1 first to discover the total,
-     * then fires remaining pages in parallel batches.
+     * Fetch all user list pages, requesting up to $concurrency pages at a time.
+     * Passes $perPage as the per_page query parameter when > 0.
      *
      * @param  callable(array, int): void  $pageProcessor
      *
      * @throws Exception | GuzzleException | Throwable
      */
-    public function forEachUserListPageParallel(
-        callable $pageProcessor,
-        int $concurrency = self::DEFAULT_CONCURRENCY,
-        int $perPage = self::DEFAULT_PER_PAGE,
-    ): void {
+    public function forEachUserListPageParallel(callable $pageProcessor, int $concurrency = 1, int $perPage = 0): void
+    {
+        // Fetch page 1 synchronously to discover pagination metadata
         $firstPayload = $this->requestUsersListPage(1, $perPage);
         $pageProcessor($firstPayload, 1);
 
-        $total = $this->extractIntFromPayload($firstPayload, ['total', 'meta.total', 'pagination.total']);
-        if ($total === null || $total <= $perPage) {
+        $lastPageNumber = $this->resolveLastUsersListPageNumber($firstPayload);
+
+        if ($lastPageNumber === null) {
+            // Cannot determine total pages upfront; fall back to sequential
+            $page = $this->resolveNextUsersListPage($firstPayload, 1);
+            $pagesFetched = 1;
+
+            while ($page !== null && $pagesFetched < self::MAX_USER_LIST_PAGES) {
+                $pagesFetched++;
+                $payload = $this->requestUsersListPage($page, $perPage);
+                $pageProcessor($payload, $page);
+                $nextPage = $this->resolveNextUsersListPage($payload, $page);
+                if ($nextPage === null || $nextPage <= $page) {
+                    return;
+                }
+                $page = $nextPage;
+            }
+
+            if ($pagesFetched >= self::MAX_USER_LIST_PAGES) {
+                throw new RuntimeException(sprintf(
+                    'Reached the maximum allowed page count while fetching Eventos user list (%d pages).',
+                    self::MAX_USER_LIST_PAGES
+                ));
+            }
+
             return;
         }
 
-        $lastPage = (int) ceil($total / $perPage);
-        if ($lastPage <= 1) {
+        if ($lastPageNumber <= 1) {
             return;
         }
 
-        foreach (array_chunk(range(2, $lastPage), max(1, $concurrency)) as $batch) {
-            $clients = [];
-            foreach ($batch as $page) {
+        $remainingPages = range(2, min($lastPageNumber, self::MAX_USER_LIST_PAGES));
+
+        $requestFactory = function () use ($remainingPages, $perPage): \Generator {
+            foreach ($remainingPages as $page) {
                 $client = $this->createApiClient();
                 $client->setMethod('GET');
                 $client->setEndpoint('/api/v1/user/list');
-                $client->setQueryParams(['page' => $page, 'per_page' => $perPage]);
-                $clients[$page] = $client;
-            }
-
-            $promises = array_map(static fn ($client) => $client->sendAsync(), $clients);
-            $results = \GuzzleHttp\Promise\Utils::settle($promises)->wait();
-            ksort($results);
-
-            foreach ($results as $page => $result) {
-                if ($result['state'] !== 'fulfilled') {
-                    throw new RuntimeException(sprintf(
-                        'Failed to fetch Eventos user list page %d: %s',
-                        $page,
-                        $result['reason']?->getMessage() ?? 'unknown'
-                    ));
+                $params = ['page' => $page];
+                if ($perPage > 0) {
+                    $params['per_page'] = $perPage;
                 }
-
-                $payload = json_decode($result['value']->getBody()->getContents(), true);
-                $pageProcessor($payload, $page);
+                $client->setQueryParams($params);
+                yield $page => $client->sendAsync();
             }
+        };
+
+        $firstRejection = null;
+        $each = new EachPromise($requestFactory(), [
+            'concurrency' => $concurrency,
+            'fulfilled' => function ($response, $page) use ($pageProcessor): void {
+                $payload = json_decode($response->getBody()->getContents(), true);
+                $pageProcessor($payload, $page);
+            },
+            'rejected' => function ($reason, $page) use (&$firstRejection): void {
+                $firstRejection ??= new RuntimeException(
+                    sprintf('Failed to fetch Eventos user list page %d.', $page),
+                    0,
+                    $reason instanceof \Throwable ? $reason : null
+                );
+            },
+        ]);
+        $each->promise()->wait();
+
+        if ($firstRejection !== null) {
+            throw $firstRejection;
         }
+    }
+
+    private function resolveLastUsersListPageNumber(array $payload): ?int
+    {
+        $perPage = $this->extractIntFromPayload($payload, [
+            'per_page',
+            'meta.per_page',
+            'pagination.per_page',
+        ]);
+        $total = $this->extractIntFromPayload($payload, [
+            'total',
+            'meta.total',
+            'pagination.total',
+        ]);
+
+        if ($total !== null && $perPage !== null && $perPage > 0) {
+            return (int) ceil($total / $perPage);
+        }
+
+        return $this->extractIntFromPayload($payload, [
+            'last_page',
+            'meta.last_page',
+            'pagination.last_page',
+        ]);
     }
 
     /**
      * @throws Exception | GuzzleException | Throwable
      */
-    protected function requestUsersListPage(int $page, int $perPage = self::DEFAULT_PER_PAGE): array
+    protected function requestUsersListPage(int $page, int $perPage = 0): array
     {
         $client = $this->createApiClient();
         $client->setMethod('GET');
         $client->setEndpoint('/api/v1/user/list');
-        $client->setQueryParams([
-            'page' => $page,
-            'per_page' => $perPage,
-        ]);
+        $params = ['page' => $page];
+        if ($perPage > 0) {
+            $params['per_page'] = $perPage;
+        }
+        $client->setQueryParams($params);
 
         try {
             $response = $client->send();
