@@ -25,7 +25,9 @@ class UpdateUserIdInTableUsers extends Command
      * @var string
      */
     protected $signature = 'app:update-user-id-in-table-users
-        {--chunk=200 : Number of local users to hydrate per chunk while iterating}';
+        {--chunk=200 : Number of local users to hydrate per chunk while iterating}
+        {--per-page=1000 : Number of Eventos users to fetch per API page}
+        {--concurrency=10 : Number of concurrent Eventos page requests}';
 
     /**
      * The console command description.
@@ -154,7 +156,10 @@ class UpdateUserIdInTableUsers extends Command
         $ambiguousQrCodes = [];
         $progressBar = null;
 
-        $this->userService->forEachUserListPage(function (array $payload, int $page) use (&$userIdByQrCode, &$ambiguousQrCodes, &$progressBar): void {
+        $perPage = max((int) $this->option('per-page'), 1);
+        $concurrency = max((int) $this->option('concurrency'), 1);
+
+        $this->userService->forEachUserListPageParallel(function (array $payload, int $page) use (&$userIdByQrCode, &$ambiguousQrCodes, &$progressBar): void {
             $users = $this->extractUserList($payload);
 
             if ($progressBar === null) {
@@ -197,7 +202,7 @@ class UpdateUserIdInTableUsers extends Command
             }
 
             $progressBar->advance(count($users));
-        });
+        }, $concurrency, $perPage);
 
         if ($progressBar instanceof ProgressBar) {
             $progressBar->finish();

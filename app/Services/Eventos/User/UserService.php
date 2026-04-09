@@ -15,6 +15,10 @@ class UserService extends EventosClient
 {
     private const int MAX_USER_LIST_PAGES = 500;
 
+    private const int DEFAULT_PER_PAGE = 100;
+
+    private const int DEFAULT_CONCURRENCY = 10;
+
     public function __construct()
     {
         $status = 'public';
@@ -121,14 +125,14 @@ class UserService extends EventosClient
      *
      * @throws Exception | GuzzleException | Throwable
      */
-    public function forEachUserListPage(callable $pageProcessor): void
+    public function forEachUserListPage(callable $pageProcessor, int $perPage = self::DEFAULT_PER_PAGE): void
     {
         $page = 1;
         $pagesFetched = 0;
 
         while ($pagesFetched < self::MAX_USER_LIST_PAGES) {
             $pagesFetched++;
-            $payload = $this->requestUsersListPage($page);
+            $payload = $this->requestUsersListPage($page, $perPage);
             $pageProcessor($payload, $page);
 
             $nextPage = $this->resolveNextUsersListPage($payload, $page);
@@ -146,15 +150,71 @@ class UserService extends EventosClient
     }
 
     /**
+     * Fetch all pages concurrently. Fetches page 1 first to discover the total,
+     * then fires remaining pages in parallel batches.
+     *
+     * @param  callable(array, int): void  $pageProcessor
+     *
      * @throws Exception | GuzzleException | Throwable
      */
-    protected function requestUsersListPage(int $page): array
+    public function forEachUserListPageParallel(
+        callable $pageProcessor,
+        int $concurrency = self::DEFAULT_CONCURRENCY,
+        int $perPage = self::DEFAULT_PER_PAGE,
+    ): void {
+        $firstPayload = $this->requestUsersListPage(1, $perPage);
+        $pageProcessor($firstPayload, 1);
+
+        $total = $this->extractIntFromPayload($firstPayload, ['total', 'meta.total', 'pagination.total']);
+        if ($total === null || $total <= $perPage) {
+            return;
+        }
+
+        $lastPage = (int) ceil($total / $perPage);
+        if ($lastPage <= 1) {
+            return;
+        }
+
+        foreach (array_chunk(range(2, $lastPage), max(1, $concurrency)) as $batch) {
+            $clients = [];
+            foreach ($batch as $page) {
+                $client = $this->createApiClient();
+                $client->setMethod('GET');
+                $client->setEndpoint('/api/v1/user/list');
+                $client->setQueryParams(['page' => $page, 'per_page' => $perPage]);
+                $clients[$page] = $client;
+            }
+
+            $promises = array_map(static fn ($client) => $client->sendAsync(), $clients);
+            $results = \GuzzleHttp\Promise\Utils::settle($promises)->wait();
+            ksort($results);
+
+            foreach ($results as $page => $result) {
+                if ($result['state'] !== 'fulfilled') {
+                    throw new RuntimeException(sprintf(
+                        'Failed to fetch Eventos user list page %d: %s',
+                        $page,
+                        $result['reason']?->getMessage() ?? 'unknown'
+                    ));
+                }
+
+                $payload = json_decode($result['value']->getBody()->getContents(), true);
+                $pageProcessor($payload, $page);
+            }
+        }
+    }
+
+    /**
+     * @throws Exception | GuzzleException | Throwable
+     */
+    protected function requestUsersListPage(int $page, int $perPage = self::DEFAULT_PER_PAGE): array
     {
         $client = $this->createApiClient();
         $client->setMethod('GET');
         $client->setEndpoint('/api/v1/user/list');
         $client->setQueryParams([
             'page' => $page,
+            'per_page' => $perPage,
         ]);
 
         try {
