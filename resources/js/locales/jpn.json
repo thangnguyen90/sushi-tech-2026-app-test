@@ -47,6 +47,7 @@
         },
         "title": {
             "business": "ビジネス交流",
+            "search": "探す",
             "notice": "お知らせ",
             "session": "セッション一覧"
         },
@@ -77,8 +78,16 @@
                 "note": "予約状況を確認・管理できます。"
             },
             "exhibitor": {
-                "label": "出展者を探す",
-                "note": "SusHi Tech Tokyo 2026に出展している出展者を探します。"
+                "label": "出展者",
+                "note": "SusHi Tech Tokyo 2026に出展している出展者を探します"
+            },
+            "session": {
+                "label": "セッション",
+                "note": "SusHi Tech Tokyo 2026で開催しているセッションを探します"
+            },
+            "partnerEvent": {
+                "label": "パートナーイベント",
+                "note": "SusHi Tech Tokyo 2026で開催しているパートナーイベントを探します"
             }
         },
         "stage": {
