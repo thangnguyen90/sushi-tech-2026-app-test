@@ -126,7 +126,7 @@ class MatchingPartnerService
 
         $this->applyRequiredProfileFieldsFilter($query);
 
-        if (! empty($ctx['keyword'])) {
+        if (!empty($ctx['keyword'])) {
             $keyword = $ctx['keyword'];
 
             $query->where(function ($q) use ($keyword) {
