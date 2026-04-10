@@ -26,7 +26,7 @@ class UpdateUserIdInTableUsers extends Command
      */
     protected $signature = 'app:update-user-id-in-table-users
         {--chunk=200 : Number of local users to hydrate per chunk while iterating}
-        {--per-page=1000 : Number of Eventos users to fetch per API page}
+        {--per-page=100 : Number of Eventos users to fetch per API page}
         {--concurrency=10 : Number of concurrent Eventos page requests}';
 
     /**
@@ -156,8 +156,8 @@ class UpdateUserIdInTableUsers extends Command
         $ambiguousQrCodes = [];
         $progressBar = null;
 
-        $perPage = max((int) $this->option('per-page'), 1);
-        $concurrency = max((int) $this->option('concurrency'), 1);
+        $perPage = max((int) $this->option('per-page'), 100);
+        $concurrency = max((int) $this->option('concurrency'), 10);
 
         $this->userService->forEachUserListPageParallel(function (array $payload, int $page) use (&$userIdByQrCode, &$ambiguousQrCodes, &$progressBar): void {
             $users = $this->extractUserList($payload);
