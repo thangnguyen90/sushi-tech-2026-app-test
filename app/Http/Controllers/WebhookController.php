@@ -9,20 +9,14 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
-use Illuminate\Support\Facades\Validator;
 
 class WebhookController extends Controller
 {
-
-
     public function __construct(
-        private readonly ResponseService               $responseService,
+        private readonly ResponseService $responseService,
         private readonly BusinessApproveWebhookService $businessApproveWebhookService,
-        private readonly UsersRepository               $usersRepository,
-    )
-    {
-
-    }
+        private readonly UsersRepository $usersRepository,
+    ) {}
 
     public function handleCsvListTriggerWebhook(Request $request): JsonResponse
     {
@@ -64,7 +58,8 @@ class WebhookController extends Controller
         $skippedDuplicates = $collection->count() - $deduped->count();
         $queued = 0;
         $failed = [];
-        return tap( $this->responseService->success([
+
+        return tap($this->responseService->success([
             'received' => $collection->count(),
             'queued' => $queued,
             'skipped_duplicates' => $skippedDuplicates,
@@ -80,8 +75,8 @@ class WebhookController extends Controller
                 $fileUrl = $item['fileurl'];
                 try {
                     // Safer than string concatenation
-                    $command = "php artisan " . $item['name'] . ' /' . $item['fileurl'];
-//                    dd($command);
+                    $command = 'php artisan '.$item['name'].' /'.$item['fileurl'];
+                    //                    dd($command);
                     Process::path(base_path())->quietly()->start($command);
                     $queued++;
                 } catch (\Throwable $e) {
@@ -102,18 +97,35 @@ class WebhookController extends Controller
 
     }
 
-    public function businessApprovement(Request $request): JsonResponse
+    public function businessAppointment(Request $request): JsonResponse
     {
-        $data = $request->all();
+        return $this->handleBusinessAppointmentWebhook($request, 'BusinessAppointment');
+    }
 
-        $this->businessApproveWebhookService->process($data);
-        return $this->responseService->success('Webhook processed successfully', 200, status: 201);
+    public function businessAppointmentApproved(Request $request): JsonResponse
+    {
+        return $this->handleBusinessAppointmentWebhook($request, 'BusinessAppointmentApproved');
+    }
+
+    public function businessAppointmentRejected(Request $request): JsonResponse
+    {
+        return $this->handleBusinessAppointmentWebhook($request, 'BusinessAppointmentReject');
+    }
+
+    public function businessAppointmentCancelled(Request $request): JsonResponse
+    {
+        return $this->handleBusinessAppointmentWebhook($request, 'BusinessAppointmentCancel');
+    }
+
+    public function businessAppointmentRescheduled(Request $request): JsonResponse
+    {
+        return $this->handleBusinessAppointmentWebhook($request, 'BusinessAppointmentReschedule');
     }
 
     public function userRegistration(Request $request): JsonResponse
     {
         $data = $request->all();
-        if ($data["module_code"] === "Register") {
+        if ($data['module_code'] === 'Register') {
             $user = $this->usersRepository->findByUuid($data['user']['user_uuid']);
             if ($user) {
                 $user->user_id = $data['user']['user_id'];
@@ -129,6 +141,7 @@ class WebhookController extends Controller
 
             }
         }
+
         return $this->responseService->success('Register user', 200, status: 201);
     }
 
@@ -143,5 +156,20 @@ class WebhookController extends Controller
         $ts = strtotime($dt);
 
         return $ts === false ? null : $ts;
+    }
+
+    private function handleBusinessAppointmentWebhook(
+        Request $request,
+        ?string $moduleCode = null
+    ): JsonResponse {
+        $data = $request->all();
+
+        if ($moduleCode !== null) {
+            $data['module_code'] = $moduleCode;
+        }
+
+        $this->businessApproveWebhookService->process($data);
+
+        return $this->responseService->success('Webhook processed successfully', 200, status: 201);
     }
 }

@@ -2,11 +2,12 @@
 
 namespace App\Repositories;
 
+use App\Enums\MatchingStatus;
 use App\Models\LiveChatProfiles;
 use App\Models\MatchingUser;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use App\Enums\MatchingStatus;
+
 class MatchingUserRepository extends BaseRepository
 {
     protected function modelClass(): string
@@ -61,6 +62,7 @@ class MatchingUserRepository extends BaseRepository
             ->cursor()
             ->mapWithKeys(function ($item) {
                 $key = $item->user_id ?? $item->exhibitor_administrator_id;
+
                 return $key ? [$key => $item->uuid] : [];
             })
             ->all();
@@ -69,10 +71,10 @@ class MatchingUserRepository extends BaseRepository
             ->where('owner_user_id', $ownerUserId)
             ->get()
             ->groupBy('peer_user_id')
-            ->map(fn($items) => $items->first())
+            ->map(fn ($items) => $items->first())
             ->toArray();
 
-        $eventId =  config('eventos.event');
+        $eventId = config('eventos.event');
         foreach ($liveChatProfilePeer as $peerId => $peerUuid) {
             if (isset($O2P[$peerId]) && $O2P[$peerId]['status'] === config('constants.STATUS.DEAL_DONE')) {
                 continue;
@@ -81,7 +83,7 @@ class MatchingUserRepository extends BaseRepository
             DB::beginTransaction();
             try {
                 // Update owner -> peer
-                 $this->updateOrCreate(
+                $this->updateOrCreate(
                     [
                         'owner_user_id' => $ownerUserId,
                         'owner_uuid' => $liveChatProfileOwner->uuid,
@@ -94,7 +96,7 @@ class MatchingUserRepository extends BaseRepository
                     ]
                 );
                 // Update peer -> owner
-                 $this->updateOrCreate(
+                $this->updateOrCreate(
                     [
                         'owner_user_id' => $peerId,
                         'owner_uuid' => $peerUuid,
@@ -111,12 +113,12 @@ class MatchingUserRepository extends BaseRepository
                 DB::rollBack();
             }
         }
+
         return true;
     }
 
     public function addOrUpdateDataFromWebhook(array $data): void
     {
-        // Extract applicant information based on type
         $applicantUserId = $data['applicant']['user_id']
             ?? $data['applicant']['user']['user_id']
             ?? $data['applicant']['exhibitor_administrator_id']
@@ -126,7 +128,6 @@ class MatchingUserRepository extends BaseRepository
             ?? $data['applicant']['exhibitor_administrator_uuid']
             ?? null;
 
-        // Extract recipient information based on type
         $recipientUserId = $data['recipient']['user_id']
             ?? $data['recipient']['user']['user_id']
             ?? $data['recipient']['exhibitor_administrator_id']
@@ -137,13 +138,11 @@ class MatchingUserRepository extends BaseRepository
             ?? null;
 
         $eventId = $data['basic_information']['event_id'] ?? 0;
-//        dd($eventId, $applicantUserId, $applicantUuid, $recipientUserId, $recipientUuid);
-        // Validate that we have all required data
-        if (!$applicantUserId || !$applicantUuid || !$recipientUserId || !$recipientUuid) {
+
+        if (! $applicantUserId || ! $applicantUuid || ! $recipientUserId || ! $recipientUuid) {
             return;
         }
 
-        // Create or find matching record: applicant -> recipient
         $matchingUser = $this->query()
             ->where('owner_user_id', $applicantUserId)
             ->where('owner_uuid', $applicantUuid)
@@ -151,7 +150,7 @@ class MatchingUserRepository extends BaseRepository
             ->where('peer_uuid', $recipientUuid)
             ->where('event_id', $eventId)
             ->first();
-        if (!$matchingUser) {
+        if (! $matchingUser) {
             $this->query()->create([
                 'owner_user_id' => $applicantUserId,
                 'owner_uuid' => $applicantUuid,
@@ -162,7 +161,6 @@ class MatchingUserRepository extends BaseRepository
             ]);
         }
 
-        // Create or find matching record: recipient -> applicant
         $matchingUser = $this->query()
             ->where('owner_user_id', $recipientUserId)
             ->where('owner_uuid', $recipientUuid)
@@ -171,7 +169,7 @@ class MatchingUserRepository extends BaseRepository
             ->where('event_id', $eventId)
             ->first();
 
-        if (!$matchingUser) {
+        if (! $matchingUser) {
             $this->query()->create([
                 'owner_user_id' => $recipientUserId,
                 'owner_uuid' => $recipientUuid,
