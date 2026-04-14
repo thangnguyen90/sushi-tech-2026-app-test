@@ -2,9 +2,11 @@
 
 namespace App\Repositories;
 
+use App\Enums\AppointmentStatus;
 use App\Enums\MatchingStatus;
 use App\Models\LiveChatProfiles;
 use App\Models\MatchingUser;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -29,7 +31,12 @@ class MatchingUserRepository extends BaseRepository
         $query = $this->query()
             ->select(['peer_uuid', 'updated_at'])
             ->where('owner_user_id', $ownerUserId)
-            ->where('status', $status);
+            ->where(function (Builder $builder) use ($status): void {
+                $builder->where(function (Builder $legacyQuery) use ($status): void {
+                    $legacyQuery->where('status', $status)
+                        ->whereNull('appointment_status');
+                })->orWhere('appointment_status', AppointmentStatus::Approved->value);
+            });
 
         if ($eventId !== null) {
             $query->where('event_id', $eventId);
@@ -119,65 +126,163 @@ class MatchingUserRepository extends BaseRepository
 
     public function addOrUpdateDataFromWebhook(array $data): void
     {
-        $applicantUserId = $data['applicant']['user_id']
-            ?? $data['applicant']['user']['user_id']
-            ?? $data['applicant']['exhibitor_administrator_id']
-            ?? null;
-        $applicantUuid = $data['applicant']['user_uuid']
-            ?? $data['applicant']['user']['user_uuid']
-            ?? $data['applicant']['exhibitor_administrator_uuid']
-            ?? null;
+        if (! isset($data['module_code'])) {
+            $data['module_code'] = 'BusinessAppointmentApproved';
+        }
 
-        $recipientUserId = $data['recipient']['user_id']
-            ?? $data['recipient']['user']['user_id']
-            ?? $data['recipient']['exhibitor_administrator_id']
-            ?? null;
-        $recipientUuid = $data['recipient']['user_uuid']
-            ?? $data['recipient']['user']['user_uuid']
-            ?? $data['recipient']['exhibitor_administrator_uuid']
-            ?? null;
+        $appointmentStatus = AppointmentStatus::fromModuleCode((string) $data['module_code']);
+        $appointmentScheduleId = $this->parseInteger(
+            data_get($data, 'exhibitor_administrator_appointment_schedule_detail.id')
+        );
+        $eventId = $this->parseInteger(data_get($data, 'basic_information.event_id'));
+        $applicant = $this->extractParticipant($data['applicant'] ?? null);
+        $recipient = $this->extractParticipant($data['recipient'] ?? null);
 
-        $eventId = $data['basic_information']['event_id'] ?? 0;
-
-        if (! $applicantUserId || ! $applicantUuid || ! $recipientUserId || ! $recipientUuid) {
+        if (
+            $appointmentStatus === null
+            || $appointmentScheduleId === null
+            || $eventId === null
+            || $applicant === null
+            || $recipient === null
+        ) {
             return;
         }
 
-        $matchingUser = $this->query()
-            ->where('owner_user_id', $applicantUserId)
-            ->where('owner_uuid', $applicantUuid)
-            ->where('peer_user_id', $recipientUserId)
-            ->where('peer_uuid', $recipientUuid)
-            ->where('event_id', $eventId)
-            ->first();
-        if (! $matchingUser) {
-            $this->query()->create([
-                'owner_user_id' => $applicantUserId,
-                'owner_uuid' => $applicantUuid,
-                'peer_user_id' => $recipientUserId,
-                'peer_uuid' => $recipientUuid,
-                'event_id' => $eventId,
-                'status' => MatchingStatus::DEAL_DONE->value,
-            ]);
+        $sharedValues = [
+            'appointment_schedule_id' => $appointmentScheduleId,
+            'appointment_status' => $appointmentStatus->value,
+            'webhook_module_code' => (string) $data['module_code'],
+            'webhook_schedule_status' => $this->parseString(
+                data_get($data, 'exhibitor_administrator_appointment_schedule_detail.status')
+            ),
+            'webhook_data' => $data,
+        ];
+
+        $businessAppointmentRoomId = $this->parseInteger(
+            data_get($data, 'exhibitor_administrator_appointment_schedule_detail.business_appointment_room_id')
+        );
+        if ($businessAppointmentRoomId !== null) {
+            $sharedValues['business_appointment_room_id'] = $businessAppointmentRoomId;
         }
 
+        $scheduleStartDatetime = data_get(
+            $data,
+            'exhibitor_administrator_appointment_schedule_detail.schedule_start_datetime'
+        );
+        if (is_string($scheduleStartDatetime) && $scheduleStartDatetime !== '') {
+            $sharedValues['schedule_start_datetime'] = $scheduleStartDatetime;
+        }
+
+        $this->upsertAppointmentRecord(
+            owner: $applicant,
+            peer: $recipient,
+            eventId: $eventId,
+            appointmentStatus: $appointmentStatus,
+            values: $sharedValues
+        );
+
+        $this->upsertAppointmentRecord(
+            owner: $recipient,
+            peer: $applicant,
+            eventId: $eventId,
+            appointmentStatus: $appointmentStatus,
+            values: $sharedValues
+        );
+    }
+
+    /**
+     * @param  array{id: int, uuid: string}  $owner
+     * @param  array{id: int, uuid: string}  $peer
+     * @param  array<string, mixed>  $values
+     */
+    private function upsertAppointmentRecord(
+        array $owner,
+        array $peer,
+        int $eventId,
+        AppointmentStatus $appointmentStatus,
+        array $values
+    ): void {
         $matchingUser = $this->query()
-            ->where('owner_user_id', $recipientUserId)
-            ->where('owner_uuid', $recipientUuid)
-            ->where('peer_user_id', $applicantUserId)
-            ->where('peer_uuid', $applicantUuid)
+            ->where('owner_user_id', $owner['id'])
+            ->where('peer_user_id', $peer['id'])
             ->where('event_id', $eventId)
+            ->where(function (Builder $builder) use ($values): void {
+                $builder
+                    ->where('appointment_schedule_id', $values['appointment_schedule_id'])
+                    ->orWhereNull('appointment_schedule_id');
+            })
+            ->orderByDesc('appointment_schedule_id')
             ->first();
 
         if (! $matchingUser) {
-            $this->query()->create([
-                'owner_user_id' => $recipientUserId,
-                'owner_uuid' => $recipientUuid,
-                'peer_user_id' => $applicantUserId,
-                'peer_uuid' => $applicantUuid,
-                'event_id' => $eventId,
-                'status' => MatchingStatus::DEAL_DONE->value,
-            ]);
+            $matchingUser = new MatchingUser;
+            $matchingUser->status = $appointmentStatus === AppointmentStatus::Approved
+                ? MatchingStatus::DEAL_DONE->value
+                : MatchingStatus::PENDING->value;
+        } elseif ($appointmentStatus === AppointmentStatus::Approved) {
+            $matchingUser->status = MatchingStatus::DEAL_DONE->value;
         }
+
+        $matchingUser->fill([
+            'owner_user_id' => $owner['id'],
+            'owner_uuid' => $owner['uuid'],
+            'peer_user_id' => $peer['id'],
+            'peer_uuid' => $peer['uuid'],
+            'event_id' => $eventId,
+            ...$values,
+        ]);
+
+        $matchingUser->save();
+    }
+
+    /**
+     * @return array{id: int, uuid: string}|null
+     */
+    private function extractParticipant(mixed $participant): ?array
+    {
+        if (! is_array($participant)) {
+            return null;
+        }
+
+        $participantId = $this->parseInteger(
+            data_get($participant, 'user_id')
+            ?? data_get($participant, 'user.user_id')
+            ?? data_get($participant, 'exhibitor_administrator_id')
+            ?? data_get($participant, 'exhibitor_administrator.exhibitor_administrator_id')
+        );
+
+        $participantUuid = data_get($participant, 'user_uuid')
+            ?? data_get($participant, 'user.user_uuid')
+            ?? data_get($participant, 'exhibitor_administrator_uuid')
+            ?? data_get($participant, 'exhibitor_administrator.exhibitor_administrator_uuid');
+
+        if ($participantId === null || ! is_string($participantUuid) || $participantUuid === '') {
+            return null;
+        }
+
+        return [
+            'id' => $participantId,
+            'uuid' => $participantUuid,
+        ];
+    }
+
+    private function parseInteger(mixed $value): ?int
+    {
+        if (! is_numeric($value)) {
+            return null;
+        }
+
+        return (int) $value;
+    }
+
+    private function parseString(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $value = trim($value);
+
+        return $value === '' ? null : $value;
     }
 }

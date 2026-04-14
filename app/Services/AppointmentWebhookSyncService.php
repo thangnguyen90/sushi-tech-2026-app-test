@@ -23,10 +23,7 @@ class AppointmentWebhookSyncService
 
         try {
             $this->bizTalksRepository->addOrUpdateDataFromWebhook($data);
-
-            if ($moduleCode === 'BusinessAppointmentApproved') {
-                $this->matchingUserRepository->addOrUpdateDataFromWebhook($data);
-            }
+            $this->matchingUserRepository->addOrUpdateDataFromWebhook($data);
         } catch (\Throwable $throwable) {
             Log::error('Failed to sync appointment webhook.', [
                 'module_code' => $data['module_code'] ?? null,

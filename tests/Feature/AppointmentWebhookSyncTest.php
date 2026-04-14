@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\AppointmentStatus;
 use App\Models\BizTalks;
 use App\Models\MatchingUser;
 use App\Repositories\MatchingUserRepository;
@@ -26,12 +27,22 @@ class AppointmentWebhookSyncTest extends TestCase
             'owner_user_id' => 1001,
             'peer_user_id' => 2002,
             'event_id' => 77,
+            'appointment_schedule_id' => 99001,
+            'business_appointment_room_id' => 15,
+            'appointment_status' => AppointmentStatus::Approved->value,
+            'webhook_module_code' => 'BusinessAppointmentApproved',
+            'webhook_schedule_status' => 'Approved',
             'status' => 4,
         ]);
         $this->assertDatabaseHas('matching_users', [
             'owner_user_id' => 2002,
             'peer_user_id' => 1001,
             'event_id' => 77,
+            'appointment_schedule_id' => 99001,
+            'business_appointment_room_id' => 15,
+            'appointment_status' => AppointmentStatus::Approved->value,
+            'webhook_module_code' => 'BusinessAppointmentApproved',
+            'webhook_schedule_status' => 'Approved',
             'status' => 4,
         ]);
         $this->assertDatabaseHas('biz_talks', [
@@ -40,11 +51,16 @@ class AppointmentWebhookSyncTest extends TestCase
             'user_uuid' => 'user-1001',
         ]);
 
-        $this->assertSame(2, MatchingUser::query()->count());
+        $matchingUser = MatchingUser::query()
+            ->where('owner_user_id', 1001)
+            ->where('peer_user_id', 2002)
+            ->firstOrFail();
+
+        $this->assertSame('BusinessAppointmentApproved', $matchingUser->webhook_data['module_code']);
     }
 
     #[DataProvider('appointmentStatusProvider')]
-    public function test_it_stores_supported_non_approved_hooks_only_in_biz_talks(
+    public function test_it_updates_existing_rows_for_supported_non_approved_hooks(
         string $endpoint,
         string $moduleCode,
         string $expectedRawStatus
@@ -59,7 +75,18 @@ class AppointmentWebhookSyncTest extends TestCase
 
         $response->assertCreated();
 
-        $this->assertSame(0, MatchingUser::query()->count());
+        $this->assertSame(
+            2,
+            MatchingUser::query()->where('appointment_schedule_id', 99001)->count()
+        );
+        $this->assertDatabaseHas('matching_users', [
+            'owner_user_id' => 1001,
+            'peer_user_id' => 2002,
+            'appointment_schedule_id' => 99001,
+            'appointment_status' => AppointmentStatus::fromModuleCode($moduleCode)?->value,
+            'webhook_module_code' => $moduleCode,
+            'webhook_schedule_status' => $expectedRawStatus,
+        ]);
         $this->assertDatabaseHas('biz_talks', [
             'exhibitor_schedule_id' => 99001,
             'user_id' => 1001,
@@ -78,6 +105,15 @@ class AppointmentWebhookSyncTest extends TestCase
             $expectedRawStatus,
             $data['exhibitor_administrator_appointment_schedule_detail']['status']
         );
+
+        $matchingUser = MatchingUser::query()
+            ->where('owner_user_id', 1001)
+            ->where('peer_user_id', 2002)
+            ->where('appointment_schedule_id', 99001)
+            ->firstOrFail();
+
+        $this->assertSame('2026-04-20 16:45:00', $matchingUser->getRawOriginal('schedule_start_datetime'));
+        $this->assertSame($moduleCode, $matchingUser->webhook_data['module_code']);
     }
 
     public function test_it_keeps_legacy_status_four_rows_visible_as_approved_records(): void
