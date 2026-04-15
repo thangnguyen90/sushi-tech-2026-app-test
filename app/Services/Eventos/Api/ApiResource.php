@@ -15,18 +15,27 @@ use Illuminate\Support\Facades\Log;
 use Psr\Http\Message\ResponseInterface;
 use Throwable;
 
-
 abstract class ApiResource
 {
     /** ---- Runtime configs (extractable ra config/env) ---- */
     private const MAX_RETRIES = 3;      // max retry attempts
+
+    private const MAX_RATE_LIMIT_DELAY_SECONDS = 8;
+
     private string $baseUrl;
+
     private string $endpoint;
+
     private string $method;
+
     public array $headers = [];
+
     private mixed $body = null;
+
     private array $query = [];
+
     private string $rawQuery = '';
+
     private array $cookies = [];
 
     /** Callable to refresh authentication, if needed */
@@ -40,49 +49,62 @@ abstract class ApiResource
     public function setMethod(string $method): self
     {
         $this->method = $method;
+
         return $this;
     }
 
     public function setEndpoint(string $endpoint): self
     {
         $this->endpoint = $endpoint;
+
         return $this;
     }
+
     public function setHeaders(array|string $headers, ?string $value = null): self
     {
-        if (is_array($headers)) $this->headers = array_merge($this->headers, $headers);
-        elseif (is_string($headers) && $value !== null) $this->headers[$headers] = $value;
-        else throw new Exception('Headers must be an array or a string with a value.');
+        if (is_array($headers)) {
+            $this->headers = array_merge($this->headers, $headers);
+        } elseif (is_string($headers) && $value !== null) {
+            $this->headers[$headers] = $value;
+        } else {
+            throw new Exception('Headers must be an array or a string with a value.');
+        }
+
         return $this;
     }
 
     public function setBody(mixed $body): self
     {
         $this->body = $body;
+
         return $this;
     }
 
     public function setQueryParams(array $query): self
     {
         $this->query = $query;
+
         return $this;
     }
 
     public function setRawQuery(string $rawQuery): self
     {
         $this->rawQuery = ltrim($rawQuery, '&?');
+
         return $this;
     }
 
     public function setCookies(array $cookies): self
     {
         $this->cookies = $cookies;
+
         return $this;
     }
 
     public function setAuthRefresher(callable $refresher): self
     {
         $this->authRefresher = $refresher;
+
         return $this;
     }
 
@@ -115,16 +137,16 @@ abstract class ApiResource
     {
         $endpoint = $this->endpoint;
 
-        $hasQuery = !empty($this->query);
+        $hasQuery = ! empty($this->query);
         $hasRaw = $this->rawQuery !== '';
 
         if ($hasQuery) {
-            $endpoint .= '?' . http_build_query($this->query);
+            $endpoint .= '?'.http_build_query($this->query);
             if ($hasRaw) {
-                $endpoint .= '&' . $this->rawQuery;
+                $endpoint .= '&'.$this->rawQuery;
             }
         } elseif ($hasRaw) {
-            $endpoint .= '?' . $this->rawQuery;
+            $endpoint .= '?'.$this->rawQuery;
         }
 
         return $endpoint;
@@ -153,10 +175,10 @@ abstract class ApiResource
 
         if (! empty($this->query)) {
             $requestEndpoint .= '?'.http_build_query($this->query);
-            if( !empty($this->rawQuery)) {
+            if (! empty($this->rawQuery)) {
                 $requestEndpoint .= '&'.$this->rawQuery;
             }
-        }elseif (!empty($this->rawQuery)) {
+        } elseif (! empty($this->rawQuery)) {
             $requestEndpoint .= '?'.$this->rawQuery;
         }
 
@@ -182,10 +204,10 @@ abstract class ApiResource
                         try {
                             $refreshed = call_user_func($this->authRefresher, $this);
                             Log::info('Auth refresher executed', [
-                                'refreshed' => (bool)$refreshed,
+                                'refreshed' => (bool) $refreshed,
                                 'attempt' => $retries + 1,
                                 'header' => $this->headers,
-                                'url' => $this->baseUrl . $this->endpoint,
+                                'url' => $this->baseUrl.$this->endpoint,
                             ]);
                         } catch (Throwable $e) {
                             Log::error('Auth refresher thrown exception', [
@@ -193,24 +215,40 @@ abstract class ApiResource
                             ]);
                         }
                     }
-                    if ($retries <= self::MAX_RETRIES && $refreshed) goto call;
+                    if ($retries <= self::MAX_RETRIES && $refreshed) {
+                        goto call;
+                    }
+                }
+
+                if ($status === 429 && $retries < self::MAX_RETRIES) {
+                    $retryDelaySeconds = $this->resolveRateLimitDelaySeconds($response, $retries);
+
+                    Log::warning('API request rate limited. Retrying request.', [
+                        'attempt' => $retries + 1,
+                        'delay_seconds' => $retryDelaySeconds,
+                        'url' => $this->baseUrl.$requestEndpoint,
+                    ]);
+
+                    usleep($retryDelaySeconds * 1_000_000);
+
+                    goto call;
                 }
             }
             $this->_handleRequestException($e);
         }
 
         $this->setCookies($cookieJar->toArray());
+
         return $response;
     }
 
     /**
-     * @return PromiseInterface
      * @throws GuzzleException
      * @throws Exception|Throwable
      */
     public function sendAsync(): PromiseInterface
     {
-        if (!isset($this->method)) {
+        if (! isset($this->method)) {
             throw new Exception('Request method is not defined.');
         }
 
@@ -230,7 +268,23 @@ abstract class ApiResource
         }
 
         $this->setCookies($cookieJar->toArray());
+
         return $promise;
+    }
+
+    private function resolveRateLimitDelaySeconds(ResponseInterface $response, int $attempt): int
+    {
+        $retryAfterHeader = $response->getHeaderLine('Retry-After');
+
+        if (is_numeric($retryAfterHeader)) {
+            $retryAfterSeconds = (int) $retryAfterHeader;
+
+            if ($retryAfterSeconds > 0) {
+                return min($retryAfterSeconds, self::MAX_RATE_LIMIT_DELAY_SECONDS);
+            }
+        }
+
+        return min(2 ** max($attempt - 1, 0), self::MAX_RATE_LIMIT_DELAY_SECONDS);
     }
 
     /**
@@ -245,7 +299,7 @@ abstract class ApiResource
         $logContext = [
             'type' => $errorType,
             'code' => $code,
-            'url' => $this->baseUrl . $this->endpoint,
+            'url' => $this->baseUrl.$this->endpoint,
             'error' => $message,
         ];
 
