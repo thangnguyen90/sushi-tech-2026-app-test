@@ -14,6 +14,7 @@ class BusinessAppointmentRoom extends Model
     protected $table = 'business_appointment_rooms';
 
     protected $casts = [
+        'is_free' => 'boolean',
         'room_image' => 'array',
     ];
 }

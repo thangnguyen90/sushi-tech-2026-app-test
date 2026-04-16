@@ -145,6 +145,7 @@
         "insecureContextError": "Your internet connection is not secure (https required).",
         "invalidPasscode": "The password is incorrect",
         "ticketError": "The reservation could not be confirmed due to an error. Please try again.",
+        "invalidQrCode": "Invalid QR code.",
         "qrTitle": "An error occurred while scanning",
         "qrMessage": "Please try again."
     },
@@ -158,6 +159,7 @@
         "sun": "SUN"
     },
     "pageTitles": {
-        "home": "SusHi Tech Tokyo 2026"
+        "home": "SusHi Tech Tokyo 2026",
+        "reception": "Reception Check-in | SusHi Tech Tokyo 2026"
     }
 }

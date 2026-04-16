@@ -137,6 +137,7 @@ final class ImportBusinessAppointmentRoomsCommand extends Command implements Sho
             'business_appointment_room_id' => $roomId,
             'content_id' => $this->toNullableInt($row['content_id'] ?? null),
             'name' => $name,
+            'is_free' => $this->toNullableInt($row['is_free'] ?? null) === 1,
             'room_image' => $this->normalizeJson($row['room_image'] ?? null, $lineNo),
             'language_id' => $languageId,
             'created_at' => $this->toNullableDateTimeString($row['created_at'] ?? null) ?? $now->format('Y-m-d H:i:s'),
@@ -220,7 +221,7 @@ final class ImportBusinessAppointmentRoomsCommand extends Command implements Sho
         DB::table(self::TARGET_TABLE)->upsert(
             $buffer,
             ['business_appointment_room_id', 'language_id'],
-            ['content_id', 'name', 'room_image', 'updated_at', 'deleted_at']
+            ['content_id', 'name', 'is_free', 'room_image', 'updated_at', 'deleted_at']
         );
 
         return count($buffer);

@@ -27,6 +27,13 @@ const routes: RouteRecordRaw[] = [
                     title: ROUTE.TITLE.MATCHING_LIST,
                 }
             },
+            {
+                path: ROUTE.PATH.RECEPTION,
+                component: () => import("@/views/ReceptionView.vue"),
+                meta: {
+                    title: ROUTE.TITLE.RECEPTION,
+                }
+            },
         ],
         meta: {
             middleware: [auth, language],

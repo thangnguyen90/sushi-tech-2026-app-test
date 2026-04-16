@@ -7,6 +7,7 @@ use App\Enums\MatchingStatus;
 use App\Models\LiveChatProfiles;
 use App\Models\MatchingUser;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -191,6 +192,69 @@ class MatchingUserRepository extends BaseRepository
     }
 
     /**
+     * @return array<int, array{
+     *     appointment_id: int|string|null,
+     *     partner_name: string|null,
+     *     schedule_time: string|null,
+     *     room_id: int|null,
+     *     room_name: string
+     * }>
+     */
+    public function getApprovedAppointmentsForRoom(int $roomId, string $userUuid, int $languageId): array
+    {
+        $fallbackLanguageId = (int) config('language.jpn', 1);
+
+        $rows = $this->query()
+            ->from('matching_users')
+            ->select('matching_users.*')
+            ->selectRaw('COALESCE(requested_rooms.name, fallback_rooms.name, ?) as room_name', [''])
+            ->leftJoin('business_appointment_rooms as requested_rooms', function ($join) use ($languageId): void {
+                $join->on(
+                    'requested_rooms.business_appointment_room_id',
+                    '=',
+                    'matching_users.business_appointment_room_id'
+                )->where('requested_rooms.language_id', '=', $languageId);
+            })
+            ->leftJoin('business_appointment_rooms as fallback_rooms', function ($join) use ($fallbackLanguageId): void {
+                $join->on(
+                    'fallback_rooms.business_appointment_room_id',
+                    '=',
+                    'matching_users.business_appointment_room_id'
+                )->where('fallback_rooms.language_id', '=', $fallbackLanguageId);
+            })
+            ->where('matching_users.owner_uuid', $userUuid)
+            ->where('matching_users.appointment_status', AppointmentStatus::Approved->value)
+            ->orderBy('matching_users.schedule_start_datetime')
+            ->orderBy('matching_users.appointment_schedule_id')
+            ->get();
+
+        return $rows->map(function (MatchingUser $matchingUser): array {
+            $scheduleTime = $matchingUser->schedule_start_datetime;
+
+            return [
+                'appointment_id' => $matchingUser->appointment_schedule_id,
+                'partner_name' => $this->resolvePartnerName($matchingUser),
+                'schedule_time' => $scheduleTime instanceof Carbon
+                    ? $scheduleTime->format('Y-m-d H:i:s')
+                    : null,
+                'room_id' => $matchingUser->business_appointment_room_id !== null
+                    ? (int) $matchingUser->business_appointment_room_id
+                    : null,
+                'room_name' => (string) ($matchingUser->getAttribute('room_name') ?? ''),
+            ];
+        })->all();
+    }
+
+    public function findApprovedAppointmentByScheduleId(int $appointmentScheduleId): ?MatchingUser
+    {
+        return $this->query()
+            ->where('appointment_schedule_id', $appointmentScheduleId)
+            ->where('appointment_status', AppointmentStatus::Approved->value)
+            ->orderBy('id')
+            ->first();
+    }
+
+    /**
      * @param  array{id: int, uuid: string}  $owner
      * @param  array{id: int, uuid: string}  $peer
      * @param  array<string, mixed>  $values
@@ -264,6 +328,75 @@ class MatchingUserRepository extends BaseRepository
             'id' => $participantId,
             'uuid' => $participantUuid,
         ];
+    }
+
+    private function resolvePartnerName(MatchingUser $matchingUser): ?string
+    {
+        $webhookData = $matchingUser->webhook_data;
+        if (! is_array($webhookData)) {
+            return null;
+        }
+
+        $ownerUuid = (string) ($matchingUser->owner_uuid ?? '');
+        $applicantUuid = $this->extractWebhookParticipantUuid($webhookData['applicant'] ?? null);
+        $recipientUuid = $this->extractWebhookParticipantUuid($webhookData['recipient'] ?? null);
+
+        if ($ownerUuid !== '' && $ownerUuid === $applicantUuid) {
+            return $this->extractWebhookParticipantName(
+                $webhookData,
+                'recipient',
+                'recipient_name'
+            );
+        }
+
+        if ($ownerUuid !== '' && $ownerUuid === $recipientUuid) {
+            return $this->extractWebhookParticipantName(
+                $webhookData,
+                'applicant',
+                'applicant_name'
+            );
+        }
+
+        return null;
+    }
+
+    private function extractWebhookParticipantUuid(mixed $participant): ?string
+    {
+        if (! is_array($participant)) {
+            return null;
+        }
+
+        $uuid = data_get($participant, 'user_uuid')
+            ?? data_get($participant, 'user.user_uuid')
+            ?? data_get($participant, 'exhibitor_administrator_uuid')
+            ?? data_get($participant, 'exhibitor_administrator.exhibitor_administrator_uuid');
+
+        return is_string($uuid) && $uuid !== '' ? $uuid : null;
+    }
+
+    private function extractWebhookParticipantName(
+        array $webhookData,
+        string $participantKey,
+        string $scheduleNameKey
+    ): ?string {
+        $scheduleName = data_get(
+            $webhookData,
+            'exhibitor_administrator_appointment_schedule_detail.'.$scheduleNameKey
+        );
+        if (is_string($scheduleName) && $scheduleName !== '') {
+            return $scheduleName;
+        }
+
+        $participant = $webhookData[$participantKey] ?? null;
+        if (! is_array($participant)) {
+            return null;
+        }
+
+        $name = data_get($participant, 'name')
+            ?? data_get($participant, 'user.name')
+            ?? data_get($participant, 'exhibitor_administrator.name');
+
+        return is_string($name) && $name !== '' ? $name : null;
     }
 
     private function parseInteger(mixed $value): ?int

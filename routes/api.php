@@ -1,9 +1,16 @@
 <?php
 
+use App\Http\Controllers\AppointmentCheckinController;
 use App\Http\Controllers\ChatProfileContentController;
+use App\Http\Controllers\FreeReceptionCheckinController;
 use App\Http\Controllers\LiveChatProfilesController;
 use App\Http\Controllers\MatchingPartnerController;
 use App\Http\Controllers\MatchingUserController;
+use App\Http\Controllers\ReceptionCheckinController;
+use App\Http\Controllers\ReceptionCompleteCheckinController;
+use App\Http\Controllers\ReceptionUserShowController;
+use App\Http\Controllers\RoomAppointmentsController;
+use App\Http\Controllers\RoomShowController;
 use App\Http\Controllers\WebhookController;
 use App\Http\Middleware\UserAuthenticationMiddleware;
 use Illuminate\Support\Facades\Route;
@@ -53,3 +60,24 @@ Route::controller(WebhookController::class)->group(function (): void {
     Route::post('webhook/business-appointment-rescheduled', 'businessAppointmentRescheduled')->name('webhook.business-appointment-rescheduled');
     Route::post('webhook/user-registration', 'userRegistration')->name('webhook.user-registration');
 });
+
+Route::post('reception/checkin', ReceptionCheckinController::class)
+    ->name('reception.checkin');
+
+Route::post('reception/checkin/complete', ReceptionCompleteCheckinController::class)
+    ->name('reception.checkin.complete');
+
+Route::get('reception/users/{user_uuid}', ReceptionUserShowController::class)
+    ->name('reception.users.show');
+
+Route::get('rooms/{room_id}/appointments', RoomAppointmentsController::class)
+    ->name('rooms.appointments');
+
+Route::get('rooms/{room_id}', RoomShowController::class)
+    ->name('rooms.show');
+
+Route::post('rooms/{room_id}/free-checkin', FreeReceptionCheckinController::class)
+    ->name('rooms.free-checkin');
+
+Route::post('appointments/{id}/checkin', AppointmentCheckinController::class)
+    ->name('appointments.checkin');
