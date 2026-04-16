@@ -63,6 +63,7 @@ class ImportLiveChatProfile extends Command implements ShouldBeUnique, ShouldQue
                     $profile = $repository->updateOrCreate($attributes, [
                         'profile_id' => $this->toNullableInt($row['id'] ?? null),
                         'user_id' => $this->toNullableInt($row['user_id'] ?? null),
+                        'user_uuid' => $this->normalizeNullableString($row['user_uuid'] ?? null),
                         'live_chat_data_source_id' => $this->toInt($row['live_chat_data_source_id'] ?? null),
                         'live_chat_user_id' => $row['live_chat_user_id'] ?? null,
                         'uuid' => $row['uuid'] ?? null,
