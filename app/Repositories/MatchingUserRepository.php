@@ -672,16 +672,19 @@ class MatchingUserRepository extends BaseRepository
             DATE_ATOM,
         ];
 
+        $jst = new \DateTimeZone('Asia/Tokyo');
+        $utc = new \DateTimeZone('UTC');
+
         foreach ($formats as $format) {
-            $date = \DateTimeImmutable::createFromFormat($format, $value);
+            $date = \DateTimeImmutable::createFromFormat($format, $value, $jst);
 
             if ($date instanceof \DateTimeImmutable) {
-                return $date->format('Y-m-d H:i:s');
+                return $date->setTimezone($utc)->format('Y-m-d H:i:s');
             }
         }
 
-        $timestamp = strtotime($value);
+        $timestamp = strtotime($value . ' +0900');
 
-        return $timestamp === false ? null : date('Y-m-d H:i:s', $timestamp);
+        return $timestamp === false ? null : gmdate('Y-m-d H:i:s', $timestamp);
     }
 }
