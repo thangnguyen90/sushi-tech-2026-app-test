@@ -281,6 +281,7 @@ class MatchingUserRepository extends BaseRepository
             ->from('matching_users')
             ->select('matching_users.*')
             ->selectRaw('COALESCE(requested_rooms.name, fallback_rooms.name, ?) as room_name', [''])
+            ->selectRaw('peer_profiles.nickname as peer_nickname')
             ->leftJoin('business_appointment_rooms as requested_rooms', function ($join) use ($languageId): void {
                 $join->on(
                     'requested_rooms.business_appointment_room_id',
@@ -295,6 +296,10 @@ class MatchingUserRepository extends BaseRepository
                     'matching_users.business_appointment_room_id'
                 )->where('fallback_rooms.language_id', '=', $fallbackLanguageId);
             })
+            ->leftJoin('live_chat_profiles as peer_profiles', function ($join): void {
+                $join->on('peer_profiles.user_id', '=', 'matching_users.peer_user_id')
+                    ->whereNull('peer_profiles.deleted_at');
+            })
             ->where('matching_users.owner_user_id', $ownerUserId)
             ->where('matching_users.appointment_status', AppointmentStatus::Approved->value)
             ->whereNotNull('matching_users.appointment_schedule_id')
@@ -307,7 +312,8 @@ class MatchingUserRepository extends BaseRepository
 
             return [
                 'appointment_id' => $matchingUser->appointment_schedule_id,
-                'partner_name' => $this->resolvePartnerName($matchingUser),
+                'partner_name' => $matchingUser->getAttribute('peer_nickname')
+                    ?? $this->resolvePartnerName($matchingUser),
                 'schedule_time' => $scheduleTime instanceof Carbon
                     ? $scheduleTime->format('Y-m-d H:i:s')
                     : null,
