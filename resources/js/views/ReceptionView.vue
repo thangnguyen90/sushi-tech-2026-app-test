@@ -258,34 +258,36 @@
 
                     <h1 class="reception__result-title">予約済みの来場者です</h1>
 
-                    <div class="reception__result-block">
+                    <div class="reception__result-block mb-4">
                         <p>【来場者情報】</p>
                         <p>お名前 ： {{ checkinResult.visitor_name || "ー" }}</p>
                     </div>
 
-                    <div class="reception__result-block">
+                    <div class="reception__result-block mb-1">
                         <p>【予定されている商談】</p>
                     </div>
 
-                    <div
-                        v-for="appointment in checkinResult.appointments"
-                        :key="appointment.appointment_id"
-                        class="reception__appointment"
-                    >
-                        <p>予約時間：{{ appointment.time_label }}</p>
-                        <p>商談場所：{{ appointment.location_label }}</p>
-                        <p>商談相手：{{ appointment.partner_name }}</p>
-                        <p>商談ID：{{ appointment.appointment_id }}</p>
-
-                        <button
-                            type="button"
-                            class="reception__appointment-button"
-                            :class="{ 'is-disabled': !appointment.can_checkin }"
-                            :disabled="!appointment.can_checkin"
-                            @click="completeCheckin(appointment)"
+                    <div class="reception__appointment-list">
+                        <div
+                            v-for="appointment in checkinResult.appointments"
+                            :key="appointment.appointment_id"
+                            class="reception__appointment"
                         >
-                            {{ appointment.action_label }}
-                        </button>
+                            <p>予約時間：{{ appointment.time_label }}</p>
+                            <p>商談場所：{{ appointment.location_label }}</p>
+                            <p>商談相手：{{ appointment.partner_name }}</p>
+                            <p>商談ID：{{ appointment.appointment_id }}</p>
+
+                            <button
+                                type="button"
+                                class="reception__appointment-button"
+                                :class="{ 'is-disabled': !appointment.can_checkin }"
+                                :disabled="!appointment.can_checkin"
+                                @click="completeCheckin(appointment)"
+                            >
+                                {{ appointment.action_label }}
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -1388,7 +1390,7 @@ const completeCheckin = async (appointment: ReceptionAppointment): Promise<void>
         position: relative;
         display: flex;
         flex-direction: column;
-        gap: 20px;
+        //gap: 20px;
         padding: 48px 24px 24px;
         border: 9px solid #5bd182;
         border-radius: 12px;
@@ -1421,6 +1423,7 @@ const completeCheckin = async (appointment: ReceptionAppointment): Promise<void>
         font-weight: 700;
         line-height: 32px;
         text-align: center;
+        margin-bottom: 24px;
     }
 
     &__result-block,
@@ -1621,6 +1624,11 @@ const completeCheckin = async (appointment: ReceptionAppointment): Promise<void>
         font-size: 16px;
         font-weight: 700;
         line-height: normal;
+    }
+    .reception__appointment-list {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
     }
 }
 </style>
