@@ -319,6 +319,10 @@ class MatchingPartnerService
                             $qq->whereColumn('mu.owner_user_id', 'live_chat_profiles.user_id')
                                 ->where('mu.peer_user_id', $currentId);
                         });
+                })
+                ->where(function ($q) {
+                    $q->whereIn('mu.status', [3, 4])
+                        ->orWhere('mu.appointment_status', 'approved');
                 });
         });
     }
