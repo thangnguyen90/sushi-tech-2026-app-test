@@ -27,7 +27,7 @@ class RoomAppointmentsController extends Controller
 
         $appointments = $this->matchingUserRepository->getApprovedAppointmentsForRoom(
             roomId: $roomId,
-            userUuid: $userUuid,
+            ownerUserId: (int) $visitor['user_id'],
             languageId: $languageId,
         );
         if ($appointments === []) {

@@ -273,7 +273,7 @@ class MatchingUserRepository extends BaseRepository
      *     room_name: string
      * }>
      */
-    public function getApprovedAppointmentsForRoom(int $roomId, string $userUuid, int $languageId): array
+    public function getApprovedAppointmentsForRoom(int $roomId, int $ownerUserId, int $languageId): array
     {
         $fallbackLanguageId = (int) config('language.jpn', 1);
 
@@ -295,8 +295,9 @@ class MatchingUserRepository extends BaseRepository
                     'matching_users.business_appointment_room_id'
                 )->where('fallback_rooms.language_id', '=', $fallbackLanguageId);
             })
-            ->where('matching_users.owner_uuid', $userUuid)
+            ->where('matching_users.owner_user_id', $ownerUserId)
             ->where('matching_users.appointment_status', AppointmentStatus::Approved->value)
+            ->whereNotNull('matching_users.appointment_schedule_id')
             ->orderBy('matching_users.schedule_start_datetime')
             ->orderBy('matching_users.appointment_schedule_id')
             ->get();
