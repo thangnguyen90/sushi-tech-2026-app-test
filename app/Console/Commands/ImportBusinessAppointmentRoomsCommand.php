@@ -221,7 +221,7 @@ final class ImportBusinessAppointmentRoomsCommand extends Command implements Sho
         DB::table(self::TARGET_TABLE)->upsert(
             $buffer,
             ['business_appointment_room_id', 'language_id'],
-            ['content_id', 'name', 'is_free', 'room_image', 'updated_at', 'deleted_at']
+            ['content_id', 'name', 'room_image', 'updated_at', 'deleted_at']
         );
 
         return count($buffer);
