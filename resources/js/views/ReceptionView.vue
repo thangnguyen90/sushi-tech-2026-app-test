@@ -1,17 +1,30 @@
 <template>
     <div class="reception">
-        <div class="reception__body" :class="{ 'reception__body--scanning': viewState === 'scanning' }">
+        <div
+            class="reception__body"
+            :class="{
+                'reception__body--scanning': viewState === 'scanning',
+                'reception__body--intro': viewState === 'intro',
+            }"
+        >
             <section v-if="viewState === 'intro'" class="reception__intro">
                 <div class="reception__intro-copy">
                     <p>この端末は</p>
-                    <p class="highlight">「{{ boothLabel }}」</p>
+                    <p class="reception__intro-highlight">
+                        <span>「</span><span>{{ boothLabel }}」</span>
+                    </p>
                     <p>の商談ブースの受付の端末です</p>
                 </div>
 
                 <button type="button" class="reception__camera-button" @click="openScanner">
-                    <span class="reception__camera-button-circle">
-                        <img :src="cameraIcon" alt="" />
-                    </span>
+                    <img
+                        class="reception__camera-button-graphic"
+                        :src="introCameraGraphic"
+                        alt=""
+                        width="117"
+                        height="117"
+                        decoding="async"
+                    />
                     <span class="reception__camera-button-text">カメラを起動</span>
                 </button>
             </section>
@@ -347,7 +360,7 @@
 </template>
 
 <script setup lang="ts">
-import cameraIcon from "@/assets/reception/camera-icon.svg";
+import introCameraGraphic from "@/assets/reception/reception-intro-camera.svg";
 import checkIcon from "@/assets/reception/check-icon.svg";
 import ReceptionService from "@/services/app/Reception";
 import type {
@@ -726,6 +739,10 @@ const completeCheckin = async (appointment: ReceptionAppointment): Promise<void>
         justify-content: center;
         padding: 40px 20px;
 
+        &--intro {
+            padding: 56px 10px;
+        }
+
         &--scanning {
             padding: 0;
             height: 100svh;
@@ -743,19 +760,25 @@ const completeCheckin = async (appointment: ReceptionAppointment): Promise<void>
     }
 
     &__intro-copy {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
         font-family: "Inter", "Noto Sans JP", sans-serif;
         font-size: 24px;
         font-weight: 700;
         line-height: 32px;
         text-align: center;
+        color: #000;
 
         > p {
             margin-bottom: 0;
         }
+    }
 
-        .highlight {
-            color: #e60013;
-        }
+    &__intro-highlight {
+        margin: 0;
+        color: #e60013;
     }
 
     &__camera-button {
@@ -766,21 +789,20 @@ const completeCheckin = async (appointment: ReceptionAppointment): Promise<void>
         border: 0;
         background: transparent;
         color: #000;
+        padding: 0;
+        cursor: pointer;
 
-        &-circle {
-            width: 109px;
-            height: 109px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 999px;
-            background: #e60013;
-            box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
+        &:focus-visible {
+            outline: 3px solid #e60013;
+            outline-offset: 6px;
+            border-radius: 8px;
+        }
 
-            img {
-                width: 61px;
-                height: 61px;
-            }
+        &-graphic {
+            display: block;
+            width: 117px;
+            height: 117px;
+            flex-shrink: 0;
         }
 
         &-text {
@@ -788,6 +810,7 @@ const completeCheckin = async (appointment: ReceptionAppointment): Promise<void>
             font-size: 16px;
             font-weight: 700;
             line-height: 32px;
+            text-align: center;
         }
     }
 
