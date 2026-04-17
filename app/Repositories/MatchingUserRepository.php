@@ -171,9 +171,7 @@ class MatchingUserRepository extends BaseRepository
             'exhibitor_administrator_appointment_schedule_detail.schedule_start_datetime'
         );
         if (is_string($scheduleStartDatetime) && $scheduleStartDatetime !== '') {
-            $sharedValues['schedule_start_datetime'] = Carbon::parse($scheduleStartDatetime, 'Asia/Tokyo')
-                ->utc()
-                ->format('Y-m-d H:i:s');
+            $sharedValues['schedule_start_datetime'] = $scheduleStartDatetime;
         }
 
         $this->upsertAppointmentRecord(
@@ -244,9 +242,7 @@ class MatchingUserRepository extends BaseRepository
             'exhibitor_administrator_appointment_schedule_detail.schedule_start_datetime'
         );
         if (is_string($scheduleStartDatetime) && $scheduleStartDatetime !== '') {
-            $sharedValues['schedule_start_datetime'] = Carbon::parse($scheduleStartDatetime, 'Asia/Tokyo')
-                ->utc()
-                ->format('Y-m-d H:i:s');
+            $sharedValues['schedule_start_datetime'] = $scheduleStartDatetime;
         }
 
         $didUpdateApplicant = $this->backfillAppointmentRecord(
@@ -676,18 +672,16 @@ class MatchingUserRepository extends BaseRepository
             DATE_ATOM,
         ];
 
-        $jst = new \DateTimeZone('Asia/Tokyo');
-
         foreach ($formats as $format) {
-            $date = \DateTimeImmutable::createFromFormat($format, $value, $jst);
+            $date = \DateTimeImmutable::createFromFormat($format, $value);
 
             if ($date instanceof \DateTimeImmutable) {
-                return $date->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+                return $date->format('Y-m-d H:i:s');
             }
         }
 
-        $timestamp = strtotime($value . ' Asia/Tokyo');
+        $timestamp = strtotime($value);
 
-        return $timestamp === false ? null : gmdate('Y-m-d H:i:s', $timestamp);
+        return $timestamp === false ? null : date('Y-m-d H:i:s', $timestamp);
     }
 }

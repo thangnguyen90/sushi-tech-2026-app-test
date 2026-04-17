@@ -49,10 +49,7 @@ class BizTalksRepository extends BaseRepository
             [
                 'user_id' => $applicantUserId,
                 'user_uuid' => $applicantUuid,
-                'started_at' => \Illuminate\Support\Carbon::parse(
-                    $data['exhibitor_administrator_appointment_schedule_detail']['schedule_start_datetime'],
-                    'Asia/Tokyo'
-                )->utc()->format('Y-m-d H:i:s'),
+                'started_at' => $data['exhibitor_administrator_appointment_schedule_detail']['schedule_start_datetime'],
                 'data' => json_encode($data, JSON_THROW_ON_ERROR),
             ]
         );
