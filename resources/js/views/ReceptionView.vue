@@ -171,9 +171,6 @@
                                 <p class="reception__free-booth-visitor-line">
                                     お名前 ：{{ visitor.name || "ー" }}
                                 </p>
-                                <p class="reception__free-booth-visitor-line">
-                                    企業名 ：{{ visitor.company_name || "ー" }}
-                                </p>
                             </div>
                         </div>
                     </div>
