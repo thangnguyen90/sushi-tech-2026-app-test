@@ -192,6 +192,79 @@ class MatchingUserRepository extends BaseRepository
     }
 
     /**
+     * @param  array<string, mixed>  $row
+     */
+    public function addOrUpdateDataFromCsvRow(array $row): bool
+    {
+        $payload = $this->buildWebhookPayloadFromCsvRow($row);
+
+        if ($payload === null) {
+            return false;
+        }
+
+        $appointmentStatus = AppointmentStatus::fromModuleCode((string) $payload['module_code']);
+        $appointmentScheduleId = $this->parseInteger(
+            data_get($payload, 'exhibitor_administrator_appointment_schedule_detail.id')
+        );
+        $eventId = $this->parseInteger(data_get($payload, 'basic_information.event_id'));
+        $applicant = $this->extractParticipant($payload['applicant'] ?? null);
+        $recipient = $this->extractParticipant($payload['recipient'] ?? null);
+
+        if (
+            $appointmentStatus === null
+            || $appointmentScheduleId === null
+            || $eventId === null
+            || $applicant === null
+            || $recipient === null
+        ) {
+            return false;
+        }
+
+        $sharedValues = [
+            'appointment_schedule_id' => $appointmentScheduleId,
+            'appointment_status' => $appointmentStatus->value,
+            'webhook_module_code' => (string) $payload['module_code'],
+            'webhook_schedule_status' => $this->parseString(
+                data_get($payload, 'exhibitor_administrator_appointment_schedule_detail.status')
+            ),
+            'webhook_data' => $payload,
+        ];
+
+        $businessAppointmentRoomId = $this->parseInteger(
+            data_get($payload, 'exhibitor_administrator_appointment_schedule_detail.business_appointment_room_id')
+        );
+        if ($businessAppointmentRoomId !== null) {
+            $sharedValues['business_appointment_room_id'] = $businessAppointmentRoomId;
+        }
+
+        $scheduleStartDatetime = data_get(
+            $payload,
+            'exhibitor_administrator_appointment_schedule_detail.schedule_start_datetime'
+        );
+        if (is_string($scheduleStartDatetime) && $scheduleStartDatetime !== '') {
+            $sharedValues['schedule_start_datetime'] = $scheduleStartDatetime;
+        }
+
+        $didUpdateApplicant = $this->backfillAppointmentRecord(
+            owner: $applicant,
+            peer: $recipient,
+            eventId: $eventId,
+            appointmentStatus: $appointmentStatus,
+            values: $sharedValues
+        );
+
+        $didUpdateRecipient = $this->backfillAppointmentRecord(
+            owner: $recipient,
+            peer: $applicant,
+            eventId: $eventId,
+            appointmentStatus: $appointmentStatus,
+            values: $sharedValues
+        );
+
+        return $didUpdateApplicant || $didUpdateRecipient;
+    }
+
+    /**
      * @return array<int, array{
      *     appointment_id: int|string|null,
      *     partner_name: string|null,
@@ -297,6 +370,56 @@ class MatchingUserRepository extends BaseRepository
         ]);
 
         $matchingUser->save();
+    }
+
+    /**
+     * @param  array{id: int, uuid: string}  $owner
+     * @param  array{id: int, uuid: string}  $peer
+     * @param  array<string, mixed>  $values
+     */
+    private function backfillAppointmentRecord(
+        array $owner,
+        array $peer,
+        int $eventId,
+        AppointmentStatus $appointmentStatus,
+        array $values
+    ): bool {
+        $matchingUser = $this->query()
+            ->where('owner_user_id', $owner['id'])
+            ->where('peer_user_id', $peer['id'])
+            ->where('event_id', $eventId)
+            ->where(function (Builder $builder) use ($values): void {
+                $builder
+                    ->where('appointment_schedule_id', $values['appointment_schedule_id'])
+                    ->orWhereNull('appointment_schedule_id');
+            })
+            ->orderByDesc('appointment_schedule_id')
+            ->orderByDesc('id')
+            ->first();
+
+        if (! $matchingUser) {
+            $matchingUser = new MatchingUser;
+            $matchingUser->status = $appointmentStatus === AppointmentStatus::Approved
+                ? MatchingStatus::DEAL_DONE->value
+                : MatchingStatus::PENDING->value;
+        }
+
+        if ($appointmentStatus === AppointmentStatus::Approved) {
+            $matchingUser->status = MatchingStatus::DEAL_DONE->value;
+        }
+
+        $matchingUser->fill([
+            'owner_user_id' => $owner['id'],
+            'owner_uuid' => $owner['uuid'],
+            'peer_user_id' => $peer['id'],
+            'peer_uuid' => $peer['uuid'],
+            'event_id' => $eventId,
+            ...$values,
+        ]);
+
+        $matchingUser->save();
+
+        return true;
     }
 
     /**
@@ -417,5 +540,141 @@ class MatchingUserRepository extends BaseRepository
         $value = trim($value);
 
         return $value === '' ? null : $value;
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @return array<string, mixed>|null
+     */
+    private function buildWebhookPayloadFromCsvRow(array $row): ?array
+    {
+        $status = $this->parseString($row['status'] ?? null);
+        $moduleCode = $this->resolveModuleCodeFromCsvStatus($status);
+        $appointmentScheduleId = $this->parseInteger($row['id'] ?? null);
+        $eventId = $this->parseInteger($row['event_id'] ?? null);
+        $applicant = $this->buildParticipantPayloadFromCsvRow($row, 'applicant');
+        $recipient = $this->buildParticipantPayloadFromCsvRow($row, 'recipient');
+
+        if (
+            $moduleCode === null
+            || $status === null
+            || $appointmentScheduleId === null
+            || $eventId === null
+            || $applicant === null
+            || $recipient === null
+        ) {
+            return null;
+        }
+
+        $payload = [
+            'module_code' => $moduleCode,
+            'basic_information' => [
+                'event_id' => $eventId,
+            ],
+            'applicant' => $applicant,
+            'recipient' => $recipient,
+            'exhibitor_administrator_appointment_schedule_detail' => [
+                'id' => $appointmentScheduleId,
+                'status' => $status,
+                'applicant_name' => $this->parseString($row['applicant_name'] ?? null),
+                'recipient_name' => $this->parseString($row['recipient_name'] ?? null),
+            ],
+        ];
+
+        $businessAppointmentRoomId = $this->parseInteger($row['business_appointment_room_id'] ?? null);
+        if ($businessAppointmentRoomId !== null) {
+            $payload['exhibitor_administrator_appointment_schedule_detail']['business_appointment_room_id'] = $businessAppointmentRoomId;
+        }
+
+        $scheduleStartDatetime = $this->parseDateTimeString($row['schedule_start_datetime'] ?? null);
+        if ($scheduleStartDatetime !== null) {
+            $payload['exhibitor_administrator_appointment_schedule_detail']['schedule_start_datetime'] = $scheduleStartDatetime;
+        }
+
+        return $payload;
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @return array<string, mixed>|null
+     */
+    private function buildParticipantPayloadFromCsvRow(array $row, string $prefix): ?array
+    {
+        $participantUuid = $this->parseString($row["{$prefix}_chat_uuid"] ?? null);
+        $participantName = $this->parseString($row["{$prefix}_name"] ?? null);
+        $participantCompany = $this->parseString($row["{$prefix}_company_name"] ?? null);
+        $participantMailAddress = $this->parseString($row["{$prefix}_email"] ?? null);
+
+        if ($participantUuid === null) {
+            return null;
+        }
+
+        $visitorId = $this->parseInteger($row["{$prefix}_visitor_id"] ?? null);
+        if ($visitorId !== null) {
+            return array_filter([
+                'user_id' => $visitorId,
+                'user_uuid' => $participantUuid,
+                'name' => $participantName,
+                'company_name' => $participantCompany,
+                'mail_address' => $participantMailAddress,
+            ], static fn (mixed $value): bool => $value !== null);
+        }
+
+        $exhibitorAdministratorId = $this->parseInteger($row["{$prefix}_exhibitor_administrator_id"] ?? null);
+        if ($exhibitorAdministratorId !== null) {
+            return array_filter([
+                'exhibitor_administrator_id' => $exhibitorAdministratorId,
+                'exhibitor_administrator_uuid' => $participantUuid,
+                'name' => $participantName,
+                'company_name' => $participantCompany,
+                'mail_address' => $participantMailAddress,
+            ], static fn (mixed $value): bool => $value !== null);
+        }
+
+        return null;
+    }
+
+    private function resolveModuleCodeFromCsvStatus(?string $status): ?string
+    {
+        if ($status === null) {
+            return null;
+        }
+
+        return match (strtolower($status)) {
+            'approved' => 'BusinessAppointmentApproved',
+            'cancel', 'canceled', 'cancelled' => 'BusinessAppointmentCancel',
+            'reject', 'rejected' => 'BusinessAppointmentReject',
+            'pending' => 'BusinessAppointment',
+            'reschedule', 'rescheduled' => 'BusinessAppointmentReschedule',
+            default => null,
+        };
+    }
+
+    private function parseDateTimeString(mixed $value): ?string
+    {
+        $value = $this->parseString($value);
+
+        if ($value === null) {
+            return null;
+        }
+
+        $formats = [
+            'Y-n-j, G:i',
+            'Y-n-j, H:i',
+            'Y-m-d H:i:s',
+            DATE_ATOM,
+        ];
+
+        foreach ($formats as $format) {
+            $date = \DateTimeImmutable::createFromFormat($format, $value);
+
+            if ($date instanceof \DateTimeImmutable) {
+                return $date->format('Y-m-d H:i:s');
+            }
+        }
+
+        $timestamp = strtotime($value);
+
+        return $timestamp === false ? null : date('Y-m-d H:i:s', $timestamp);
     }
 }
