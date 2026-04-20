@@ -41,7 +41,7 @@
                     @click="toggleScannerCamera"
                 >
                     <span class="reception__scanner-switch-icon" aria-hidden="true">
-                        <span class="reception__scanner-switch-camera"></span>
+                        <span class="reception__scanner-switch-camera">flip_camera_ios</span>
                     </span>
                 </button>
 
@@ -774,6 +774,8 @@ const completeCheckin = async (appointment: ReceptionAppointment): Promise<void>
 </script>
 
 <style lang="scss" scoped>
+@import url("https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:FILL@0;wght@400;GRAD@0;opsz@24");
+
 .reception {
     min-height: 100svh;
     display: flex;
@@ -968,41 +970,24 @@ const completeCheckin = async (appointment: ReceptionAppointment): Promise<void>
     }
 
     &__scanner-switch-icon {
-        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
         width: 24px;
         height: 24px;
     }
 
     &__scanner-switch-camera {
-        position: absolute;
-        inset: 4px 3px 6px;
-        border: 2px solid #161717;
-        border-radius: 5px;
-
-        &::before {
-            content: "";
-            position: absolute;
-            top: -5px;
-            left: 50%;
-            width: 10px;
-            height: 4px;
-            border-radius: 999px;
-            background: #161717;
-            transform: translateX(-50%);
-        }
-
-        &::after {
-            content: "";
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 24px;
-            height: 24px;
-            background:
-                linear-gradient(45deg, transparent 44%, #161717 45%, #161717 56%, transparent 57%),
-                linear-gradient(-45deg, transparent 44%, #161717 45%, #161717 56%, transparent 57%);
-            transform: translate(-50%, -50%);
-        }
+        font-family: "Material Symbols Outlined", sans-serif;
+        font-size: 24px;
+        font-weight: 400;
+        line-height: 1;
+        color: #1f1f1f;
+        font-variation-settings:
+            "FILL" 0,
+            "wght" 400,
+            "GRAD" 0,
+            "opsz" 24;
     }
 
     &__scanner-close {
