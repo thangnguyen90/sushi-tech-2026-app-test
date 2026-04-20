@@ -1,4 +1,5 @@
 import API from './API';
+import { formatAppointmentTimeRange } from '@/utils/useDate';
 import type {
     AppointmentCheckinApiResult,
     FreeReceptionCheckinApiResult,
@@ -68,7 +69,7 @@ export default {
 
         return {
             appointment_id: String(appointment.appointment_id ?? ''),
-            time_label: appointment.schedule_time ?? '未設定',
+            time_label: this.resolveTimeLabel(appointment.schedule_time),
             location_label: appointment.room_id === null
                 ? '商談場所の予約がありません。'
                 : (appointment.room_name || ''),
@@ -85,5 +86,13 @@ export default {
         }
 
         return 'この商談をチェックインする';
+    },
+
+    resolveTimeLabel(scheduleTime: string | null): string {
+        if (! scheduleTime) {
+            return '未設定';
+        }
+
+        return formatAppointmentTimeRange(scheduleTime) || scheduleTime;
     },
 }
