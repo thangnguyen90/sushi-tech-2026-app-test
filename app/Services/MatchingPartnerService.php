@@ -6,6 +6,7 @@ use App\Models\CheckinHistory;
 use App\Models\LiveChatProfiles;
 use App\Models\LiveChatProfileTag;
 use App\Models\NetworkingEventMaster;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -295,13 +296,18 @@ class MatchingPartnerService
         }
 
         $masterRows = NetworkingEventMaster::query()
-            ->select(['event_name_ja', 'event_name_en', 'checkin_app_user_name'])
+            ->select(['event_name_ja', 'event_name_en', 'checkin_app_user_name', 'event_date', 'matching_display_time'])
             ->get();
 
         $groupDefinitions = [];
 
         foreach ($normalizedNames as $name) {
             $groupDefinition = $this->resolveNetworkingGroupDefinition($name, $masterRows, $languageId);
+
+            if ($groupDefinition === null) {
+                continue;
+            }
+
             $displayName = $groupDefinition['display_name'];
 
             if (isset($groupDefinitions[$displayName])) {
@@ -323,9 +329,9 @@ class MatchingPartnerService
     }
 
     /**
-     * @return array{display_name: string, match_names: array<int, string>}
+     * @return array{display_name: string, match_names: array<int, string>}|null
      */
-    private function resolveNetworkingGroupDefinition(string $name, Collection $masterRows, int $languageId): array
+    private function resolveNetworkingGroupDefinition(string $name, Collection $masterRows, int $languageId): ?array
     {
         $matchedMaster = $masterRows->first(function (NetworkingEventMaster $master) use ($name): bool {
             return $this->networkingNamesMatch($master->event_name_ja, $name)
@@ -334,6 +340,10 @@ class MatchingPartnerService
         });
 
         if ($matchedMaster instanceof NetworkingEventMaster) {
+            if (! $this->isNetworkingEventVisible($matchedMaster)) {
+                return null;
+            }
+
             $localizedEventName = $this->resolveNetworkingLocalizedEventName($matchedMaster, $languageId);
 
             return [
@@ -346,6 +356,23 @@ class MatchingPartnerService
             'display_name' => $name,
             'match_names' => [$name],
         ];
+    }
+
+    private function isNetworkingEventVisible(NetworkingEventMaster $master): bool
+    {
+        $eventDate = $this->normalizeNetworkingName($master->event_date);
+        $matchingDisplayTime = $this->normalizeNetworkingName($master->matching_display_time);
+
+        if ($eventDate === null || $matchingDisplayTime === null) {
+            return false;
+        }
+
+        $displayAt = CarbonImmutable::parse(
+            sprintf('%s %s', $eventDate, $matchingDisplayTime),
+            config('app.timezone')
+        );
+
+        return now()->greaterThanOrEqualTo($displayAt);
     }
 
     private function resolveNetworkingLocalizedEventName(NetworkingEventMaster $master, int $languageId): ?string
@@ -380,6 +407,10 @@ class MatchingPartnerService
 
         $matchedNames = $masterRows
             ->filter(function (NetworkingEventMaster $master) use ($eventNameJa, $eventNameEn): bool {
+                if (! $this->isNetworkingEventVisible($master)) {
+                    return false;
+                }
+
                 return ($eventNameJa !== null && $this->networkingNamesMatch($master->event_name_ja, $eventNameJa))
                     || ($eventNameEn !== null && $this->networkingNamesMatch($master->event_name_en, $eventNameEn));
             })
