@@ -41,7 +41,14 @@
                     @click="toggleScannerCamera"
                 >
                     <span class="reception__scanner-switch-icon" aria-hidden="true">
-                        <span class="reception__scanner-switch-camera">flip_camera_ios</span>
+                        <img
+                            class="reception__scanner-switch-camera"
+                            :src="flipCameraIcon"
+                            alt=""
+                            width="24"
+                            height="24"
+                            decoding="async"
+                        />
                     </span>
                 </button>
 
@@ -361,6 +368,7 @@
 <script setup lang="ts">
 import introCameraGraphic from "@/assets/reception/reception-intro-camera.svg";
 import checkIcon from "@/assets/reception/check-icon.svg";
+import flipCameraIcon from "@/assets/reception/flip-camera.svg";
 import ReceptionService from "@/services/app/Reception";
 import type {
     ReceptionAppointment,
@@ -774,8 +782,6 @@ const completeCheckin = async (appointment: ReceptionAppointment): Promise<void>
 </script>
 
 <style lang="scss" scoped>
-@import url("https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:FILL@0;wght@400;GRAD@0;opsz@24");
-
 .reception {
     min-height: 100svh;
     display: flex;
@@ -978,16 +984,9 @@ const completeCheckin = async (appointment: ReceptionAppointment): Promise<void>
     }
 
     &__scanner-switch-camera {
-        font-family: "Material Symbols Outlined", sans-serif;
-        font-size: 24px;
-        font-weight: 400;
-        line-height: 1;
-        color: #1f1f1f;
-        font-variation-settings:
-            "FILL" 0,
-            "wght" 400,
-            "GRAD" 0,
-            "opsz" 24;
+        display: block;
+        width: 24px;
+        height: 24px;
     }
 
     &__scanner-close {
