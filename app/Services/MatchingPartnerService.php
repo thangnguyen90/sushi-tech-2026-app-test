@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\CheckinHistory;
 use App\Models\LiveChatProfiles;
 use App\Models\LiveChatProfileTag;
+use App\Models\NetworkingEventMaster;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -13,10 +14,15 @@ use JsonException;
 class MatchingPartnerService
 {
     private const string DISCOVER_NETWORKING = 'NETWORKING';
+
     private const string DISCOVER_EXHIBITOR = 'EXHIBITOR';
+
     private const string DISCOVER_VISITOR = 'VISITOR';
+
     private const string TYPE_EXHIBITOR = 'exhibitor';
+
     private const string TYPE_VISITOR = 'visitor';
+
     private const int MAX_TYPED_RESULTS = 120;
 
     /**
@@ -32,8 +38,8 @@ class MatchingPartnerService
 
         return [
             [
-                "discover_type" => self::DISCOVER_NETWORKING,
-                "list" => $networking
+                'discover_type' => self::DISCOVER_NETWORKING,
+                'list' => $networking,
             ],
             [
                 'discover_type' => self::DISCOVER_EXHIBITOR,
@@ -42,7 +48,7 @@ class MatchingPartnerService
             [
                 'discover_type' => self::DISCOVER_VISITOR,
                 'items' => [],
-            ]
+            ],
         ];
     }
 
@@ -126,7 +132,7 @@ class MatchingPartnerService
 
         $this->applyRequiredProfileFieldsFilter($query);
 
-        if (!empty($ctx['keyword'])) {
+        if (! empty($ctx['keyword'])) {
             $keyword = $ctx['keyword'];
 
             $query->where(function ($q) use ($keyword) {
@@ -196,17 +202,18 @@ class MatchingPartnerService
             ->pluck('checkin_app_user_name')
             ->values();
 
-        if ($myNames->isEmpty()) {
+        $groupDefinitions = $this->buildNetworkingGroupDefinitions($myNames, (int) ($ctx['language_id'] ?? config('language.jpn', 1)));
+
+        if ($groupDefinitions->isEmpty()) {
             return [];
         }
 
         $groups = [];
 
-        foreach ($myNames as $name) {
-
+        foreach ($groupDefinitions as $groupDefinition) {
             $qUser = CheckinHistory::query()
                 ->whereNotNull('checkin_histories.user_id')
-                ->where('checkin_app_user_name', $name)
+                ->whereIn('checkin_histories.checkin_app_user_name', $groupDefinition['match_names'])
                 ->join(
                     'live_chat_profiles',
                     'checkin_histories.user_id',
@@ -217,7 +224,7 @@ class MatchingPartnerService
             $qUser->where('checkin_histories.user_id', '<>', $currentActorId);
             $this->applyRequiredProfileFieldsFilter($qUser);
 
-            if (!empty($ctx['keyword'])) {
+            if (! empty($ctx['keyword'])) {
                 $keyword = $ctx['keyword'];
                 $qUser->where(function ($sub) use ($keyword) {
                     $sub->where('nickname', 'like', "%{$keyword}%")
@@ -229,6 +236,7 @@ class MatchingPartnerService
             $this->removeUserTalked($qUser, $ctx);
 
             $checkins = $qUser
+                ->distinct()
                 ->select($this->baseLiveChatSelect())
                 ->limit($ctx['limit_networking_per_name'])
                 ->get();
@@ -253,6 +261,7 @@ class MatchingPartnerService
                 } elseif (! is_array($item->custom_fields ?? null)) {
                     $item->custom_fields = [];
                 }
+
                 return $item;
             });
 
@@ -265,12 +274,152 @@ class MatchingPartnerService
             );
 
             $groups[] = [
-                'checkin_app_user_name' => $name,
+                'checkin_app_user_name' => $groupDefinition['display_name'],
                 'items' => $checkins,
             ];
         }
 
         return $groups;
+    }
+
+    private function buildNetworkingGroupDefinitions(Collection $myNames, int $languageId): Collection
+    {
+        $normalizedNames = $myNames
+            ->filter(static fn (mixed $name): bool => is_string($name) && trim($name) !== '')
+            ->map(static fn (string $name): string => trim($name))
+            ->unique()
+            ->values();
+
+        if ($normalizedNames->isEmpty()) {
+            return collect();
+        }
+
+        $masterRows = NetworkingEventMaster::query()
+            ->select(['event_name_ja', 'event_name_en', 'checkin_app_user_name'])
+            ->get();
+
+        $groupDefinitions = [];
+
+        foreach ($normalizedNames as $name) {
+            $groupDefinition = $this->resolveNetworkingGroupDefinition($name, $masterRows, $languageId);
+            $displayName = $groupDefinition['display_name'];
+
+            if (isset($groupDefinitions[$displayName])) {
+                $groupDefinitions[$displayName]['match_names'] = collect([
+                    ...$groupDefinitions[$displayName]['match_names'],
+                    ...$groupDefinition['match_names'],
+                ])->unique()->values()->all();
+
+                continue;
+            }
+
+            $groupDefinitions[$displayName] = [
+                'display_name' => $displayName,
+                'match_names' => $groupDefinition['match_names'],
+            ];
+        }
+
+        return collect(array_values($groupDefinitions));
+    }
+
+    /**
+     * @return array{display_name: string, match_names: array<int, string>}
+     */
+    private function resolveNetworkingGroupDefinition(string $name, Collection $masterRows, int $languageId): array
+    {
+        $matchedMaster = $masterRows->first(function (NetworkingEventMaster $master) use ($name): bool {
+            return $this->networkingNamesMatch($master->event_name_ja, $name)
+                || $this->networkingNamesMatch($master->event_name_en, $name)
+                || $this->networkingNamesMatch($master->checkin_app_user_name, $name);
+        });
+
+        if ($matchedMaster instanceof NetworkingEventMaster) {
+            $localizedEventName = $this->resolveNetworkingLocalizedEventName($matchedMaster, $languageId);
+
+            return [
+                'display_name' => $localizedEventName ?? $name,
+                'match_names' => $this->resolveNetworkingGroupMatchNames($matchedMaster, $name, $masterRows),
+            ];
+        }
+
+        return [
+            'display_name' => $name,
+            'match_names' => [$name],
+        ];
+    }
+
+    private function resolveNetworkingLocalizedEventName(NetworkingEventMaster $master, int $languageId): ?string
+    {
+        if ($languageId === (int) config('language.eng', 2)) {
+            $eventNameEn = is_string($master->event_name_en) ? trim($master->event_name_en) : '';
+
+            if ($eventNameEn !== '') {
+                return $eventNameEn;
+            }
+        }
+
+        $eventNameJa = is_string($master->event_name_ja) ? trim($master->event_name_ja) : '';
+
+        if ($eventNameJa !== '') {
+            return $eventNameJa;
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function resolveNetworkingGroupMatchNames(
+        NetworkingEventMaster $matchedMaster,
+        string $fallbackName,
+        Collection $masterRows
+    ): array {
+        $eventNameJa = $this->normalizeNetworkingName($matchedMaster->event_name_ja);
+        $eventNameEn = $this->normalizeNetworkingName($matchedMaster->event_name_en);
+
+        $matchedNames = $masterRows
+            ->filter(function (NetworkingEventMaster $master) use ($eventNameJa, $eventNameEn): bool {
+                return ($eventNameJa !== null && $this->networkingNamesMatch($master->event_name_ja, $eventNameJa))
+                    || ($eventNameEn !== null && $this->networkingNamesMatch($master->event_name_en, $eventNameEn));
+            })
+            ->flatMap(function (NetworkingEventMaster $master): array {
+                return [
+                    $master->event_name_ja,
+                    $master->event_name_en,
+                    $master->checkin_app_user_name,
+                ];
+            })
+            ->filter(static fn (mixed $name): bool => is_string($name) && trim($name) !== '')
+            ->map(static fn (string $name): string => trim($name))
+            ->unique()
+            ->values()
+            ->all();
+
+        if (! in_array($fallbackName, $matchedNames, true)) {
+            $matchedNames[] = $fallbackName;
+        }
+
+        return $matchedNames;
+    }
+
+    private function networkingNamesMatch(mixed $left, mixed $right): bool
+    {
+        $normalizedLeft = $this->normalizeNetworkingName($left);
+        $normalizedRight = $this->normalizeNetworkingName($right);
+
+        return $normalizedLeft !== null && $normalizedRight !== null && $normalizedLeft === $normalizedRight;
+    }
+
+    private function normalizeNetworkingName(mixed $name): ?string
+    {
+        if (! is_string($name)) {
+            return null;
+        }
+
+        $normalizedName = trim($name);
+
+        return $normalizedName !== '' ? $normalizedName : null;
     }
 
     /**
@@ -339,11 +488,13 @@ class MatchingPartnerService
             $tags = $profileTagRows[$row->profile_id] ?? [];
             if (empty($tags)) {
                 $row->tags = [];
+
                 continue;
             }
             $row->tags = $tags[$languageId] ?? [];
         }
         unset($row);
+
         return $profiles;
     }
 
@@ -356,12 +507,12 @@ class MatchingPartnerService
             ->where('profile_id', '<>', $ctx['profile_id'])
             ->where('is_exhibitor', true);
         $this->applyRequiredProfileFieldsFilter($query);
-        if (!empty($ctx['keyword'])) {
+        if (! empty($ctx['keyword'])) {
             $keyword = $ctx['keyword'];
 
             $query->where(function ($q) use ($keyword) {
-                $q->where('nickname', 'like', '%' . $keyword . '%')
-                    ->orWhere('company', 'like', '%' . $keyword . '%');
+                $q->where('nickname', 'like', '%'.$keyword.'%')
+                    ->orWhere('company', 'like', '%'.$keyword.'%');
             });
         }
         $this->applyOptionValueFilter($query, $ctx['option_values'] ?? []);
@@ -381,9 +532,10 @@ class MatchingPartnerService
                 'background_image',
                 'user_id',
                 'is_exhibitor',
-                'custom_fields'
+                'custom_fields',
             ]);
         $results = $this->attachTags($results, $ctx['data_source_id'] ?? null, $ctx['language_id'] ?? 1);
+
         return $this->hydrateInformationField($results);
     }
 
@@ -396,12 +548,12 @@ class MatchingPartnerService
             ->where('profile_id', '<>', $ctx['profile_id'])
             ->where('is_exhibitor', false);
         $this->applyRequiredProfileFieldsFilter($query);
-        if (!empty($ctx['keyword'])) {
+        if (! empty($ctx['keyword'])) {
             $keyword = $ctx['keyword'];
 
             $query->where(function ($q) use ($keyword) {
-                $q->where('nickname', 'like', '%' . $keyword . '%')
-                    ->orWhere('company', 'like', '%' . $keyword . '%');
+                $q->where('nickname', 'like', '%'.$keyword.'%')
+                    ->orWhere('company', 'like', '%'.$keyword.'%');
             });
         }
         $this->applyOptionValueFilter($query, $ctx['option_values'] ?? []);
@@ -421,9 +573,10 @@ class MatchingPartnerService
                 'background_image',
                 'user_id',
                 'is_exhibitor',
-                'custom_fields'
+                'custom_fields',
             ]);
         $results = $this->attachTags($results, $ctx['data_source_id'] ?? null, $ctx['language_id'] ?? 1);
+
         return $this->hydrateInformationField($results);
     }
 
@@ -472,7 +625,7 @@ class MatchingPartnerService
                 $customFields = (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) ? $decoded : null;
             }
 
-            if (!is_array($customFields)) {
+            if (! is_array($customFields)) {
                 $customFields = [];
             }
 
@@ -480,7 +633,8 @@ class MatchingPartnerService
             $value = is_string($value) ? trim($value) : $value;
 
             $row->introduction = $value;
-//            $row->custom_fields = $customFields;
+
+            //            $row->custom_fields = $customFields;
             return $row;
         });
     }
