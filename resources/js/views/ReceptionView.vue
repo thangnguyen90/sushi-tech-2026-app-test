@@ -387,6 +387,8 @@ type ReceptionViewState =
 const defaultBoothLabel = "商談エリアB（1階）";
 const defaultBoothRoomId = 23;
 const invalidQrApiMessage = "QRコードが不正です";
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const embeddedUuidPattern = /[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i;
 const viewState = ref<ReceptionViewState>("intro");
 const scannerKey = ref<number>(0);
 const scannerError = ref<string>("");
@@ -558,6 +560,47 @@ const resolvePresentationErrorMessage = (message: string): string => {
         : message;
 };
 
+const isValidUuid = (value: string): boolean => {
+    return uuidPattern.test(value);
+};
+
+const normalizeScannedUserUuid = (rawValue: string): string | null => {
+    const normalizedRawValue = rawValue.trim();
+
+    if (! normalizedRawValue) {
+        return null;
+    }
+
+    if (isValidUuid(normalizedRawValue)) {
+        return normalizedRawValue;
+    }
+
+    const embeddedUuid = normalizedRawValue.match(embeddedUuidPattern)?.[0];
+    if (embeddedUuid && isValidUuid(embeddedUuid)) {
+        return embeddedUuid;
+    }
+
+    try {
+        const parsedUrl = new URL(normalizedRawValue, window.location.origin);
+        const uuidFromQuery = [parsedUrl.searchParams.get("user_uuid"), parsedUrl.searchParams.get("uuid")]
+            .map((value) => value?.trim() ?? "")
+            .find((value) => value !== "" && isValidUuid(value));
+
+        if (uuidFromQuery) {
+            return uuidFromQuery;
+        }
+
+        const uuidFromPath = parsedUrl.pathname.match(embeddedUuidPattern)?.[0];
+        if (uuidFromPath && isValidUuid(uuidFromPath)) {
+            return uuidFromPath;
+        }
+    } catch {
+        return null;
+    }
+
+    return null;
+};
+
 const openErrorModal = (message: string): void => {
     scannerError.value = resolvePresentationErrorMessage(message);
     isErrorModalOpen.value = true;
@@ -571,8 +614,8 @@ const handleErrorModalVisibility = (value: boolean): void => {
     }
 };
 
-const handleFreeDetect = async (qrCode: string): Promise<void> => {
-    const visitor = await ReceptionService.getUser(qrCode);
+const handleFreeDetect = async (userUuid: string): Promise<void> => {
+    const visitor = await ReceptionService.getUser(userUuid);
 
     if (freeVisitors.value.some((item) => item.user_uuid === visitor.user_uuid)) {
         openErrorModal("同じ来場者は追加できません");
@@ -605,18 +648,25 @@ const handleDetect = async (detectedCodes: DetectedBarcode[]): Promise<void> => 
         return;
     }
 
+    const normalizedUserUuid = normalizeScannedUserUuid(qrCode);
+    if (! normalizedUserUuid) {
+        openErrorModal(t("errorMessages.invalidQrCode"));
+
+        return;
+    }
+
     isSubmitting.value = true;
     closeErrorModal();
 
     try {
         if (boothIsFree.value) {
-            await handleFreeDetect(qrCode);
+            await handleFreeDetect(normalizedUserUuid);
 
             return;
         }
 
-        scannedUserUuid.value = qrCode;
-        const result = await ReceptionService.checkin(boothRoomId.value, qrCode);
+        scannedUserUuid.value = normalizedUserUuid;
+        const result = await ReceptionService.checkin(boothRoomId.value, normalizedUserUuid);
 
         checkinResult.value = result;
         viewState.value = result.appointments.length === 0 ? "no-data" : "result";
