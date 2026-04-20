@@ -81,7 +81,7 @@
                             class="reception__scanner-popup-button"
                             @click="handleErrorModalVisibility(false)"
                         >
-                            {{ $t("common.confirm") }}
+                            確認
                         </button>
                     </div>
                 </div>
@@ -102,7 +102,7 @@
                         <div class="reception__free-booth-visitor">
                             <p class="reception__free-booth-visitor-heading">来場者情報</p>
                             <p>お名前 ：{{ freeVisitors[0].name || "ー" }}</p>
-                            <p>企業名 ：{{ freeVisitors[0].company_name || "ー" }}</p>
+<!--                            <p>企業名 ：{{ freeVisitors[0].company_name || "ー" }}</p>-->
                         </div>
 
                         <button
@@ -210,7 +210,7 @@
                 </div>
 
                 <button type="button" class="reception__top-button" @click="resetToIntro">
-                    TOPに戻る
+                    戻る
                 </button>
             </section>
 
@@ -1290,6 +1290,7 @@ const completeCheckin = async (appointment: ReceptionAppointment): Promise<void>
 
         > p {
             margin-bottom: 0;
+            word-break: break-all;
         }
     }
 
@@ -1435,6 +1436,7 @@ const completeCheckin = async (appointment: ReceptionAppointment): Promise<void>
 
         > p {
             margin-bottom: 0;
+            word-break: break-word;
         }
     }
 
