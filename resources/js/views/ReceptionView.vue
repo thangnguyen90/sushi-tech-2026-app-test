@@ -1559,6 +1559,7 @@ const completeCheckin = async (appointment: ReceptionAppointment): Promise<void>
 
     &__complete-visitor-line {
         margin-bottom: 0;
+        word-break: break-word;
         //overflow: hidden;
         //text-overflow: ellipsis;
         //white-space: nowrap;
