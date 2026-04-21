@@ -217,7 +217,7 @@
                 </div>
 
                 <button type="button" class="reception__top-button" @click="resetToIntro">
-                    戻る
+                    TOPに戻る
                 </button>
             </section>
 
