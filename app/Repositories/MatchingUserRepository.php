@@ -438,14 +438,31 @@ class MatchingUserRepository extends BaseRepository
             return null;
         }
 
-        $participantId = $this->parseInteger(
+        $participantType = null;
+        $participantId = null;
+
+        $userId = $this->parseInteger(
             data_get($participant, 'user_id')
             ?? data_get($participant, 'user.user_id')
-            ?? data_get($participant, 'exhibitor_administrator_id')
-            ?? data_get($participant, 'exhibitor_administrator.exhibitor_administrator_id')
         );
+        if ($userId !== null) {
+            $participantId = $userId;
+            $participantType = 'user';
+        }
 
-        $participantUuid = data_get($participant, 'user_uuid')
+        if ($participantId === null) {
+            $exhibitorAdministratorId = $this->parseInteger(
+                data_get($participant, 'exhibitor_administrator_id')
+                ?? data_get($participant, 'exhibitor_administrator.exhibitor_administrator_id')
+            );
+            if ($exhibitorAdministratorId !== null) {
+                $participantId = $exhibitorAdministratorId;
+                $participantType = 'exhibitor_administrator';
+            }
+        }
+
+        $participantUuid = $this->resolveLiveChatProfileUuid($participantId, $participantType)
+            ?? data_get($participant, 'user_uuid')
             ?? data_get($participant, 'user.user_uuid')
             ?? data_get($participant, 'exhibitor_administrator_uuid')
             ?? data_get($participant, 'exhibitor_administrator.exhibitor_administrator_uuid');
@@ -458,6 +475,27 @@ class MatchingUserRepository extends BaseRepository
             'id' => $participantId,
             'uuid' => $participantUuid,
         ];
+    }
+
+    private function resolveLiveChatProfileUuid(?int $participantId, ?string $participantType): ?string
+    {
+        if ($participantId === null || $participantType === null) {
+            return null;
+        }
+
+        $profile = LiveChatProfiles::query()
+            ->whereNull('deleted_at')
+            ->when(
+                $participantType === 'user',
+                fn (Builder $builder) => $builder->where('user_id', $participantId),
+                fn (Builder $builder) => $builder->where('exhibitor_administrator_id', $participantId)
+            )
+            ->orderByDesc('id')
+            ->first();
+
+        $uuid = $profile?->uuid;
+
+        return is_string($uuid) && $uuid !== '' ? $uuid : null;
     }
 
     private function resolvePartnerName(MatchingUser $matchingUser): ?string
