@@ -350,9 +350,6 @@
                                     予約時間：{{ completedCheckinResult.time_label }}
                                 </p>
                             </div>
-                            <p class="reception__complete-time">
-                                チェックイン時間：{{ formatCheckinTimeLabel(completedCheckinResult.checkin_at) }}
-                            </p>
                         </div>
                     </div>
 
@@ -1562,9 +1559,9 @@ const completeCheckin = async (appointment: ReceptionAppointment): Promise<void>
 
     &__complete-visitor-line {
         margin-bottom: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        //overflow: hidden;
+        //text-overflow: ellipsis;
+        //white-space: nowrap;
     }
 
     &__complete-time {
