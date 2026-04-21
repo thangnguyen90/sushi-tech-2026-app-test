@@ -429,7 +429,7 @@ const cameraSwitchLabel = computed<string>(() => {
         : "背面カメラに切り替える";
 });
 const completeButtonLabel = computed<string>(() => {
-    return completeReturnState.value === "intro" ? "TOPに戻る" : "戻る";
+    return "戻る";
 });
 
 const formatCheckinTimeLabel = (raw: string | null | undefined): string => {
