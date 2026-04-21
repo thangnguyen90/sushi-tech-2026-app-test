@@ -86,7 +86,7 @@
                         <button
                             type="button"
                             class="reception__scanner-popup-button"
-                            @click="handleErrorModalVisibility(false)"
+                            @click="resetToIntro"
                         >
                             確認
                         </button>
@@ -495,20 +495,8 @@ const resetToIntro = (): void => {
     viewState.value = "intro";
 };
 
-const backToResult = (): void => {
-    completedCheckinResult.value = null;
-    isCompletingAppointment.value = null;
-    viewState.value = "result";
-};
-
 const closeComplete = (): void => {
-    if (completeReturnState.value === "intro") {
-        resetToIntro();
-
-        return;
-    }
-
-    backToResult();
+    resetToIntro();
 };
 
 const handleCameraOn = (): void => {
@@ -612,14 +600,6 @@ const normalizeScannedUserUuid = (rawValue: string): string | null => {
 const openErrorModal = (message: string): void => {
     scannerError.value = resolvePresentationErrorMessage(message);
     isErrorModalOpen.value = true;
-};
-
-const handleErrorModalVisibility = (value: boolean): void => {
-    isErrorModalOpen.value = value;
-
-    if (! value) {
-        scannerError.value = "";
-    }
 };
 
 const handleFreeDetect = async (userUuid: string): Promise<void> => {
