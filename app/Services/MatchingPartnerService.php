@@ -30,6 +30,13 @@ class MatchingPartnerService
 
     private const int MAX_TYPED_RESULTS = 120;
 
+    private const array CUSTOM_FIELDS_FIRST_CSV_COLUMN_KEYS = [
+        'pr_free_text',
+        'target_industry',
+        'what_i_am_looking_for',
+        'what_i_am_looking_for_free_text',
+    ];
+
     public function __construct(
         private readonly LiveChatProfileFieldOptionRepository $liveChatProfileFieldOptionRepository
     ) {}
@@ -341,6 +348,16 @@ class MatchingPartnerService
 
                 if ($fieldKey === '') {
                     return '';
+                }
+
+                $columnKey = (string) $column->column_key;
+
+                if ($this->shouldUseCustomFieldsFirstCsvValue($columnKey)) {
+                    $customFieldValue = $this->resolveCsvDownloadPreferredCustomFieldValue($profile, $fieldKey);
+
+                    if ($customFieldValue !== null) {
+                        return $this->normalizeCsvDownloadCell($customFieldValue);
+                    }
                 }
 
                 /** @var array<string, mixed>|null $field */
@@ -894,6 +911,37 @@ class MatchingPartnerService
             ->filter(static fn (string $value): bool => $value !== '')
             ->unique()
             ->implode(', ');
+    }
+
+    private function resolveCsvDownloadPreferredCustomFieldValue(LiveChatProfiles $profile, string $fieldKey): ?string
+    {
+        $customFields = $profile->custom_fields;
+
+        if (! is_array($customFields) || ! array_key_exists($fieldKey, $customFields)) {
+            return null;
+        }
+
+        $value = $customFields[$fieldKey];
+
+        if (! is_scalar($value)) {
+            return null;
+        }
+
+        $normalizedValue = trim((string) $value);
+        if ($normalizedValue === '') {
+            return '';
+        }
+
+        if (str_starts_with(strtolower($normalizedValue), 'additional')) {
+            return null;
+        }
+
+        return $normalizedValue;
+    }
+
+    private function shouldUseCustomFieldsFirstCsvValue(string $columnKey): bool
+    {
+        return in_array($columnKey, self::CUSTOM_FIELDS_FIRST_CSV_COLUMN_KEYS, true);
     }
 
     private function normalizeCsvDownloadCell(mixed $value): string
