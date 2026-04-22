@@ -77,6 +77,10 @@ class MatchingPartnerService
             ->values()
             ->all();
 
+        if ($requestedUuids === []) {
+            return [];
+        }
+
         $profiles = $this->getCsvDownloadProfiles($ctx, $requestedUuids);
         $columns = $this->getCsvDownloadColumns();
 
@@ -218,11 +222,7 @@ class MatchingPartnerService
      */
     private function getCsvDownloadProfiles(array $ctx, array $requestedUuids): Collection
     {
-        $targetUuids = $requestedUuids !== []
-            ? $requestedUuids
-            : $this->resolveCsvDownloadTargetUuids([], (int) $ctx['event_id']);
-
-        if ($targetUuids === []) {
+        if ($requestedUuids === []) {
             return collect();
         }
 
@@ -230,7 +230,7 @@ class MatchingPartnerService
             ->whereNull('deleted_at')
             ->where('live_chat_data_source_id', $ctx['data_source_id'])
             ->where('last_event_id', $ctx['event_id'])
-            ->whereIn('uuid', $targetUuids);
+            ->whereIn('uuid', $requestedUuids);
 
         $this->applyRequiredProfileFieldsFilter($query);
 
@@ -238,7 +238,7 @@ class MatchingPartnerService
 
         $profilesByUuid = $profiles->keyBy('uuid');
 
-        return collect($targetUuids)
+        return collect($requestedUuids)
             ->map(fn (string $uuid): ?LiveChatProfiles => $profilesByUuid->get($uuid))
             ->filter()
             ->values();

@@ -16,10 +16,6 @@ class MatchingPartnerCsvDownloadRequest extends BaseRequest
             $payload['uuid'] = trim((string) $this->input('uuid'));
         }
 
-        if (! $this->has('live_chat_user_uuids') && ($payload['uuid'] ?? '') !== '') {
-            $payload['live_chat_user_uuids'] = [$payload['uuid']];
-        }
-
         if ($payload !== []) {
             $this->merge($payload);
         }
@@ -33,7 +29,7 @@ class MatchingPartnerCsvDownloadRequest extends BaseRequest
     public function rules(): array
     {
         return [
-            'live_chat_user_uuids' => ['nullable', 'array', 'min:1', 'max:500'],
+            'live_chat_user_uuids' => ['required', 'array', 'min:1', 'max:500'],
             'live_chat_user_uuids.*' => ['required', 'uuid'],
             'language' => ['nullable', 'string', 'in:jpn,eng'],
         ];
@@ -42,6 +38,7 @@ class MatchingPartnerCsvDownloadRequest extends BaseRequest
     public function messages(): array
     {
         return [
+            'live_chat_user_uuids.required' => 'live_chat_user_uuids is required.',
             'live_chat_user_uuids.array' => 'live_chat_user_uuids must be an array.',
             'live_chat_user_uuids.min' => 'live_chat_user_uuids must contain at least one item.',
             'live_chat_user_uuids.*.required' => 'Each live_chat_user_uuid is required.',
