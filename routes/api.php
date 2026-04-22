@@ -49,6 +49,9 @@ Route::middleware(UserAuthenticationMiddleware::class)->group(function (): void 
     Route::post('/matching/negotiations', [MatchingUserController::class, 'markDealDone']);
 });
 
+Route::post('/matching/csv-download', [MatchingPartnerController::class, 'csvDownload'])
+    ->name('matching.csv-download');
+
 Route::controller(WebhookController::class)->group(function (): void {
     Route::post('webhook/csv-list-trigger', 'handleCsvListTriggerWebhook')->name('webhook.csv-list-trigger');
     Route::post('webhook/business-appointment', 'businessAppointment')->name('webhook.business-appointment');

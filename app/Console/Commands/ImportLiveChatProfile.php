@@ -78,6 +78,9 @@ class ImportLiveChatProfile extends Command implements ShouldBeUnique, ShouldQue
                         'last_portal_id' => $this->toInt($row['last_portal_id'] ?? null),
                         'last_event_id' => $this->toInt($row['last_event_id'] ?? null),
                         'is_exhibitor' => $isExhibitor,
+                        'user_name' => $this->normalizeNullableString($row['name'] ?? null),
+                        'user_email' => $this->normalizeNullableString($row['email'] ?? null),
+                        'user_company' => $this->normalizeNullableString($row['company_name'] ?? null),
                     ]);
 
                     // Persist selected dropdown options into live_chat_profile_field_options

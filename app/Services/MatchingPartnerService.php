@@ -5,7 +5,11 @@ namespace App\Services;
 use App\Models\CheckinHistory;
 use App\Models\LiveChatProfiles;
 use App\Models\LiveChatProfileTag;
+use App\Models\MatchingCsvDownloadColumn;
+use App\Models\MatchingCsvDownloadSetting;
+use App\Models\MatchingUser;
 use App\Models\NetworkingEventMaster;
+use App\Repositories\LiveChatProfileFieldOptionRepository;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -25,6 +29,10 @@ class MatchingPartnerService
     private const string TYPE_VISITOR = 'visitor';
 
     private const int MAX_TYPED_RESULTS = 120;
+
+    public function __construct(
+        private readonly LiveChatProfileFieldOptionRepository $liveChatProfileFieldOptionRepository
+    ) {}
 
     /**
      * @throws JsonException
@@ -50,6 +58,34 @@ class MatchingPartnerService
                 'discover_type' => self::DISCOVER_VISITOR,
                 'items' => [],
             ],
+        ];
+    }
+
+    public function getCsvDownloadData(array $ctx): array
+    {
+        $language = $this->normalizeLanguage($ctx['language'] ?? 'jpn');
+        $csvDownloadSetting = $this->getCsvDownloadSetting();
+
+        if (! $csvDownloadSetting?->is_enabled) {
+            return [];
+        }
+
+        $requestedUuids = collect($ctx['live_chat_user_uuids'] ?? [])
+            ->filter(static fn (mixed $uuid): bool => is_string($uuid) && trim($uuid) !== '')
+            ->map(static fn (string $uuid): string => trim($uuid))
+            ->unique()
+            ->values()
+            ->all();
+
+        $profiles = $this->getCsvDownloadProfiles($ctx, $requestedUuids);
+        $columns = $this->getCsvDownloadColumns();
+
+        return [
+            'headers' => $this->resolveCsvDownloadHeaders($columns, $language),
+            'users' => $profiles
+                ->map(fn (LiveChatProfiles $profile): array => $this->buildCsvDownloadRow($profile, $columns, $language))
+                ->values()
+                ->all(),
         ];
     }
 
@@ -177,6 +213,84 @@ class MatchingPartnerService
         ];
     }
 
+    /**
+     * @param  array<int, string>  $requestedUuids
+     */
+    private function getCsvDownloadProfiles(array $ctx, array $requestedUuids): Collection
+    {
+        $targetUuids = $requestedUuids !== []
+            ? $requestedUuids
+            : $this->resolveCsvDownloadTargetUuids([], (int) $ctx['event_id']);
+
+        if ($targetUuids === []) {
+            return collect();
+        }
+
+        $query = LiveChatProfiles::query()
+            ->whereNull('deleted_at')
+            ->where('live_chat_data_source_id', $ctx['data_source_id'])
+            ->where('last_event_id', $ctx['event_id'])
+            ->whereIn('uuid', $targetUuids);
+
+        $this->applyRequiredProfileFieldsFilter($query);
+
+        $profiles = $query->get($this->csvDownloadSelectColumns());
+
+        $profilesByUuid = $profiles->keyBy('uuid');
+
+        return collect($targetUuids)
+            ->map(fn (string $uuid): ?LiveChatProfiles => $profilesByUuid->get($uuid))
+            ->filter()
+            ->values();
+    }
+
+    /**
+     * @param  array<int, string>  $sourceUuids
+     * @return array<int, string>
+     */
+    private function resolveCsvDownloadTargetUuids(array $sourceUuids, int $eventId): array
+    {
+        $rows = MatchingUser::query()
+            ->whereNull('deleted_at')
+            ->where('event_id', $eventId)
+            ->when(
+                $sourceUuids !== [],
+                fn ($query) => $query->where(function ($builder) use ($sourceUuids) {
+                    $builder->whereIn('owner_uuid', $sourceUuids)
+                        ->orWhereIn('peer_uuid', $sourceUuids);
+                })
+            )
+            ->orderBy('id')
+            ->get(['owner_uuid', 'peer_uuid']);
+
+        $resolved = [];
+
+        foreach ($rows as $row) {
+            $ownerUuid = trim((string) ($row->owner_uuid ?? ''));
+            $peerUuid = trim((string) ($row->peer_uuid ?? ''));
+
+            if ($sourceUuids === []) {
+                foreach ([$ownerUuid, $peerUuid] as $uuid) {
+                    if ($uuid !== '' && ! isset($resolved[$uuid])) {
+                        $resolved[$uuid] = $uuid;
+                    }
+                }
+
+                continue;
+            }
+
+            if (in_array($ownerUuid, $sourceUuids, true) && $peerUuid !== '' && ! isset($resolved[$peerUuid])) {
+                $resolved[$peerUuid] = $peerUuid;
+            }
+
+            if (in_array($peerUuid, $sourceUuids, true) && $ownerUuid !== '' && ! isset($resolved[$ownerUuid])) {
+                $resolved[$ownerUuid] = $ownerUuid;
+            }
+        }
+
+        return array_values($resolved);
+    }
+
     private function isPartnerTypeFilterEnabled(array $ctx): bool
     {
         return in_array($ctx['type'] ?? null, [self::TYPE_EXHIBITOR, self::TYPE_VISITOR], true);
@@ -185,6 +299,53 @@ class MatchingPartnerService
     private function resolveIsExhibitorType(array $ctx): bool
     {
         return ($ctx['type'] ?? null) === self::TYPE_EXHIBITOR;
+    }
+
+    /**
+     * @param  Collection<int, MatchingCsvDownloadColumn>  $columns
+     * @return array<int, string>
+     */
+    private function resolveCsvDownloadHeaders(Collection $columns, string $language): array
+    {
+        $labelKey = $language === 'eng' ? 'label_eng' : 'label_jpn';
+
+        return $columns
+            ->map(static fn (MatchingCsvDownloadColumn $column): string => (string) $column->{$labelKey})
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  Collection<int, MatchingCsvDownloadColumn>  $columns
+     * @return array<int, string>
+     */
+    private function buildCsvDownloadRow(LiveChatProfiles $profile, Collection $columns, string $language): array
+    {
+        $resolvedCustomFields = collect($this->liveChatProfileFieldOptionRepository->getResolvedCustomFields(
+            (int) $profile->profile_id,
+            $language,
+            is_array($profile->custom_fields) ? $profile->custom_fields : null
+        ))->keyBy('field_key');
+
+        return $columns
+            ->map(function (MatchingCsvDownloadColumn $column) use ($profile, $resolvedCustomFields): string {
+                if ($column->type === 'profile') {
+                    return $this->normalizeCsvDownloadCell($this->resolveCsvDownloadProfileValue($profile, (string) $column->profile_key));
+                }
+
+                $fieldKey = trim((string) ($column->custom_field_key ?? ''));
+
+                if ($fieldKey === '') {
+                    return '';
+                }
+
+                /** @var array<string, mixed>|null $field */
+                $field = $resolvedCustomFields->get($fieldKey);
+
+                return $this->normalizeCsvDownloadCell($this->resolveCsvDownloadCustomFieldValue($field));
+            })
+            ->values()
+            ->all();
     }
 
     private function getNetworking(array $ctx): array
@@ -629,6 +790,22 @@ class MatchingPartnerService
         ];
     }
 
+    private function csvDownloadSelectColumns(): array
+    {
+        return [
+            'id',
+            'profile_id',
+            'uuid',
+            'nickname',
+            'company',
+            'mail_address',
+            'custom_fields',
+            'user_name',
+            'user_email',
+            'user_company',
+        ];
+    }
+
     private function applyRequiredProfileFieldsFilter(Builder $query): void
     {
         $query->whereNotNull('live_chat_profiles.nickname')
@@ -644,6 +821,74 @@ class MatchingPartnerService
         }
 
         return null;
+    }
+
+    private function normalizeLanguage(mixed $language): string
+    {
+        return strtolower(trim((string) $language)) === 'eng' ? 'eng' : 'jpn';
+    }
+
+    private function getCsvDownloadSetting(): ?MatchingCsvDownloadSetting
+    {
+        return MatchingCsvDownloadSetting::query()
+            ->latest('id')
+            ->first();
+    }
+
+    /**
+     * @return Collection<int, MatchingCsvDownloadColumn>
+     */
+    private function getCsvDownloadColumns(): Collection
+    {
+        return MatchingCsvDownloadColumn::query()
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+    }
+
+    private function resolveCsvDownloadProfileValue(LiveChatProfiles $profile, string $key): ?string
+    {
+        return match ($key) {
+            'user_name' => $profile->user_name ?? $profile->nickname,
+            'user_email' => $profile->user_email ?? $profile->mail_address,
+            'user_company' => $profile->user_company ?? $profile->company,
+            default => null,
+        };
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $field
+     */
+    private function resolveCsvDownloadCustomFieldValue(?array $field): string
+    {
+        if ($field === null) {
+            return '';
+        }
+
+        return collect($field['values'] ?? [])
+            ->map(function (mixed $value): string {
+                if (! is_array($value)) {
+                    return '';
+                }
+
+                $label = $value['label'] ?? $value['option_value'] ?? '';
+
+                return is_string($label) ? trim($label) : '';
+            })
+            ->filter(static fn (string $value): bool => $value !== '')
+            ->unique()
+            ->implode(', ');
+    }
+
+    private function normalizeCsvDownloadCell(mixed $value): string
+    {
+        if ($value === null) {
+            return '';
+        }
+
+        $normalized = preg_replace('/\s+/u', ' ', trim((string) $value));
+
+        return $normalized ?? '';
     }
 
     private function hydrateInformationField(Collection $profiles): Collection

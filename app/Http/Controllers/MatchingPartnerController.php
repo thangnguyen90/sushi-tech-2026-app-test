@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\AiRecommendRequest;
+use App\Http\Requests\MatchingPartnerCsvDownloadRequest;
 use App\Http\Requests\MatchingPartnerIndexRequest;
 use App\Services\AiRecommendService;
 use App\Services\LiveChatProfileDetailsService;
@@ -98,6 +99,25 @@ class MatchingPartnerController extends Controller
             userUuid: $currentUserUuid,
             content: $validated['content']
         );
+
+        return $this->responseService->success(
+            data: $result,
+            code: 'OK',
+            message: ''
+        );
+    }
+
+    public function csvDownload(MatchingPartnerCsvDownloadRequest $request, MatchingPartnerService $service): JsonResponse
+    {
+        $validated = $request->validated();
+        $language = (string) ($validated['language'] ?? 'jpn');
+
+        $result = $service->getCsvDownloadData([
+            'data_source_id' => config('eventos.live_chat_data_source_id'),
+            'event_id' => config('eventos.event'),
+            'language' => $language,
+            'live_chat_user_uuids' => $validated['live_chat_user_uuids'] ?? [],
+        ]);
 
         return $this->responseService->success(
             data: $result,
