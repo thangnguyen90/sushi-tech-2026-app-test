@@ -33,7 +33,6 @@ class MatchingPartnerCsvDownloadRequest extends BaseRequest
     public function rules(): array
     {
         return [
-            'uuid' => ['required', 'uuid'],
             'live_chat_user_uuids' => ['nullable', 'array', 'min:1', 'max:500'],
             'live_chat_user_uuids.*' => ['required', 'uuid'],
             'language' => ['nullable', 'string', 'in:jpn,eng'],
@@ -43,8 +42,6 @@ class MatchingPartnerCsvDownloadRequest extends BaseRequest
     public function messages(): array
     {
         return [
-            'uuid.required' => 'uuid is required.',
-            'uuid.uuid' => 'uuid must be a valid UUID.',
             'live_chat_user_uuids.array' => 'live_chat_user_uuids must be an array.',
             'live_chat_user_uuids.min' => 'live_chat_user_uuids must contain at least one item.',
             'live_chat_user_uuids.*.required' => 'Each live_chat_user_uuid is required.',
