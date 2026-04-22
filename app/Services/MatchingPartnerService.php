@@ -885,7 +885,9 @@ class MatchingPartnerService
                     return '';
                 }
 
-                $label = $value['label'] ?? $value['option_value'] ?? '';
+                $label = array_key_exists('label', $value)
+                    ? $value['label']
+                    : ($value['option_value'] ?? '');
 
                 return is_string($label) ? trim($label) : '';
             })
