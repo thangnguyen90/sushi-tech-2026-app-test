@@ -328,7 +328,11 @@ class MatchingPartnerService
         ))->keyBy('field_key');
 
         return $columns
-            ->map(function (MatchingCsvDownloadColumn $column) use ($profile, $resolvedCustomFields): string {
+            ->map(function (MatchingCsvDownloadColumn $column) use ($profile, $resolvedCustomFields, $language): string {
+                if ($column->column_key === 'participation_attributes') {
+                    return $this->normalizeCsvDownloadCell($this->resolveParticipationAttributesValue($profile, $language));
+                }
+
                 if ($column->type === 'profile') {
                     return $this->normalizeCsvDownloadCell($this->resolveCsvDownloadProfileValue($profile, (string) $column->profile_key));
                 }
@@ -346,6 +350,15 @@ class MatchingPartnerService
             })
             ->values()
             ->all();
+    }
+
+    private function resolveParticipationAttributesValue(LiveChatProfiles $profile, string $language): string
+    {
+        if ((bool) ($profile->is_exhibitor ?? false)) {
+            return $language === 'eng' ? 'Exhibitor' : '出展者';
+        }
+
+        return $language === 'eng' ? 'Visitor' : '来場者';
     }
 
     private function getNetworking(array $ctx): array
@@ -799,6 +812,7 @@ class MatchingPartnerService
             'nickname',
             'company',
             'mail_address',
+            'is_exhibitor',
             'custom_fields',
             'user_name',
             'user_email',
