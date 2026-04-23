@@ -74,6 +74,7 @@ class ImportLiveChatProfile extends Command implements ShouldBeUnique, ShouldQue
                         'user_name' => $this->normalizeNullableString($row['name'] ?? null),
                         'user_email' => $this->normalizeNullableString($row['email'] ?? null),
                         'user_company' => $this->normalizeNullableString($row['company_name'] ?? null),
+                        'participation_attributes' => $this->normalizeNullableString($row['participation_attribute_value'] ?? null),
                     ]);
 
                     // Persist selected dropdown options into live_chat_profile_field_options
@@ -291,6 +292,24 @@ class ImportLiveChatProfile extends Command implements ShouldBeUnique, ShouldQue
      */
     private function trailingCsvPattern(array $headers): ?string
     {
+        if ($headers === [
+            'display_is_search',
+            'exhibitor_administrator_id',
+            'last_portal_id',
+            'last_event_id',
+            'created_at',
+            'updated_at',
+            'exhibitor_text',
+            'email',
+            'name',
+            'company_name',
+            'participation_attribute_value',
+        ]) {
+            $fieldPattern = '"(?:[^"]|"")*"|[^,"\r\n]*';
+
+            return '/^(?P<custom_fields>.*?),(?P<display_is_search>'.$fieldPattern.'),(?P<exhibitor_administrator_id>'.$fieldPattern.'),(?P<last_portal_id>'.$fieldPattern.'),(?P<last_event_id>'.$fieldPattern.'),(?P<created_at>'.$fieldPattern.'),(?P<updated_at>'.$fieldPattern.'),(?P<exhibitor_text>'.$fieldPattern.'),(?P<email>'.$fieldPattern.'),(?P<name>'.$fieldPattern.'),(?P<company_name>'.$fieldPattern.'),(?P<participation_attribute_value>'.$fieldPattern.')$/s';
+        }
+
         if ($headers === [
             'display_is_search',
             'exhibitor_administrator_id',
