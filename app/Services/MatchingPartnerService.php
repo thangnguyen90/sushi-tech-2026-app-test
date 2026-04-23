@@ -19,6 +19,8 @@ use JsonException;
 
 class MatchingPartnerService
 {
+    private const string CSV_ATTENDEE_CATEGORY_COLUMN_KEY = 'attendee_category';
+
     private const string DISCOVER_NETWORKING = 'NETWORKING';
 
     private const string DISCOVER_EXHIBITOR = 'EXHIBITOR';
@@ -332,7 +334,7 @@ class MatchingPartnerService
     /**
      * @param  Collection<int, MatchingCsvDownloadColumn>  $columns
      * @param  array<string, string>  $participationAttributeLabels
-     * @return array<int, string|null>
+     * @return array<int, string>
      */
     private function buildCsvDownloadRow(
         LiveChatProfiles $profile,
@@ -349,13 +351,18 @@ class MatchingPartnerService
         return $columns
             ->map(function (MatchingCsvDownloadColumn $column) use (
                 $profile,
+                $language,
                 $resolvedCustomFields,
                 $participationAttributeLabels
-            ): ?string {
+            ): string {
                 if ($column->column_key === 'participation_attributes') {
                     return $this->normalizeCsvDownloadCell(
                         $this->resolveParticipationAttributesValue($profile, $participationAttributeLabels)
                     );
+                }
+
+                if ($column->column_key === self::CSV_ATTENDEE_CATEGORY_COLUMN_KEY) {
+                    return $this->resolveCsvDownloadAttendeeCategoryValue($profile, $language);
                 }
 
                 if ($column->type === 'profile') {
@@ -401,6 +408,17 @@ class MatchingPartnerService
         }
 
         return $participationAttributeLabels[$value] ?? $value;
+    }
+
+    private function resolveCsvDownloadAttendeeCategoryValue(LiveChatProfiles $profile, string $language): string
+    {
+        $isExhibitor = (bool) ($profile->is_exhibitor ?? false);
+
+        if ($language === 'eng') {
+            return $isExhibitor ? 'Exhibitor' : 'Visitor';
+        }
+
+        return $isExhibitor ? '出展者' : '来場者';
     }
 
     /**
@@ -1011,15 +1029,15 @@ class MatchingPartnerService
         return in_array($columnKey, self::CUSTOM_FIELDS_FIRST_CSV_COLUMN_KEYS, true);
     }
 
-    private function normalizeCsvDownloadCell(mixed $value): ?string
+    private function normalizeCsvDownloadCell(mixed $value): string
     {
         if ($value === null) {
-            return null;
+            return '';
         }
 
         $normalized = preg_replace('/\s+/u', ' ', trim((string) $value));
 
-        return $normalized !== null && $normalized !== '' ? $normalized : null;
+        return $normalized !== null && $normalized !== '' ? $normalized : '';
     }
 
     private function hydrateInformationField(Collection $profiles): Collection
