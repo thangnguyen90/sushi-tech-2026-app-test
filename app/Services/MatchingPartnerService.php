@@ -9,6 +9,7 @@ use App\Models\MatchingCsvDownloadColumn;
 use App\Models\MatchingCsvDownloadSetting;
 use App\Models\MatchingUser;
 use App\Models\NetworkingEventMaster;
+use App\Models\ShareProfileField;
 use App\Repositories\LiveChatProfileFieldOptionRepository;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -90,11 +91,17 @@ class MatchingPartnerService
 
         $profiles = $this->getCsvDownloadProfiles($ctx, $requestedUuids);
         $columns = $this->getCsvDownloadColumns();
+        $participationAttributeLabels = $this->getParticipationAttributeLabelsByLanguage($language);
 
         return [
             'headers' => $this->resolveCsvDownloadHeaders($columns, $language),
             'users' => $profiles
-                ->map(fn (LiveChatProfiles $profile): array => $this->buildCsvDownloadRow($profile, $columns, $language))
+                ->map(fn (LiveChatProfiles $profile): array => $this->buildCsvDownloadRow(
+                    $profile,
+                    $columns,
+                    $language,
+                    $participationAttributeLabels
+                ))
                 ->values()
                 ->all(),
         ];
@@ -324,10 +331,15 @@ class MatchingPartnerService
 
     /**
      * @param  Collection<int, MatchingCsvDownloadColumn>  $columns
-     * @return array<int, string>
+     * @param  array<string, string>  $participationAttributeLabels
+     * @return array<int, string|null>
      */
-    private function buildCsvDownloadRow(LiveChatProfiles $profile, Collection $columns, string $language): array
-    {
+    private function buildCsvDownloadRow(
+        LiveChatProfiles $profile,
+        Collection $columns,
+        string $language,
+        array $participationAttributeLabels
+    ): array {
         $resolvedCustomFields = collect($this->liveChatProfileFieldOptionRepository->getResolvedCustomFields(
             (int) $profile->profile_id,
             $language,
@@ -335,9 +347,15 @@ class MatchingPartnerService
         ))->keyBy('field_key');
 
         return $columns
-            ->map(function (MatchingCsvDownloadColumn $column) use ($profile, $resolvedCustomFields, $language): string {
+            ->map(function (MatchingCsvDownloadColumn $column) use (
+                $profile,
+                $resolvedCustomFields,
+                $participationAttributeLabels
+            ): ?string {
                 if ($column->column_key === 'participation_attributes') {
-                    return $this->normalizeCsvDownloadCell($this->resolveParticipationAttributesValue($profile, $language));
+                    return $this->normalizeCsvDownloadCell(
+                        $this->resolveParticipationAttributesValue($profile, $participationAttributeLabels)
+                    );
                 }
 
                 if ($column->type === 'profile') {
@@ -369,13 +387,55 @@ class MatchingPartnerService
             ->all();
     }
 
-    private function resolveParticipationAttributesValue(LiveChatProfiles $profile, string $language): string
-    {
-        if ((bool) ($profile->is_exhibitor ?? false)) {
-            return $language === 'eng' ? 'Exhibitor' : '出展者';
+    /**
+     * @param  array<string, string>  $participationAttributeLabels
+     */
+    private function resolveParticipationAttributesValue(
+        LiveChatProfiles $profile,
+        array $participationAttributeLabels
+    ): string {
+        $value = trim((string) ($profile->participation_attributes ?? ''));
+
+        if ($value === '') {
+            return '';
         }
 
-        return $language === 'eng' ? 'Visitor' : '来場者';
+        return $participationAttributeLabels[$value] ?? $value;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function getParticipationAttributeLabelsByLanguage(string $language): array
+    {
+        $languageId = $language === 'eng'
+            ? (int) config('language.eng', 2)
+            : (int) config('language.jpn', 1);
+        $label = $language === 'eng' ? 'Participation Attributes' : '参加属性';
+
+        $field = ShareProfileField::query()
+            ->where('language_id', $languageId)
+            ->where('label', $label)
+            ->latest('id')
+            ->first(['selector_items']);
+
+        if (! $field instanceof ShareProfileField || ! is_array($field->selector_items)) {
+            return [];
+        }
+
+        return collect($field->selector_items)
+            ->filter(static fn (mixed $item): bool => is_array($item))
+            ->mapWithKeys(function (array $item): array {
+                $key = trim((string) ($item['key'] ?? ''));
+                $value = trim((string) ($item['value'] ?? ''));
+
+                if ($key === '' || $value === '') {
+                    return [];
+                }
+
+                return [$key => $value];
+            })
+            ->all();
     }
 
     private function getNetworking(array $ctx): array
@@ -834,6 +894,7 @@ class MatchingPartnerService
             'user_name',
             'user_email',
             'user_company',
+            'participation_attributes',
         ];
     }
 
@@ -890,13 +951,13 @@ class MatchingPartnerService
     /**
      * @param  array<string, mixed>|null  $field
      */
-    private function resolveCsvDownloadCustomFieldValue(?array $field): string
+    private function resolveCsvDownloadCustomFieldValue(?array $field): ?string
     {
         if ($field === null) {
-            return '';
+            return null;
         }
 
-        return collect($field['values'] ?? [])
+        $resolvedValue = collect($field['values'] ?? [])
             ->map(function (mixed $value): string {
                 if (! is_array($value)) {
                     return '';
@@ -911,6 +972,8 @@ class MatchingPartnerService
             ->filter(static fn (string $value): bool => $value !== '')
             ->unique()
             ->implode(', ');
+
+        return $resolvedValue !== '' ? $resolvedValue : null;
     }
 
     private function resolveCsvDownloadPreferredCustomFieldValue(LiveChatProfiles $profile, string $fieldKey): ?string
@@ -932,6 +995,10 @@ class MatchingPartnerService
             return '';
         }
 
+        if (str_starts_with(strtolower($normalizedValue), 'option')) {
+            return null;
+        }
+
         if (str_starts_with(strtolower($normalizedValue), 'additional')) {
             return null;
         }
@@ -944,15 +1011,15 @@ class MatchingPartnerService
         return in_array($columnKey, self::CUSTOM_FIELDS_FIRST_CSV_COLUMN_KEYS, true);
     }
 
-    private function normalizeCsvDownloadCell(mixed $value): string
+    private function normalizeCsvDownloadCell(mixed $value): ?string
     {
         if ($value === null) {
-            return '';
+            return null;
         }
 
         $normalized = preg_replace('/\s+/u', ' ', trim((string) $value));
 
-        return $normalized ?? '';
+        return $normalized !== null && $normalized !== '' ? $normalized : null;
     }
 
     private function hydrateInformationField(Collection $profiles): Collection
