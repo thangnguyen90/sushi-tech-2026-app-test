@@ -20,7 +20,7 @@ final class ImportShareProfileFieldsCommand extends Command implements ShouldBeU
 {
     use CsvTrait;
 
-    protected $signature = 'share_profile_fields
+    protected $signature = 'share_profile_contents
         {file : The CSV/TSV file path to import}
         {--disk=s3 : Storage disk name (e.g. s3, local)}
         {--chunk=500 : Number of rows per batch upsert}';
