@@ -6,7 +6,6 @@ use App\Models\LiveChatProfiles;
 
 class LiveChatProfilesRepository extends BaseRepository
 {
-
     protected function modelClass(): string
     {
         return LiveChatProfiles::class;
@@ -18,6 +17,7 @@ class LiveChatProfilesRepository extends BaseRepository
             ->where('user_id', $id)
             ->first();
     }
+
     public function getProfileByUuid(?string $uuid): ?LiveChatProfiles
     {
         return $this->query()
@@ -25,4 +25,10 @@ class LiveChatProfilesRepository extends BaseRepository
             ->first();
     }
 
+    public function getProfileByUserUuid(?string $userUuid): ?LiveChatProfiles
+    {
+        return $this->query()
+            ->where('user_uuid', $userUuid)
+            ->first();
+    }
 }

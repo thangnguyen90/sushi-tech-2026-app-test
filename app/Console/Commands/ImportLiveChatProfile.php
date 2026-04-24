@@ -8,8 +8,7 @@ use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use League\Csv\Exception;
-use League\Csv\Reader;
+use RuntimeException;
 
 class ImportLiveChatProfile extends Command implements ShouldBeUnique, ShouldQueue
 {
@@ -33,23 +32,17 @@ class ImportLiveChatProfile extends Command implements ShouldBeUnique, ShouldQue
 
     const string DISK = 's3';
 
-    /**
-     * Execute the console command.
-     *
-     * @throws Exception
-     */
-    public function handle()
+    public function handle(): void
     {
         $file = $this->argument('file');
         $this->disk = Storage::disk(self::DISK);
         $file = $this->getFileContent($file);
         $file = $this->decompressGzip($file);
-        $csv = Reader::fromString($file)->skipEmptyRecords()->setHeaderOffset(0);
 
         $repository = app(LiveChatProfilesRepository::class);
         $failedRows = 0;
 
-        foreach ($csv->getRecords() as $row) {
+        foreach ($this->parseCsvRecords($file) as $row) {
             try {
                 DB::transaction(function () use ($repository, $row) {
                     $isExhibitor = $this->isExhibitorText($row['exhibitor_text'] ?? null);
@@ -63,6 +56,7 @@ class ImportLiveChatProfile extends Command implements ShouldBeUnique, ShouldQue
                     $profile = $repository->updateOrCreate($attributes, [
                         'profile_id' => $this->toNullableInt($row['id'] ?? null),
                         'user_id' => $this->toNullableInt($row['user_id'] ?? null),
+                        'user_uuid' => $this->normalizeNullableString($row['user_uuid'] ?? null),
                         'live_chat_data_source_id' => $this->toInt($row['live_chat_data_source_id'] ?? null),
                         'live_chat_user_id' => $row['live_chat_user_id'] ?? null,
                         'uuid' => $row['uuid'] ?? null,
@@ -77,6 +71,10 @@ class ImportLiveChatProfile extends Command implements ShouldBeUnique, ShouldQue
                         'last_portal_id' => $this->toInt($row['last_portal_id'] ?? null),
                         'last_event_id' => $this->toInt($row['last_event_id'] ?? null),
                         'is_exhibitor' => $isExhibitor,
+                        'user_name' => $this->normalizeNullableString($row['name'] ?? null),
+                        'user_email' => $this->normalizeNullableString($row['email'] ?? null),
+                        'user_company' => $this->normalizeNullableString($row['company_name'] ?? null),
+                        'participation_attributes' => $this->normalizeNullableString($row['participation_attribute_value'] ?? null),
                     ]);
 
                     // Persist selected dropdown options into live_chat_profile_field_options
@@ -102,6 +100,263 @@ class ImportLiveChatProfile extends Command implements ShouldBeUnique, ShouldQue
         if ($failedRows > 0) {
             $this->warn(sprintf('Skipped %d failed row(s).', $failedRows));
         }
+    }
+
+    /**
+     * @return list<array<string, string>>
+     */
+    private function parseCsvRecords(string $file): array
+    {
+        $lines = preg_split('/\r\n|\n|\r/', $file);
+
+        if ($lines === false || $lines === []) {
+            throw new RuntimeException('CSV file is empty.');
+        }
+
+        $headerLine = array_shift($lines);
+
+        if ($headerLine === null) {
+            throw new RuntimeException('CSV header row is missing.');
+        }
+
+        $headers = str_getcsv($headerLine, ',', '"', '\\');
+
+        if (! is_array($headers) || $headers === []) {
+            throw new RuntimeException('Unable to parse CSV header row.');
+        }
+
+        $rows = [];
+        $buffer = '';
+
+        foreach ($lines as $line) {
+            if ($buffer === '' && trim($line) === '') {
+                continue;
+            }
+
+            $buffer = $buffer === '' ? $line : $buffer."\n".$line;
+            $parsedRow = $this->parseRawCsvRecord($buffer, $headers);
+
+            if ($parsedRow === null) {
+                continue;
+            }
+
+            $rows[] = $parsedRow;
+            $buffer = '';
+        }
+
+        if (trim($buffer) !== '') {
+            throw new RuntimeException('CSV contains an incomplete trailing record.');
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param  list<string>  $headers
+     * @return array<string, string>|null
+     */
+    private function parseRawCsvRecord(string $record, array $headers): ?array
+    {
+        $customFieldsIndex = array_search('custom_fields', $headers, true);
+
+        if (! is_int($customFieldsIndex)) {
+            throw new RuntimeException('CSV header "custom_fields" is missing.');
+        }
+
+        $leadingFields = $this->extractCsvFieldsFromStart($record, $customFieldsIndex);
+
+        if ($leadingFields === null) {
+            return null;
+        }
+
+        $trailingFields = $this->extractTrailingCsvFields(
+            substr($record, $leadingFields['next_offset']),
+            array_slice($headers, $customFieldsIndex + 1)
+        );
+
+        if ($trailingFields === null) {
+            return null;
+        }
+
+        $fields = array_merge(
+            $leadingFields['fields'],
+            [$trailingFields['custom_fields']],
+            $trailingFields['fields']
+        );
+
+        if (count($fields) !== count($headers)) {
+            throw new RuntimeException('CSV field count does not match header count.');
+        }
+
+        $row = array_combine($headers, $fields);
+
+        if ($row === false) {
+            throw new RuntimeException('Unable to map CSV fields to headers.');
+        }
+
+        return $row;
+    }
+
+    /**
+     * @return array{fields: list<string>, next_offset: int}|null
+     */
+    private function extractCsvFieldsFromStart(string $record, int $fieldCount): ?array
+    {
+        if ($fieldCount === 0) {
+            return [
+                'fields' => [],
+                'next_offset' => 0,
+            ];
+        }
+
+        $fields = [];
+        $current = '';
+        $inQuotes = false;
+        $length = strlen($record);
+
+        for ($index = 0; $index < $length; $index++) {
+            $character = $record[$index];
+
+            if ($character === '"') {
+                if ($inQuotes && $index + 1 < $length && $record[$index + 1] === '"') {
+                    $current .= '""';
+                    $index++;
+
+                    continue;
+                }
+
+                $inQuotes = ! $inQuotes;
+                $current .= $character;
+
+                continue;
+            }
+
+            if ($character === ',' && ! $inQuotes) {
+                $fields[] = $this->parseCsvField($current);
+
+                if (count($fields) === $fieldCount) {
+                    return [
+                        'fields' => $fields,
+                        'next_offset' => $index + 1,
+                    ];
+                }
+
+                $current = '';
+
+                continue;
+            }
+
+            $current .= $character;
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  list<string>  $headers
+     * @return array{custom_fields: string, fields: list<string>}|null
+     */
+    private function extractTrailingCsvFields(string $record, array $headers): ?array
+    {
+        if ($headers === []) {
+            return [
+                'fields' => [],
+                'custom_fields' => $record,
+            ];
+        }
+
+        $pattern = $this->trailingCsvPattern($headers);
+
+        if ($pattern === null) {
+            throw new RuntimeException('Unsupported CSV header layout for trailing fields.');
+        }
+
+        if (preg_match($pattern, $record, $matches) !== 1) {
+            return null;
+        }
+
+        $fields = [];
+
+        foreach ($headers as $header) {
+            $fields[] = $this->parseCsvField($matches[$header] ?? '');
+        }
+
+        return [
+            'custom_fields' => $this->parseCsvField($matches['custom_fields'] ?? ''),
+            'fields' => $fields,
+        ];
+    }
+
+    /**
+     * @param  list<string>  $headers
+     */
+    private function trailingCsvPattern(array $headers): ?string
+    {
+        if ($headers === [
+            'display_is_search',
+            'exhibitor_administrator_id',
+            'last_portal_id',
+            'last_event_id',
+            'created_at',
+            'updated_at',
+            'exhibitor_text',
+            'email',
+            'name',
+            'company_name',
+            'participation_attribute_value',
+        ]) {
+            $fieldPattern = '"(?:[^"]|"")*"|[^,"\r\n]*';
+
+            return '/^(?P<custom_fields>.*?),(?P<display_is_search>'.$fieldPattern.'),(?P<exhibitor_administrator_id>'.$fieldPattern.'),(?P<last_portal_id>'.$fieldPattern.'),(?P<last_event_id>'.$fieldPattern.'),(?P<created_at>'.$fieldPattern.'),(?P<updated_at>'.$fieldPattern.'),(?P<exhibitor_text>'.$fieldPattern.'),(?P<email>'.$fieldPattern.'),(?P<name>'.$fieldPattern.'),(?P<company_name>'.$fieldPattern.'),(?P<participation_attribute_value>'.$fieldPattern.')$/s';
+        }
+
+        if ($headers === [
+            'display_is_search',
+            'exhibitor_administrator_id',
+            'last_portal_id',
+            'last_event_id',
+            'created_at',
+            'updated_at',
+            'exhibitor_text',
+            'email',
+            'name',
+            'company_name',
+        ]) {
+            $fieldPattern = '"(?:[^"]|"")*"|[^,"\r\n]*';
+
+            return '/^(?P<custom_fields>.*?),(?P<display_is_search>'.$fieldPattern.'),(?P<exhibitor_administrator_id>'.$fieldPattern.'),(?P<last_portal_id>'.$fieldPattern.'),(?P<last_event_id>'.$fieldPattern.'),(?P<created_at>'.$fieldPattern.'),(?P<updated_at>'.$fieldPattern.'),(?P<exhibitor_text>'.$fieldPattern.'),(?P<email>'.$fieldPattern.'),(?P<name>'.$fieldPattern.'),(?P<company_name>'.$fieldPattern.')$/s';
+        }
+
+        if ($headers === [
+            'exhibitor_administrator_id',
+            'last_portal_id',
+            'last_event_id',
+            'exhibitor_text',
+            'email',
+            'name',
+            'company_name',
+        ]) {
+            $fieldPattern = '"(?:[^"]|"")*"|[^,"\r\n]*';
+
+            return '/^(?P<custom_fields>.*?),(?P<exhibitor_administrator_id>'.$fieldPattern.'),(?P<last_portal_id>'.$fieldPattern.'),(?P<last_event_id>'.$fieldPattern.'),(?P<exhibitor_text>'.$fieldPattern.'),(?P<email>'.$fieldPattern.'),(?P<name>'.$fieldPattern.'),(?P<company_name>'.$fieldPattern.')$/s';
+        }
+
+        return null;
+    }
+
+    private function parseCsvField(string $value): string
+    {
+        $trimmedValue = $value;
+
+        if (str_starts_with($trimmedValue, '"') && str_ends_with($trimmedValue, '"')) {
+            $trimmedValue = substr($trimmedValue, 1, -1);
+
+            if ($trimmedValue === false) {
+                return '';
+            }
+        }
+
+        return str_replace('""', '"', $trimmedValue);
     }
 
     private function toInt(mixed $value, int $default = 0): int

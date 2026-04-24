@@ -1,12 +1,18 @@
 <?php
 
-use App\Http\Controllers\MatchingPartnerController;
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\LiveChatProfilesController;
-use App\Http\Middleware\UserAuthenticationMiddleware;
-use App\Http\Controllers\MatchingUserController;
-use App\Http\Controllers\WebhookController;
+use App\Http\Controllers\AppointmentCheckinController;
 use App\Http\Controllers\ChatProfileContentController;
+use App\Http\Controllers\FreeReceptionCheckinController;
+use App\Http\Controllers\LiveChatProfilesController;
+use App\Http\Controllers\MatchingPartnerController;
+use App\Http\Controllers\MatchingUserController;
+use App\Http\Controllers\ReceptionUserShowController;
+use App\Http\Controllers\RoomAppointmentsController;
+use App\Http\Controllers\RoomShowController;
+use App\Http\Controllers\WebhookController;
+use App\Http\Middleware\EnsureMatchingCsvDownloadEncryptionKey;
+use App\Http\Middleware\UserAuthenticationMiddleware;
+use Illuminate\Support\Facades\Route;
 
 Route::name('users.')
     ->controller(LiveChatProfilesController::class)
@@ -44,8 +50,31 @@ Route::middleware(UserAuthenticationMiddleware::class)->group(function (): void 
     Route::post('/matching/negotiations', [MatchingUserController::class, 'markDealDone']);
 });
 
+Route::post('/matching/csv-download', [MatchingPartnerController::class, 'csvDownload'])
+    ->middleware(EnsureMatchingCsvDownloadEncryptionKey::class)
+    ->name('matching.csv-download');
+
 Route::controller(WebhookController::class)->group(function (): void {
     Route::post('webhook/csv-list-trigger', 'handleCsvListTriggerWebhook')->name('webhook.csv-list-trigger');
-    Route::post('webhook/business-approvement', 'businessApprovement')->name('webhook.business-approvement');
+    Route::post('webhook/business-appointment', 'businessAppointment')->name('webhook.business-appointment');
+    Route::post('webhook/business-appointment-approved', 'businessAppointmentApproved')->name('webhook.business-appointment-approved');
+    Route::post('webhook/business-appointment-rejected', 'businessAppointmentRejected')->name('webhook.business-appointment-rejected');
+    Route::post('webhook/business-appointment-cancelled', 'businessAppointmentCancelled')->name('webhook.business-appointment-cancelled');
+    Route::post('webhook/business-appointment-rescheduled', 'businessAppointmentRescheduled')->name('webhook.business-appointment-rescheduled');
     Route::post('webhook/user-registration', 'userRegistration')->name('webhook.user-registration');
 });
+
+Route::get('reception/users/{user_uuid}', ReceptionUserShowController::class)
+    ->name('reception.users.show');
+
+Route::get('rooms/{room_id}/appointments', RoomAppointmentsController::class)
+    ->name('rooms.appointments');
+
+Route::get('rooms/{room_id}', RoomShowController::class)
+    ->name('rooms.show');
+
+Route::post('rooms/{room_id}/free-checkin', FreeReceptionCheckinController::class)
+    ->name('rooms.free-checkin');
+
+Route::post('appointments/{id}/checkin', AppointmentCheckinController::class)
+    ->name('appointments.checkin');
