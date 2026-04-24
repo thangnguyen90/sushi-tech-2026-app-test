@@ -175,7 +175,9 @@
             @update:model-value="(v) => (contractModal = v)"
             @update:confirm="confirmPolicy"
         />
-        <QRCodeModal
+        <QRCodeModalTop
+            v-if="qrModal"
+            :key="qrModalKey"
             v-model="qrModal"
             :uuid="storeAuth.uuid || ''"
             @update:model-value="(v) => (qrModal = v)"
@@ -183,7 +185,7 @@
     </div>
 </template>
 <script setup lang="ts">
-import QRCodeModal from "@/components/modals/QRCodeModal.vue";
+import QRCodeModalTop from "@/components/modals/QRCodeModalTop.vue";
 import {
     useAgreePolicyMutation,
     useUserPolicyStatus,
@@ -210,6 +212,7 @@ import { defineAsyncComponent, ref, watch } from "vue";
 const storeAuth = useAuthStore();
 const contractModal = ref<boolean>(false);
 const qrModal = ref<boolean>(false);
+const qrModalKey = ref<number>(0);
 const moduleMatchingId = EVENTOS_MODULE_MATCHING;
 const matchingWebLinkId = EVENTOS_MODULE_MATCHING_WEB_LINK;
 const moduleChatId = EVENTOS_MODULE_CHAT;
@@ -261,7 +264,8 @@ const confirmPolicy = () => {
 //     },
 // ])
 
-const viewQrUser= () => {
+const viewQrUser = () => {
+    qrModalKey.value += 1;
     qrModal.value = true;
 }
 
