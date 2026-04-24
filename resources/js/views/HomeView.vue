@@ -175,7 +175,7 @@
             @update:model-value="(v) => (contractModal = v)"
             @update:confirm="confirmPolicy"
         />
-        <QRCodeModal
+        <QRCodeModalTop
             v-model="qrModal"
             :uuid="storeAuth.uuid || ''"
             @update:model-value="(v) => (qrModal = v)"
@@ -183,7 +183,7 @@
     </div>
 </template>
 <script setup lang="ts">
-import QRCodeModal from "@/components/modals/QRCodeModal.vue";
+import QRCodeModalTop from "@/components/modals/QRCodeModalTop.vue";
 import {
     useAgreePolicyMutation,
     useUserPolicyStatus,
