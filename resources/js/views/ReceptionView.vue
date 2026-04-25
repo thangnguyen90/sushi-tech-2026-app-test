@@ -1501,6 +1501,11 @@ const completeCheckin = async (appointment: ReceptionAppointment): Promise<void>
             color: #fff;
         }
 
+        &.is-no-room-reservation {
+            background: #cdcfd0;
+            color: #fff;
+        }
+
         &.is-self-checked-in {
             background: #8d9eb9;
             color: #000;

@@ -12,12 +12,14 @@ import type {
     ReceptionVisitor,
 } from '@/shared/interfaces/reception';
 const appointmentStatusLabels = {
+    noRoomReservation: '商談場所を予約してません。',
     bothPending: '未チェックイン',
     selfCheckedIn: 'あなたはチェックイン済みです',
     partnerCheckedIn: 'お相手がチェックイン済みです',
     bothCheckedIn: 'チェックイン完了',
 } as const;
 const appointmentStatusTones = {
+    noRoomReservation: 'no-room-reservation',
     bothPending: 'both-pending',
     selfCheckedIn: 'self-checked-in',
     partnerCheckedIn: 'partner-checked-in',
@@ -108,6 +110,13 @@ export default {
         appointment: ReceptionAppointmentsApiItem,
         currentUserUuid: string,
     ): Pick<ReceptionAppointment, 'status_label' | 'status_tone'> {
+        if (appointment.room_id === null) {
+            return {
+                status_label: appointmentStatusLabels.noRoomReservation,
+                status_tone: appointmentStatusTones.noRoomReservation,
+            };
+        }
+
         if (! appointment.checkin_status) {
             return {
                 status_label: appointmentStatusLabels.bothPending,

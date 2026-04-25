@@ -13,6 +13,7 @@ export interface ReceptionRoomApiResult {
 }
 
 export type ReceptionAppointmentStatusTone =
+    | 'no-room-reservation'
     | 'both-pending'
     | 'self-checked-in'
     | 'partner-checked-in'
