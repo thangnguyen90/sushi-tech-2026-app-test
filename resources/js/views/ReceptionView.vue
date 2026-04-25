@@ -277,6 +277,15 @@
                             :key="appointment.appointment_id"
                             class="reception__appointment"
                         >
+                            <div class="reception__appointment-status">
+                                <p class="reception__appointment-status-label">ステータス</p>
+                                <span
+                                    class="reception__appointment-status-chip"
+                                    :class="`is-${appointment.status_tone}`"
+                                >
+                                    {{ appointment.status_label }}
+                                </span>
+                            </div>
                             <p>予約時間：{{ appointment.time_label }}</p>
                             <p>商談場所：{{ appointment.location_label }}</p>
                             <p>商談相手：{{ appointment.partner_name }}</p>
@@ -760,6 +769,12 @@ const completeCheckin = async (appointment: ReceptionAppointment): Promise<void>
 
 <style lang="scss" scoped>
 .reception {
+    --reception-button-brand: #e60013;
+    --reception-button-disabled: #cdcfd0;
+    --reception-button-surface: #fff;
+    --reception-button-on-brand: #fff;
+    --reception-button-on-outline: #e60013;
+
     min-height: 100svh;
     display: flex;
     flex-direction: column;
@@ -897,8 +912,8 @@ const completeCheckin = async (appointment: ReceptionAppointment): Promise<void>
         min-height: 40px;
         border: 0;
         border-radius: 6px;
-        background: #e60013;
-        color: #fff;
+        background: var(--reception-button-brand);
+        color: var(--reception-button-on-brand);
         font-family: "Inter", "Noto Sans JP", sans-serif;
         font-size: 14px;
         font-weight: 700;
@@ -1360,10 +1375,10 @@ const completeCheckin = async (appointment: ReceptionAppointment): Promise<void>
         box-sizing: border-box;
         min-height: 48px;
         padding: 11px 56px;
-        border: 1px solid #e60013;
+        border: 1px solid var(--reception-button-brand);
         border-radius: 12px;
-        background: #fff;
-        color: #e60013;
+        background: var(--reception-button-surface);
+        color: var(--reception-button-on-outline);
         font-family: "Roboto", "Noto Sans JP", sans-serif;
         font-size: 16px;
         font-weight: 700;
@@ -1388,8 +1403,8 @@ const completeCheckin = async (appointment: ReceptionAppointment): Promise<void>
         min-height: 48px;
         border: 0;
         border-radius: 12px;
-        background: #e60013;
-        color: #fff;
+        background: var(--reception-button-brand);
+        color: var(--reception-button-on-brand);
         font-family: "Roboto", "Noto Sans JP", sans-serif;
         font-size: 16px;
         font-weight: 700;
@@ -1456,6 +1471,51 @@ const completeCheckin = async (appointment: ReceptionAppointment): Promise<void>
         gap: 0;
     }
 
+    &__appointment-status {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 2px;
+    }
+
+    &__appointment-status-label {
+        margin-bottom: 0;
+        flex-shrink: 0;
+    }
+
+    &__appointment-status-chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 24px;
+        padding: 4px 7px;
+        border-radius: 4px;
+        font-family: "Inter", "Noto Sans JP", sans-serif;
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 16px;
+
+        &.is-both-pending {
+            background: #ff6565;
+            color: #fff;
+        }
+
+        &.is-self-checked-in {
+            background: #8d9eb9;
+            color: #000;
+        }
+
+        &.is-partner-checked-in {
+            background: #ff7700;
+            color: #000;
+        }
+
+        &.is-both-checked-in {
+            background: #6c7072;
+            color: #000;
+        }
+    }
+
     &__appointment-button {
         width: 100%;
         max-width: 289px;
@@ -1463,8 +1523,8 @@ const completeCheckin = async (appointment: ReceptionAppointment): Promise<void>
         margin: 12px auto 0;
         border: 0;
         border-radius: 6px;
-        background: #e60013;
-        color: #fff;
+        background: var(--reception-button-brand);
+        color: var(--reception-button-on-brand);
         font-family: "Roboto", "Noto Sans JP", sans-serif;
         font-size: 13px;
         font-weight: 700;
@@ -1473,8 +1533,8 @@ const completeCheckin = async (appointment: ReceptionAppointment): Promise<void>
 
         &:disabled,
         &.is-disabled {
-            background: #cdcfd0;
-            color: #fff;
+            background: var(--reception-button-disabled);
+            color: var(--reception-button-on-brand);
             cursor: not-allowed;
             box-shadow: none;
         }
@@ -1483,10 +1543,10 @@ const completeCheckin = async (appointment: ReceptionAppointment): Promise<void>
     &__top-button {
         width: 100%;
         min-height: 48px;
-        border: 1px solid #e60013;
+        border: 1px solid var(--reception-button-brand);
         border-radius: 12px;
-        background: #fff;
-        color: #e60013;
+        background: var(--reception-button-surface);
+        color: var(--reception-button-on-outline);
         font-family: "Roboto", "Noto Sans JP", sans-serif;
         font-size: 16px;
         font-weight: 700;
@@ -1630,8 +1690,8 @@ const completeCheckin = async (appointment: ReceptionAppointment): Promise<void>
         min-height: 42px;
         border: 0;
         border-radius: 12px;
-        background: #e60013;
-        color: #fff;
+        background: var(--reception-button-brand);
+        color: var(--reception-button-on-brand);
         font-family: "Roboto", "Noto Sans JP", sans-serif;
         font-size: 16px;
         font-weight: 700;
