@@ -1508,7 +1508,7 @@ const completeCheckin = async (appointment: ReceptionAppointment): Promise<void>
 
         &.is-partner-checked-in {
             background: #ff7700;
-            color: #000;
+            color: #fff;
         }
 
         &.is-both-checked-in {
