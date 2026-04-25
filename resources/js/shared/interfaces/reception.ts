@@ -12,6 +12,13 @@ export interface ReceptionRoomApiResult {
     room_name: string | null;
 }
 
+export type ReceptionAppointmentStatusTone =
+    | 'no-room-reservation'
+    | 'both-pending'
+    | 'self-checked-in'
+    | 'partner-checked-in'
+    | 'both-checked-in';
+
 export interface ReceptionAppointment {
     appointment_id: string;
     time_label: string;
@@ -20,6 +27,8 @@ export interface ReceptionAppointment {
     partner_name: string;
     can_checkin: boolean;
     action_label: string;
+    status_label: string;
+    status_tone: ReceptionAppointmentStatusTone;
 }
 
 export interface ReceptionCheckinResult {
@@ -45,6 +54,8 @@ export interface ReceptionAppointmentsApiItem {
     schedule_time: string | null;
     room_id: number | null;
     room_name: string;
+    checkin_status?: 'first_checkin' | 'second_checkin' | null;
+    user_uuid?: string | null;
 }
 
 export interface ReceptionAppointmentsApiResult {

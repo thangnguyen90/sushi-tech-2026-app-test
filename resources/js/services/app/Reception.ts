@@ -4,12 +4,27 @@ import type {
     AppointmentCheckinApiResult,
     FreeReceptionCheckinApiResult,
     ReceptionAppointment,
+    ReceptionAppointmentStatusTone,
     ReceptionAppointmentsApiItem,
     ReceptionAppointmentsApiResult,
     ReceptionCheckinResult,
     ReceptionRoomApiResult,
     ReceptionVisitor,
 } from '@/shared/interfaces/reception';
+const appointmentStatusLabels = {
+    noRoomReservation: '商談場所を予約してません。',
+    bothPending: '未チェックイン',
+    selfCheckedIn: 'あなたはチェックイン済みです',
+    partnerCheckedIn: 'お相手がチェックイン済みです',
+    bothCheckedIn: 'チェックイン完了',
+} as const;
+const appointmentStatusTones = {
+    noRoomReservation: 'no-room-reservation',
+    bothPending: 'both-pending',
+    selfCheckedIn: 'self-checked-in',
+    partnerCheckedIn: 'partner-checked-in',
+    bothCheckedIn: 'both-checked-in',
+} as const satisfies Record<string, ReceptionAppointmentStatusTone>;
 
 export default {
     async getRoom(roomId: number): Promise<ReceptionRoomApiResult> {
@@ -31,7 +46,7 @@ export default {
             },
         });
 
-        return this.mapAppointmentsResponse(response.data.result as ReceptionAppointmentsApiResult, roomId);
+        return this.mapAppointmentsResponse(response.data.result as ReceptionAppointmentsApiResult, roomId, userUuid);
     },
 
     async completeCheckin(appointmentId: string, userUuid: string): Promise<AppointmentCheckinApiResult> {
@@ -55,15 +70,25 @@ export default {
         return response.data.result as FreeReceptionCheckinApiResult;
     },
 
-    mapAppointmentsResponse(result: ReceptionAppointmentsApiResult, boothRoomId: number): ReceptionCheckinResult {
+    mapAppointmentsResponse(
+        result: ReceptionAppointmentsApiResult,
+        boothRoomId: number,
+        currentUserUuid: string,
+    ): ReceptionCheckinResult {
         return {
             visitor_name: result.visitor_name,
             visitor: result.visitor ?? null,
-            appointments: (result.appointments ?? []).map((appointment) => this.mapAppointment(appointment, boothRoomId)),
+            appointments: (result.appointments ?? []).map((appointment) =>
+                this.mapAppointment(appointment, boothRoomId, currentUserUuid)
+            ),
         };
     },
 
-    mapAppointment(appointment: ReceptionAppointmentsApiItem, boothRoomId: number): ReceptionAppointment {
+    mapAppointment(
+        appointment: ReceptionAppointmentsApiItem,
+        boothRoomId: number,
+        currentUserUuid: string,
+    ): ReceptionAppointment {
         const hasRoomAssignment = appointment.room_id !== null;
         const isCurrentBoothAppointment = appointment.room_id === boothRoomId;
 
@@ -77,6 +102,45 @@ export default {
             partner_name: appointment.partner_name ?? 'ー',
             can_checkin: hasRoomAssignment && isCurrentBoothAppointment,
             action_label: this.resolveActionLabel(appointment, boothRoomId),
+            ...this.resolveStatus(appointment, currentUserUuid),
+        };
+    },
+
+    resolveStatus(
+        appointment: ReceptionAppointmentsApiItem,
+        currentUserUuid: string,
+    ): Pick<ReceptionAppointment, 'status_label' | 'status_tone'> {
+        if (appointment.room_id === null) {
+            return {
+                status_label: appointmentStatusLabels.noRoomReservation,
+                status_tone: appointmentStatusTones.noRoomReservation,
+            };
+        }
+
+        if (! appointment.checkin_status) {
+            return {
+                status_label: appointmentStatusLabels.bothPending,
+                status_tone: appointmentStatusTones.bothPending,
+            };
+        }
+
+        if (appointment.checkin_status === 'second_checkin') {
+            return {
+                status_label: appointmentStatusLabels.bothCheckedIn,
+                status_tone: appointmentStatusTones.bothCheckedIn,
+            };
+        }
+
+        if (appointment.user_uuid === currentUserUuid) {
+            return {
+                status_label: appointmentStatusLabels.selfCheckedIn,
+                status_tone: appointmentStatusTones.selfCheckedIn,
+            };
+        }
+
+        return {
+            status_label: appointmentStatusLabels.partnerCheckedIn,
+            status_tone: appointmentStatusTones.partnerCheckedIn,
         };
     },
 

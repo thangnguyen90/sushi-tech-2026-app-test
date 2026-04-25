@@ -270,18 +270,28 @@ class MatchingUserRepository extends BaseRepository
      *     partner_name: string|null,
      *     schedule_time: string|null,
      *     room_id: int|null,
-     *     room_name: string
+     *     room_name: string,
+     *     checkin_status: string|null,
+     *     user_uuid: string|null
      * }>
      */
     public function getApprovedAppointmentsForRoom(int $roomId, int $ownerUserId, int $languageId): array
     {
         $fallbackLanguageId = (int) config('language.jpn', 1);
+        $latestReceptionCheckins = DB::table('reception_checkins')
+            ->selectRaw('MAX(id) as latest_id, appointment_schedule_id')
+            ->whereNotNull('appointment_schedule_id')
+            ->groupBy('appointment_schedule_id');
 
         $rows = $this->query()
             ->from('matching_users')
             ->select('matching_users.*')
             ->selectRaw('COALESCE(requested_rooms.name, fallback_rooms.name, ?) as room_name', [''])
             ->selectRaw('peer_profiles.nickname as peer_nickname')
+            ->addSelect([
+                'latest_reception_checkins.checkin_status as latest_checkin_status',
+                'latest_reception_checkins.user_uuid as latest_checkin_user_uuid',
+            ])
             ->leftJoin('business_appointment_rooms as requested_rooms', function ($join) use ($languageId): void {
                 $join->on(
                     'requested_rooms.business_appointment_room_id',
@@ -299,6 +309,16 @@ class MatchingUserRepository extends BaseRepository
             ->leftJoin('live_chat_profiles as peer_profiles', function ($join): void {
                 $join->on('peer_profiles.user_id', '=', 'matching_users.peer_user_id')
                     ->whereNull('peer_profiles.deleted_at');
+            })
+            ->leftJoinSub($latestReceptionCheckins, 'latest_reception_checkin_ids', function ($join): void {
+                $join->on(
+                    'latest_reception_checkin_ids.appointment_schedule_id',
+                    '=',
+                    'matching_users.appointment_schedule_id'
+                );
+            })
+            ->leftJoin('reception_checkins as latest_reception_checkins', function ($join): void {
+                $join->on('latest_reception_checkins.id', '=', 'latest_reception_checkin_ids.latest_id');
             })
             ->where('matching_users.owner_user_id', $ownerUserId)
             ->where('matching_users.appointment_status', AppointmentStatus::Approved->value)
@@ -321,6 +341,8 @@ class MatchingUserRepository extends BaseRepository
                     ? (int) $matchingUser->business_appointment_room_id
                     : null,
                 'room_name' => (string) ($matchingUser->getAttribute('room_name') ?? ''),
+                'checkin_status' => $matchingUser->getAttribute('latest_checkin_status'),
+                'user_uuid' => $matchingUser->getAttribute('latest_checkin_user_uuid'),
             ];
         })->all();
     }
@@ -721,7 +743,7 @@ class MatchingUserRepository extends BaseRepository
             }
         }
 
-        $timestamp = strtotime($value . ' +0900');
+        $timestamp = strtotime($value.' +0900');
 
         return $timestamp === false ? null : gmdate('Y-m-d H:i:s', $timestamp);
     }
