@@ -1494,6 +1494,7 @@ const completeCheckin = async (appointment: ReceptionAppointment): Promise<void>
         font-size: 12px;
         font-weight: 700;
         line-height: 16px;
+        color: #fff;
 
         &.is-both-pending {
             background: #ff6565;
