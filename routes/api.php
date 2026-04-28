@@ -10,8 +10,9 @@ use App\Http\Controllers\ReceptionUserShowController;
 use App\Http\Controllers\RoomAppointmentsController;
 use App\Http\Controllers\RoomShowController;
 use App\Http\Controllers\WebhookController;
-use App\Http\Middleware\EnsureMatchingCsvDownloadEncryptionKey;
+use App\Http\Middleware\LogCsvDownloadRequest;
 use App\Http\Middleware\UserAuthenticationMiddleware;
+use App\Http\Middleware\ValidateAccessToken;
 use Illuminate\Support\Facades\Route;
 
 Route::name('users.')
@@ -51,7 +52,7 @@ Route::middleware(UserAuthenticationMiddleware::class)->group(function (): void 
 });
 
 Route::post('/matching/csv-download', [MatchingPartnerController::class, 'csvDownload'])
-    ->middleware(EnsureMatchingCsvDownloadEncryptionKey::class)
+    ->middleware([LogCsvDownloadRequest::class, ValidateAccessToken::class, 'throttle:csv-download'])
     ->name('matching.csv-download');
 
 Route::controller(WebhookController::class)->group(function (): void {

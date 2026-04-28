@@ -38,6 +38,8 @@ abstract class ApiResource
 
     private array $cookies = [];
 
+    private int $timeout = 5;
+
     /** Callable to refresh authentication, if needed */
     public $authRefresher = null;
 
@@ -97,6 +99,13 @@ abstract class ApiResource
     public function setCookies(array $cookies): self
     {
         $this->cookies = $cookies;
+
+        return $this;
+    }
+
+    public function setTimeout(int $seconds): self
+    {
+        $this->timeout = $seconds;
 
         return $this;
     }
@@ -169,7 +178,7 @@ abstract class ApiResource
             $cookieJar->setCookie(new SetCookie($cookie));
         }
 
-        $client = new Client(['cookies' => $cookieJar, 'base_uri' => $this->baseUrl]);
+        $client = new Client(['cookies' => $cookieJar, 'base_uri' => $this->baseUrl, 'timeout' => $this->timeout]);
         $options = ['headers' => $this->headers];
         $requestEndpoint = $this->endpoint;
 

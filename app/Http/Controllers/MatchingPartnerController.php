@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\AiRecommendRequest;
 use App\Http\Requests\MatchingPartnerCsvDownloadRequest;
 use App\Http\Requests\MatchingPartnerIndexRequest;
+use App\Models\MatchingCsvDownloadSetting;
 use App\Services\AiRecommendService;
 use App\Services\LiveChatProfileDetailsService;
 use App\Services\MatchingPartnerService;
@@ -107,18 +108,27 @@ class MatchingPartnerController extends Controller
         );
     }
 
-    public function csvDownload(MatchingPartnerCsvDownloadRequest $request, MatchingPartnerService $service): JsonResponse
-    {
+    public function csvDownload(
+        MatchingPartnerCsvDownloadRequest $request,
+        MatchingPartnerService $service,
+    ): JsonResponse {
+        $setting = MatchingCsvDownloadSetting::latest()->first();
+        if (! ($setting?->is_enabled ?? true)) {
+            return $this->responseService->error('Feature disabled', 'DISABLED', [], 503);
+        }
+
         $validated = $request->validated();
-        $language = (string) ($validated['language'] ?? 'jpn');
 
         $result = $service->getCsvDownloadData([
-            'data_source_id' => config('eventos.live_chat_data_source_id'),
-            'event_id' => config('eventos.event'),
-            'language' => $language,
+            'data_source_id'       => config('eventos.live_chat_data_source_id'),
+            'event_id'             => config('eventos.event'),
+            'language'             => (string) ($validated['language'] ?? 'jpn'),
             'live_chat_user_uuids' => $validated['live_chat_user_uuids'] ?? [],
         ]);
 
+        if (count($result['users']) === 0) {
+            return $this->responseService->error('0件の場合は空のCSV',400,[]);
+        }
         return $this->responseService->success(
             data: $result,
             code: 'OK',

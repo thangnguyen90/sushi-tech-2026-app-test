@@ -6,9 +6,11 @@ use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Laravel\Sanctum\Http\Middleware\CheckAbilities;
 use Laravel\Sanctum\Http\Middleware\CheckForAnyAbility;
+use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Http\Exceptions\ThrottleRequestsException;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Request as RequestAlias;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
-use Illuminate\Support\Facades\Log;
 use Symfony\Component\Routing\Exception\RouteNotFoundException;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -44,14 +46,28 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions) {
         $exceptions->render(function (Throwable $e, Request $request) {
+            // HttpResponseException carries a ready-made response (e.g. rate limit callbacks)
+            // — let it pass through untouched, never log as error
+            if ($e instanceof HttpResponseException) {
+                return $e->getResponse();
+            }
+
             Log::error($e);
-            if ($e instanceof NotFoundHttpException||$e instanceof RouteNotFoundException) {
+            if ($e instanceof NotFoundHttpException || $e instanceof RouteNotFoundException) {
                 return response()->json([
                     'result' => [
                         'code' => 'CMSE404',
                         'message' => 'エラーが発生しました。もう一度お試しください。',
                     ],
                 ], 404);
+            }
+            if ($e instanceof ThrottleRequestsException) {
+                return response()->json([
+                    'result' => [
+                        'code'    => 'CMSE429',
+                        'message' => 'ダウンロードに失敗しました。',
+                    ],
+                ], 429, ['Retry-After' => $e->getHeaders()['Retry-After'] ?? 60]);
             }
             return response()->json([
                 'result' => [

@@ -87,16 +87,18 @@ class MatchingPartnerService
             ->values()
             ->all();
 
+        $columns = $this->getCsvDownloadColumns();
+        $headers = $this->resolveCsvDownloadHeaders($columns, $language);
+
         if ($requestedUuids === []) {
-            return [];
+            return ['headers' => $headers, 'users' => []];
         }
 
         $profiles = $this->getCsvDownloadProfiles($ctx, $requestedUuids);
-        $columns = $this->getCsvDownloadColumns();
         $participationAttributeLabels = $this->getParticipationAttributeLabelsByLanguage($language);
 
         return [
-            'headers' => $this->resolveCsvDownloadHeaders($columns, $language),
+            'headers' => $headers,
             'users' => $profiles
                 ->map(fn (LiveChatProfiles $profile): array => $this->buildCsvDownloadRow(
                     $profile,
