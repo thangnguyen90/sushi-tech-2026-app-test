@@ -18,14 +18,15 @@ class CsvDownloadLog extends Model
         'http_status_code',
         'status',
         'error_message',
+        'created_at',
     ];
 
     protected $casts = [
         'downloaded_user_count' => 'integer',
-        'live_chat_user_uuids'  => 'array',
-        'is_suspicious'         => 'boolean',
-        'suspicious_flags'      => 'array',
-        'http_status_code'      => 'integer',
-        'created_at'            => 'datetime',
+        'live_chat_user_uuids' => 'array',
+        'is_suspicious' => 'boolean',
+        'suspicious_flags' => 'array',
+        'http_status_code' => 'integer',
+        'created_at' => 'datetime',
     ];
 }

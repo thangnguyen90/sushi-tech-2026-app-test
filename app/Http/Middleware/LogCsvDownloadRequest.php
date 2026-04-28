@@ -26,11 +26,11 @@ class LogCsvDownloadRequest
     private function writeLog(Request $request, Response $response): void
     {
         try {
-            $statusCode  = $response->getStatusCode();
-            $userUuid    = $request->attributes->get('access_token_user_uuid');
-            $ip          = $request->ip();
-            $userUuids   = $request->input('live_chat_user_uuids', []);
-            $status      = $this->resolveStatus($statusCode);
+            $statusCode = $response->getStatusCode();
+            $userUuid = $request->attributes->get('access_token_user_uuid');
+            $ip = $request->ip();
+            $userUuids = $request->input('live_chat_user_uuids', []);
+            $status = $this->resolveStatus($statusCode);
 
             // Chỉ detect suspicious flags khi request đi qua được (auth + rate limit pass)
             $flags = $statusCode === 200
@@ -38,17 +38,18 @@ class LogCsvDownloadRequest
                 : [];
 
             CsvDownloadLog::create([
-                'user_uuid'             => $userUuid,
-                'ip_address'            => $ip,
+                'user_uuid' => $userUuid,
+                'ip_address' => $ip,
                 'downloaded_user_count' => count($userUuids),
-                'live_chat_user_uuids'  => ! empty($userUuids) ? $userUuids : null,
-                'is_suspicious'         => ! empty($flags),
-                'suspicious_flags'      => ! empty($flags) ? $flags : null,
-                'http_status_code'      => $statusCode,
-                'status'                => $status,
-                'error_message'         => $statusCode >= 400
+                'live_chat_user_uuids' => ! empty($userUuids) ? $userUuids : null,
+                'is_suspicious' => ! empty($flags),
+                'suspicious_flags' => ! empty($flags) ? $flags : null,
+                'http_status_code' => $statusCode,
+                'status' => $status,
+                'error_message' => $statusCode >= 400
                     ? $this->extractErrorMessage($response)
                     : null,
+                'created_at' => now(),
             ]);
 
             $this->audit->alertIfSuspicious($ip, $userUuid, $flags);
@@ -62,12 +63,12 @@ class LogCsvDownloadRequest
     {
         return match (true) {
             $statusCode === 200, $statusCode === 201 => 'success',
-            $statusCode === 401                      => 'unauthorized',
-            $statusCode === 403                      => 'forbidden',
-            $statusCode === 429                      => 'rate_limited',
-            $statusCode === 503                      => 'service_unavailable',
-            $statusCode >= 500                       => 'failed',
-            default                                  => 'failed',
+            $statusCode === 401 => 'unauthorized',
+            $statusCode === 403 => 'forbidden',
+            $statusCode === 429 => 'rate_limited',
+            $statusCode === 503 => 'service_unavailable',
+            $statusCode >= 500 => 'failed',
+            default => 'failed',
         };
     }
 
@@ -80,6 +81,7 @@ class LogCsvDownloadRequest
             }
             $decoded = json_decode($content, true);
             $message = $decoded['message'] ?? null;
+
             return is_string($message) ? mb_substr($message, 0, 255) : null;
         } catch (\Throwable) {
             return null;
