@@ -17,7 +17,7 @@ return [
     'module' => env('EVENTOS_MODULE', null), //default_module
     'client' => env('EVENTOS_CLIENT_ID'), //default_client_id
     'web_api' => [
-        'base_url' => env('EVENTOS_PRIVATE_BASE_URL', 'https://api.eventos.example/web_api'),
+        'base_url' => env('EVENTOS_WEB_API_BASE_URL', 'https://api.eventos.example/web_api'),
     ],
     'trigger_command_key' => env('PRIVATE_TOKEN_USER_AGENT', '')
 ];
