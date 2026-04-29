@@ -125,10 +125,7 @@ class MatchingPartnerController extends Controller
             'language'             => (string) ($validated['language'] ?? 'jpn'),
             'live_chat_user_uuids' => $validated['live_chat_user_uuids'] ?? [],
         ]);
-
-        if (count($result['users']) === 0) {
-            return $this->responseService->error('0件の場合は空のCSV',400,[]);
-        }
+        
         return $this->responseService->success(
             data: $result,
             code: 'OK',
