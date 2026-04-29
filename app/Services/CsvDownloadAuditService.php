@@ -11,8 +11,6 @@ class CsvDownloadAuditService
     private const int MULTI_IP_WINDOW_HOURS         = 24;
     private const int MULTI_IP_THRESHOLD            = 3;
     private const int HIGH_VOLUME_IP_UUID_THRESHOLD = 5;
-    private const int OFF_HOURS_START               = 23;
-    private const int OFF_HOURS_END                 = 6;
 
     public function __construct(
         private readonly SlackWebhookService $slack,
@@ -26,6 +24,8 @@ class CsvDownloadAuditService
             'high_freq_day'    => (int) ($s?->high_freq_day_threshold ?? 5),
             'burst'            => (int) ($s?->burst_threshold          ?? 3),
             'burst_window_min' => (int) ($s?->burst_window_minutes     ?? 5),
+            'off_hours_start'  => (int) ($s?->off_hours_start          ?? 23),
+            'off_hours_end'    => (int) ($s?->off_hours_end            ?? 6),
         ];
     }
 
@@ -51,11 +51,13 @@ class CsvDownloadAuditService
             ];
         }
 
-        if ($this->isOffHours()) {
-            $hour = now()->format('H:i');
+        if ($this->isOffHours($t['off_hours_start'], $t['off_hours_end'])) {
+            $hour  = now()->format('H:i');
+            $start = str_pad((string) $t['off_hours_start'], 2, '0', STR_PAD_LEFT);
+            $end   = str_pad((string) $t['off_hours_end'], 2, '0', STR_PAD_LEFT);
             $flags[] = [
                 'flag'   => 'OFF_HOURS',
-                'reason' => "Request at {$hour} — outside normal business hours (23:00–06:00)",
+                'reason' => "Request at {$hour} — outside normal business hours ({$start}:00–{$end}:00)",
             ];
         }
 
@@ -120,10 +122,10 @@ class CsvDownloadAuditService
 
     // -------------------------------------------------------------------------
 
-    private function isOffHours(): bool
+    private function isOffHours(int $start, int $end): bool
     {
         $hour = (int) now()->format('G');
-        return $hour >= self::OFF_HOURS_START || $hour < self::OFF_HOURS_END;
+        return $hour >= $start || $hour < $end;
     }
 
     /** Returns current day count if threshold reached, otherwise null. */
