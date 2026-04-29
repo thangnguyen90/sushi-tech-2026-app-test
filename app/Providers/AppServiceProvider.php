@@ -6,7 +6,6 @@ use App\Models\MatchingCsvDownloadSetting;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
@@ -19,7 +18,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->scoped(MatchingCsvDownloadSetting::class, function () {
+            return MatchingCsvDownloadSetting::latest()->first();
+        });
     }
 
     /**
@@ -28,12 +29,10 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         RateLimiter::for('csv-download', function (Request $request) {
-            $perMinute = Cache::remember('csv_download_rate_limit_setting', 60, function () {
-                $s = MatchingCsvDownloadSetting::latest()->first();
-                return (int) ($s?->rate_limit_per_minute ?? 3);
-            });
-            $key     = (string) $request->header('access-token');
-            $tooMany = fn () => response()->json(['message' => 'ダウンロードに失敗しました。'], 429);
+            $s         = app(MatchingCsvDownloadSetting::class);
+            $perMinute = (int) ($s?->rate_limit_per_minute ?? 3);
+            $key       = (string) $request->header('access-token');
+            $tooMany   = fn () => response()->json(['message' => 'ダウンロードに失敗しました。'], 429);
 
             return Limit::perMinute($perMinute)->by($key)->response($tooMany);
         });

@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\CsvDownloadLog;
 use App\Models\MatchingCsvDownloadSetting;
-use Illuminate\Support\Facades\Cache;
 
 class CsvDownloadAuditService
 {
@@ -21,15 +20,13 @@ class CsvDownloadAuditService
 
     private function thresholds(): array
     {
-        return Cache::remember('csv_download_audit_thresholds', 60, function () {
-            $s = MatchingCsvDownloadSetting::latest()->first();
-            return [
-                'large_batch'      => (int) ($s?->large_batch_threshold  ?? 10),
-                'high_freq_day'    => (int) ($s?->high_freq_day_threshold ?? 5),
-                'burst'            => (int) ($s?->burst_threshold          ?? 3),
-                'burst_window_min' => (int) ($s?->burst_window_minutes     ?? 5),
-            ];
-        });
+        $s = app(MatchingCsvDownloadSetting::class);
+        return [
+            'large_batch'      => (int) ($s?->large_batch_threshold  ?? 10),
+            'high_freq_day'    => (int) ($s?->high_freq_day_threshold ?? 5),
+            'burst'            => (int) ($s?->burst_threshold          ?? 3),
+            'burst_window_min' => (int) ($s?->burst_window_minutes     ?? 5),
+        ];
     }
 
     /**

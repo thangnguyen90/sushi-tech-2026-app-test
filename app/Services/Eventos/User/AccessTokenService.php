@@ -8,7 +8,6 @@ use App\Services\Eventos\EventosClient;
 use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Exception\ServerException;
-use Illuminate\Support\Facades\Cache;
 use RuntimeException;
 
 class AccessTokenService extends EventosClient
@@ -31,10 +30,8 @@ class AccessTokenService extends EventosClient
         $portal = $this->_getPortal();
         $event  = $this->_getEvent();
 
-        $timeout = Cache::remember('csv_download_api_timeout', 60, function () {
-            $s = MatchingCsvDownloadSetting::latest()->first();
-            return (int) ($s?->api_timeout_seconds ?? 3);
-        });
+        $s       = app(MatchingCsvDownloadSetting::class);
+        $timeout = (int) ($s?->api_timeout_seconds ?? 3);
 
         $client = $this->createApiClient();
         $client->setMethod('GET');

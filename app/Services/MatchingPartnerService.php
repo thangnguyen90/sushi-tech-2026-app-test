@@ -74,9 +74,7 @@ class MatchingPartnerService
     public function getCsvDownloadData(array $ctx): array
     {
         $language = $this->normalizeLanguage($ctx['language'] ?? 'jpn');
-        $csvDownloadSetting = $this->getCsvDownloadSetting();
-
-        if (! $csvDownloadSetting?->is_enabled) {
+        if (! app(MatchingCsvDownloadSetting::class)?->is_enabled) {
             return [];
         }
 
@@ -938,13 +936,6 @@ class MatchingPartnerService
     private function normalizeLanguage(mixed $language): string
     {
         return strtolower(trim((string) $language)) === 'eng' ? 'eng' : 'jpn';
-    }
-
-    private function getCsvDownloadSetting(): ?MatchingCsvDownloadSetting
-    {
-        return MatchingCsvDownloadSetting::query()
-            ->latest('id')
-            ->first();
     }
 
     /**

@@ -112,7 +112,7 @@ class MatchingPartnerController extends Controller
         MatchingPartnerCsvDownloadRequest $request,
         MatchingPartnerService $service,
     ): JsonResponse {
-        $setting = MatchingCsvDownloadSetting::latest()->first();
+        $setting = app(MatchingCsvDownloadSetting::class);
         if (! ($setting?->is_enabled ?? true)) {
             return $this->responseService->error('Feature disabled', 'DISABLED', [], 503);
         }
