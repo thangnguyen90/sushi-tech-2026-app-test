@@ -94,13 +94,17 @@ class MatchingPartnerService
 
         $profiles = $this->getCsvDownloadProfiles($ctx, $requestedUuids);
         $participationAttributeLabels = $this->getParticipationAttributeLabelsByLanguage($language);
+        $emptyRow = array_fill(0, $columns->count(), '');
 
         return [
             'headers' => $headers,
             'users' => $profiles
-                ->map(function (LiveChatProfiles $profile) use ($columns, $language, $participationAttributeLabels): array {
+                ->map(function (?LiveChatProfiles $profile, int $index) use ($columns, $language, $participationAttributeLabels, $emptyRow, $requestedUuids): array {
+                    if ($profile === null) {
+                        return [...$emptyRow, $requestedUuids[$index]];
+                    }
                     $row = $this->buildCsvDownloadRow($profile, $columns, $language, $participationAttributeLabels);
-                    $row[] = $profile->user_uuid;
+                    $row[] = $requestedUuids[$index];
                     return $row;
                 })
                 ->values()
@@ -254,7 +258,6 @@ class MatchingPartnerService
 
         return collect($requestedUuids)
             ->map(fn (string $uuid): ?LiveChatProfiles => $profilesByUuid->get($uuid))
-            ->filter()
             ->values();
     }
 
