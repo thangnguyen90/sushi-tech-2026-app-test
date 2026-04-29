@@ -246,9 +246,8 @@ class MatchingPartnerService
             ->whereNull('deleted_at')
             ->where('live_chat_data_source_id', $ctx['data_source_id'])
             ->where('last_event_id', $ctx['event_id'])
-            ->whereIn('uuid', $requestedUuids);
-
-        $this->applyRequiredProfileFieldsFilter($query);
+            ->whereIn('uuid', $requestedUuids)
+            ->whereNotNull('live_chat_profiles.nickname');
 
         $profiles = $query->get($this->csvDownloadSelectColumns());
 
