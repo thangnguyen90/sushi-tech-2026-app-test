@@ -98,12 +98,11 @@ class MatchingPartnerService
         return [
             'headers' => $headers,
             'users' => $profiles
-                ->map(fn (LiveChatProfiles $profile): array => $this->buildCsvDownloadRow(
-                    $profile,
-                    $columns,
-                    $language,
-                    $participationAttributeLabels
-                ))
+                ->map(function (LiveChatProfiles $profile) use ($columns, $language, $participationAttributeLabels): array {
+                    $row = $this->buildCsvDownloadRow($profile, $columns, $language, $participationAttributeLabels);
+                    $row[] = $profile->user_uuid;
+                    return $row;
+                })
                 ->values()
                 ->all(),
         ];
@@ -903,6 +902,7 @@ class MatchingPartnerService
             'id',
             'profile_id',
             'uuid',
+            'user_uuid',
             'nickname',
             'company',
             'mail_address',
