@@ -504,7 +504,7 @@ watch(
                     display: -webkit-box;
                     word-break: break-word;
                     overflow: hidden;
-                    -webkit-line-clamp: 2;
+                    -webkit-line-clamp: 3;
                     -webkit-box-orient: vertical;
                 }
             }

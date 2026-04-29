@@ -71,7 +71,7 @@
             },
             "appointment": {
                 "label": "参加者を探す",
-                "note": "届いた依頼やマッチング相手が見られます。"
+                "note": "マッチングしたユーザ情報は会期後にWeb版でcsvダウンロードできます。"
             },
             "negotiateManagement": {
                 "label": "商談予約一覧",

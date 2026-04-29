@@ -83,7 +83,7 @@
             },
             "appointment": {
                 "label": "Find Participants / Search for Attendees",
-                "note": "View received requests and matched partners."
+                "note": "Matched user data can be downloaded as csv on the web after the event ends."
             },
             "negotiateManagement": {
                 "label": "Meeting Management",
