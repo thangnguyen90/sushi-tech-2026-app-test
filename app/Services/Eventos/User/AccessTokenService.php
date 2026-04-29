@@ -22,15 +22,15 @@ class AccessTokenService extends EventosClient
      *
      * Returns the user data array on success (HTTP 200).
      *
-     * @throws UnauthorizedException  token invalid/expired → caller returns 401
-     * @throws RuntimeException       eventoa API down/timeout → caller returns 503
+     * @throws UnauthorizedException token invalid/expired → caller returns 401
+     * @throws RuntimeException eventoa API down/timeout → caller returns 503
      */
     public function validate(string $accessToken): array
     {
         $portal = $this->_getPortal();
-        $event  = $this->_getEvent();
+        $event = $this->_getEvent();
 
-        $s       = app(MatchingCsvDownloadSetting::class);
+        $s = app(MatchingCsvDownloadSetting::class);
         $timeout = (int) ($s?->api_timeout_seconds ?? 3);
 
         $client = $this->createApiClient();
@@ -43,27 +43,28 @@ class AccessTokenService extends EventosClient
             $response = $client->send();
 
             if ($response->getStatusCode() !== 200) {
-                throw new RuntimeException('Unexpected status: '.$response->getStatusCode());
+                throw new RuntimeException(
+                    'Unexpected status: '.$response->getStatusCode(),
+                    $response->getStatusCode()
+                );
             }
 
             return json_decode($response->getBody()->getContents(), true, 512, JSON_THROW_ON_ERROR);
 
         } catch (ClientException $e) {
-            $status  = $e->getResponse()->getStatusCode();
-            $body    = json_decode($e->getResponse()->getBody()->getContents(), true);
+            $status = $e->getResponse()->getStatusCode();
+            $body = json_decode($e->getResponse()->getBody()->getContents(), true);
             $message = $body['error_message'] ?? $body['message'] ?? 'Unauthorized';
 
-            if ($status === 401) {
-                throw new UnauthorizedException($message);
+            if (in_array($status, [401, 403], true)) {
+                throw new UnauthorizedException($message, $status, $e);
             }
             throw new RuntimeException($message, $status, $e);
-
         } catch (ConnectException $e) {
             throw new RuntimeException('Eventos API connection failed.', 503, $e);
-
         } catch (ServerException $e) {
-            $status  = $e->getResponse()->getStatusCode();
-            $body    = json_decode((string) $e->getResponse()->getBody(), true);
+            $status = $e->getResponse()->getStatusCode();
+            $body = json_decode((string) $e->getResponse()->getBody(), true);
             $message = $body['error']['items'][0]['message']
                 ?? $body['error_message']
                 ?? $body['message']
