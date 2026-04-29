@@ -905,7 +905,6 @@ class MatchingPartnerService
             'id',
             'profile_id',
             'uuid',
-            'user_uuid',
             'nickname',
             'company',
             'mail_address',
