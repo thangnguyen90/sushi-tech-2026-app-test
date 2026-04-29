@@ -29,7 +29,9 @@ class ValidateAccessToken
         } catch (UnauthorizedException $e) {
             return new JsonResponse(['message' => $e->getMessage()], 401);
         } catch (\RuntimeException $e) {
-            return new JsonResponse(['message' => $e->getMessage()], 503);
+            $status = $e->getCode();
+            $status = ($status >= 400 && $status < 600) ? $status : 503;
+            return new JsonResponse(['message' => $e->getMessage()], $status);
         }
 
         $request->attributes->set('access_token_user_uuid', $user['data']['user_uuid'] ?? null);

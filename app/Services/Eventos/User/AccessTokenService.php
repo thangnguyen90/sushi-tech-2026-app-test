@@ -53,7 +53,7 @@ class AccessTokenService extends EventosClient
             $body    = json_decode($e->getResponse()->getBody()->getContents(), true);
             $message = $body['error_message'] ?? $body['message'] ?? 'Unauthorized';
 
-            if (in_array($status, [401, 403], true)) {
+            if ($status === 401) {
                 throw new UnauthorizedException($message);
             }
             throw new RuntimeException($message, $status, $e);
@@ -62,12 +62,13 @@ class AccessTokenService extends EventosClient
             throw new RuntimeException('Eventos API connection failed.', 503, $e);
 
         } catch (ServerException $e) {
+            $status  = $e->getResponse()->getStatusCode();
             $body    = json_decode((string) $e->getResponse()->getBody(), true);
             $message = $body['error']['items'][0]['message']
                 ?? $body['error_message']
                 ?? $body['message']
                 ?? 'Eventos API server error.';
-            throw new UnauthorizedException($message);
+            throw new RuntimeException($message, $status, $e);
         }
     }
 }
