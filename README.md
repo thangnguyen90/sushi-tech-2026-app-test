@@ -37,6 +37,7 @@ Bake AMI từ máy local → Launch EC2 prod → Swap Route53 → Stop EC2 cũ
 |--------|-----------|-------------|
 | `scripts/setup-ec2-dev.sh` | Trên server | Lần đầu setup EC2 **dev** (cài PHP, Nginx, Node, **MySQL local**) |
 | `scripts/setup-ec2.sh` | Trên server | Lần đầu setup master **stg/prod** (cài PHP, Nginx, Node — dùng RDS) |
+| `scripts/setup-ssl.sh` | Trên server | Sau khi có domain — cập nhật Nginx + cài SSL (Certbot) |
 | `scripts/deploy.sh` | Trên server | Mỗi lần deploy (git pull → build → migrate → reload) |
 | `scripts/bake-ami.sh` | Máy local | Bake AMI → Launch prod → Swap domain → Dọn AMI cũ |
 | `scripts/rollback.sh` | Máy local | Rollback về EC2 prod cũ khi có sự cố |
@@ -107,6 +108,36 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost
 # → phải ra 200 hoặc 302
 ```
 
+### Khi có domain — cài SSL (Certbot)
+
+Làm sau khi app đã chạy được bằng IP.
+
+```bash
+# Bước 1 — Trỏ DNS trước
+# Vào DNS provider (Route53, Cloudflare...) → thêm A record:
+#   Type: A | Name: @ | Value: <PUBLIC_IP> | TTL: 300
+# Chờ DNS propagate (vài phút đến 1 giờ)
+# Kiểm tra: dig +short example.com → phải ra đúng IP
+
+# Bước 2 — Chạy script (tự cập nhật Nginx + cài SSL)
+ssh -i ~/.ssh/eventech-key.pem ubuntu@<PUBLIC_IP>
+cd ~/apps/sushi-tech-2026-app
+
+bash scripts/setup-ssl.sh example.com                    # không cần email
+bash scripts/setup-ssl.sh example.com admin@example.com  # có email (nhận thông báo renew)
+```
+
+Script tự động:
+- Kiểm tra DNS đã trỏ đúng chưa
+- Cập nhật Nginx config với domain
+- Cài Certbot + lấy certificate Let's Encrypt
+- Redirect HTTP → HTTPS
+- Cập nhật `APP_URL` trong `.env`
+
+> Certbot tự renew qua systemd timer. Kiểm tra: `sudo certbot renew --dry-run`
+
+---
+
 ### Config bake-ami.sh (làm 1 lần)
 
 Mở `scripts/bake-ami.sh` và điền:
@@ -171,6 +202,7 @@ Xem chi tiết: [.github/workflows/deploy-prod.yml](.github/workflows/deploy-pro
 scripts/
   setup-ec2-dev.sh  # Cài PHP 8.3, Nginx, Node.js 22, MySQL local (dev)
   setup-ec2.sh      # Cài PHP 8.3, Nginx, Node.js 22 (stg/prod — dùng RDS)
+  setup-ssl.sh      # Cập nhật Nginx + cài SSL Certbot (khi có domain)
   deploy.sh         # git pull + build + migrate + reload (chạy trên server)
   bake-ami.sh       # Bake AMI + launch prod + swap domain (chạy trên máy local)
   rollback.sh       # Rollback về EC2 prod cũ (chạy trên máy local)
