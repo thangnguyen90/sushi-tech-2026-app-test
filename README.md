@@ -35,7 +35,8 @@ Bake AMI từ máy local → Launch EC2 prod → Swap Route53 → Stop EC2 cũ
 
 | Script | Chạy ở đâu | Dùng khi nào |
 |--------|-----------|-------------|
-| `scripts/setup-ec2.sh` | Trên server | Lần đầu setup master (cài PHP, Nginx, Node...) |
+| `scripts/setup-ec2-dev.sh` | Trên server | Lần đầu setup EC2 **dev** (cài PHP, Nginx, Node, **MySQL local**) |
+| `scripts/setup-ec2.sh` | Trên server | Lần đầu setup master **stg/prod** (cài PHP, Nginx, Node — dùng RDS) |
 | `scripts/deploy.sh` | Trên server | Mỗi lần deploy (git pull → build → migrate → reload) |
 | `scripts/bake-ami.sh` | Máy local | Bake AMI → Launch prod → Swap domain → Dọn AMI cũ |
 | `scripts/rollback.sh` | Máy local | Rollback về EC2 prod cũ khi có sự cố |
@@ -80,6 +81,9 @@ sudo swapon /swapfile
 echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 
 # 5. Cài PHP, Nginx, Node, build...
+#    Dev (MySQL local):
+bash scripts/setup-ec2-dev.sh my_password
+#    Stg/Prod (dùng RDS):
 bash scripts/setup-ec2.sh
 
 # 5. Cấu hình .env + migrate
@@ -157,7 +161,8 @@ Xem chi tiết: [.github/workflows/deploy-prod.yml](.github/workflows/deploy-pro
 
 ```
 scripts/
-  setup-ec2.sh      # Cài PHP 8.3, Nginx, Node.js 22 (chạy 1 lần trên server)
+  setup-ec2-dev.sh  # Cài PHP 8.3, Nginx, Node.js 22, MySQL local (dev)
+  setup-ec2.sh      # Cài PHP 8.3, Nginx, Node.js 22 (stg/prod — dùng RDS)
   deploy.sh         # git pull + build + migrate + reload (chạy trên server)
   bake-ami.sh       # Bake AMI + launch prod + swap domain (chạy trên máy local)
   rollback.sh       # Rollback về EC2 prod cũ (chạy trên máy local)
@@ -242,4 +247,114 @@ cat ~/.ssh/id_ed25519.pub
 # → Copy public key → GitHub → Settings → SSH keys → New SSH key
 ssh-keyscan github.com >> ~/.ssh/known_hosts
 ssh -T git@github.com  # kiểm tra
+```
+
+---
+
+### App trả về 500
+
+**Bước 1 — Xem lỗi thực sự trong Laravel log:**
+
+```bash
+tail -50 ~/apps/sushi-tech-2026-app/storage/logs/laravel.log | grep -A 10 "ERROR\|CRITICAL\|exception"
+```
+
+**Bước 2 — Nếu log báo "Permission denied" trên storage:**
+
+```bash
+sudo chown -R ubuntu:www-data ~/apps/sushi-tech-2026-app/storage ~/apps/sushi-tech-2026-app/bootstrap/cache
+sudo chmod -R 775 ~/apps/sushi-tech-2026-app/storage ~/apps/sushi-tech-2026-app/bootstrap/cache
+```
+
+**Bước 3 — Xem Nginx error log nếu vẫn lỗi:**
+
+```bash
+sudo tail -20 /var/log/nginx/error.log
+```
+
+**Bước 4 — Test lại:**
+
+```bash
+curl -s -o /dev/null -w '%{http_code}' http://localhost
+# → phải ra 200 hoặc 302
+```
+
+---
+
+### Mở app bằng IP trên trình duyệt
+
+Lấy public IP của EC2:
+
+```bash
+# Từ máy local
+export AWS_PROFILE=eventech-terraform
+aws ec2 describe-instances \
+  --filters "Name=tag:Role,Values=master" \
+  --query "Reservations[*].Instances[*].PublicIpAddress" \
+  --output text
+
+# Hoặc từ ngay trên server
+curl -s ifconfig.me
+```
+
+Mở trình duyệt và truy cập:
+
+```
+http://<PUBLIC_IP>
+```
+
+> **Lưu ý:** Security Group phải mở inbound port 80 từ IP của bạn (hoặc `0.0.0.0/0` để public).
+> Kiểm tra trong AWS Console: EC2 → Security Groups → Inbound rules.
+
+---
+
+### Trình duyệt báo ERR_INTERNET_DISCONNECTED khi mở IP
+
+**Nguyên nhân:** Không phải lỗi server — đây là lỗi mạng phía máy local (Wi-Fi ngắt kết nối tạm thời, VPN, hoặc DNS).
+
+**Kiểm tra nhanh từ terminal máy local:**
+
+```bash
+curl -v http://<PUBLIC_IP>
+# Nếu trả về HTML → server OK, lỗi do trình duyệt/mạng local
+```
+
+**Giải quyết:** Thử lại trình duyệt sau vài giây, hoặc tắt VPN rồi load lại.
+
+---
+
+### Trình duyệt mở được nhưng assets (CSS/JS) không load
+
+**Nguyên nhân:** `APP_URL` trong `.env` chưa đúng — Vite build với URL sai nên link tới assets bị broken.
+
+**Giải quyết:**
+
+```bash
+# Trên server
+nano ~/apps/sushi-tech-2026-app/.env
+# Sửa: APP_URL=http://<PUBLIC_IP>
+
+php artisan config:cache
+```
+
+---
+
+### Kiểm tra nhanh toàn bộ stack
+
+```bash
+# Nginx
+sudo systemctl status nginx
+sudo ss -tlnp | grep :80
+
+# PHP-FPM
+sudo systemctl status php8.3-fpm
+
+# MySQL (chỉ dev)
+sudo systemctl status mysql
+
+# Laravel log
+tail -20 ~/apps/sushi-tech-2026-app/storage/logs/laravel.log
+
+# Test HTTP
+curl -s -o /dev/null -w '%{http_code}' http://localhost
 ```
