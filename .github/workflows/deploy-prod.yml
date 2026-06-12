@@ -1,0 +1,303 @@
+name: Deploy to Production (AMI Baking)
+
+on:
+  push:
+    branches:
+      - main  # Push lên main → deploy lên master → bake AMI → launch prod
+
+env:
+  AWS_REGION: ap-northeast-1
+  MASTER_INSTANCE_ID: ${{ secrets.MASTER_INSTANCE_ID }}  # ID của EC2 master
+  PROD_INSTANCE_TYPE: t3.micro                            # Instance type của EC2 prod
+  DOMAIN: ${{ secrets.PROD_DOMAIN }}                      # Ví dụ: app.example.com
+  ROUTE53_ZONE_ID: ${{ secrets.ROUTE53_ZONE_ID }}         # Zone ID trên Route53
+  HEALTH_CHECK_URL: http://localhost                      # URL health check trên EC2 mới
+  AMI_KEEP_COUNT: 3                                       # Giữ lại 3 AMI gần nhất
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      # ────────────────────────────────
+      # 1. Checkout + AWS Auth
+      # ────────────────────────────────
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # ────────────────────────────────
+      # 2. Deploy lên Master EC2
+      # ────────────────────────────────
+      - name: Deploy to Master EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.MASTER_EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          script: |
+            cd ~/apps/sushi-tech-2026-app
+
+            echo "📥 Pull code mới..."
+            git pull origin main
+
+            echo "📦 Cài dependencies..."
+            composer install --no-dev --optimize-autoloader --no-interaction
+            npm ci && npm run build
+
+            echo "⚙️  Chạy migrate + cache..."
+            php artisan migrate --force
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+
+            echo "🔄 Reload PHP-FPM..."
+            sudo systemctl reload php8.2-fpm
+
+            echo "✅ Master EC2 đã cập nhật"
+
+      # ────────────────────────────────
+      # 3. Smoke test trên Master
+      # ────────────────────────────────
+      - name: Smoke test on Master
+        run: |
+          echo "🧪 Kiểm tra Master EC2..."
+          for i in {1..5}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              http://${{ secrets.MASTER_EC2_HOST }} || echo "000")
+            if [ "$STATUS" = "200" ] || [ "$STATUS" = "302" ]; then
+              echo "✅ Master healthy (HTTP $STATUS)"
+              exit 0
+            fi
+            echo "⏳ Thử lần $i... (HTTP $STATUS)"
+            sleep 10
+          done
+          echo "❌ Master không healthy sau 5 lần thử"
+          exit 1
+
+      # ────────────────────────────────
+      # 4. Tạo AMI từ Master EC2
+      # ────────────────────────────────
+      - name: Create AMI from Master
+        id: create-ami
+        run: |
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+          AMI_NAME="sushi-tech-prod-$TIMESTAMP"
+
+          echo "📸 Tạo AMI: $AMI_NAME"
+          AMI_ID=$(aws ec2 create-image \
+            --instance-id ${{ env.MASTER_INSTANCE_ID }} \
+            --name "$AMI_NAME" \
+            --description "Production AMI từ commit ${{ github.sha }}" \
+            --no-reboot \
+            --tag-specifications "ResourceType=image,Tags=[{Key=Name,Value=$AMI_NAME},{Key=Project,Value=sushi-tech},{Key=CommitSha,Value=${{ github.sha }}}]" \
+            --query 'ImageId' \
+            --output text)
+
+          echo "⏳ Chờ AMI ready: $AMI_ID"
+          aws ec2 wait image-available --image-ids $AMI_ID
+          echo "✅ AMI ready: $AMI_ID"
+
+          echo "ami_id=$AMI_ID" >> $GITHUB_OUTPUT
+          echo "ami_name=$AMI_NAME" >> $GITHUB_OUTPUT
+
+      # ────────────────────────────────
+      # 5. Lấy thông tin cần thiết
+      # ────────────────────────────────
+      - name: Get Master EC2 config
+        id: get-config
+        run: |
+          # Lấy subnet và security group từ Master EC2
+          SUBNET_ID=$(aws ec2 describe-instances \
+            --instance-ids ${{ env.MASTER_INSTANCE_ID }} \
+            --query 'Reservations[0].Instances[0].SubnetId' \
+            --output text)
+
+          SG_IDS=$(aws ec2 describe-instances \
+            --instance-ids ${{ env.MASTER_INSTANCE_ID }} \
+            --query 'Reservations[0].Instances[0].SecurityGroups[*].GroupId' \
+            --output text | tr '\t' ',')
+
+          KEY_NAME=$(aws ec2 describe-instances \
+            --instance-ids ${{ env.MASTER_INSTANCE_ID }} \
+            --query 'Reservations[0].Instances[0].KeyName' \
+            --output text)
+
+          IAM_PROFILE=$(aws ec2 describe-instances \
+            --instance-ids ${{ env.MASTER_INSTANCE_ID }} \
+            --query 'Reservations[0].Instances[0].IamInstanceProfile.Arn' \
+            --output text | awk -F'/' '{print $NF}')
+
+          echo "subnet_id=$SUBNET_ID" >> $GITHUB_OUTPUT
+          echo "sg_ids=$SG_IDS" >> $GITHUB_OUTPUT
+          echo "key_name=$KEY_NAME" >> $GITHUB_OUTPUT
+          echo "iam_profile=$IAM_PROFILE" >> $GITHUB_OUTPUT
+
+      # ────────────────────────────────
+      # 6. Launch EC2 prod mới từ AMI
+      # ────────────────────────────────
+      - name: Launch new Production EC2
+        id: launch-ec2
+        run: |
+          echo "🚀 Launch EC2 prod mới từ AMI ${{ steps.create-ami.outputs.ami_id }}..."
+
+          NEW_INSTANCE_ID=$(aws ec2 run-instances \
+            --image-id ${{ steps.create-ami.outputs.ami_id }} \
+            --instance-type ${{ env.PROD_INSTANCE_TYPE }} \
+            --subnet-id ${{ steps.get-config.outputs.subnet_id }} \
+            --security-group-ids ${{ steps.get-config.outputs.sg_ids }} \
+            --key-name ${{ steps.get-config.outputs.key_name }} \
+            --iam-instance-profile Name=${{ steps.get-config.outputs.iam_profile }} \
+            --associate-public-ip-address \
+            --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=sushi-tech-prod},{Key=Role,Value=prod},{Key=AMI,Value=${{ steps.create-ami.outputs.ami_name }}}]" \
+            --query 'Instances[0].InstanceId' \
+            --output text)
+
+          echo "⏳ Chờ EC2 mới running: $NEW_INSTANCE_ID"
+          aws ec2 wait instance-running --instance-ids $NEW_INSTANCE_ID
+
+          # Lấy public IP
+          NEW_IP=$(aws ec2 describe-instances \
+            --instance-ids $NEW_INSTANCE_ID \
+            --query 'Reservations[0].Instances[0].PublicIpAddress' \
+            --output text)
+
+          echo "✅ EC2 prod mới: $NEW_INSTANCE_ID ($NEW_IP)"
+          echo "new_instance_id=$NEW_INSTANCE_ID" >> $GITHUB_OUTPUT
+          echo "new_ip=$NEW_IP" >> $GITHUB_OUTPUT
+
+      # ────────────────────────────────
+      # 7. Health check EC2 mới
+      # ────────────────────────────────
+      - name: Health check new EC2
+        run: |
+          echo "🧪 Kiểm tra EC2 mới: ${{ steps.launch-ec2.outputs.new_ip }}"
+          sleep 30  # Chờ app khởi động
+
+          for i in {1..10}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              http://${{ steps.launch-ec2.outputs.new_ip }} || echo "000")
+            if [ "$STATUS" = "200" ] || [ "$STATUS" = "302" ]; then
+              echo "✅ EC2 mới healthy (HTTP $STATUS)"
+              exit 0
+            fi
+            echo "⏳ Thử lần $i/10... (HTTP $STATUS)"
+            sleep 15
+          done
+
+          echo "❌ EC2 mới không healthy — rollback!"
+          # Xóa EC2 mới nếu không healthy
+          aws ec2 terminate-instances \
+            --instance-ids ${{ steps.launch-ec2.outputs.new_instance_id }}
+          exit 1
+
+      # ────────────────────────────────
+      # 8. Đổi Route53 → EC2 mới
+      # ────────────────────────────────
+      - name: Update Route53 to new EC2
+        run: |
+          echo "🌐 Đổi domain ${{ env.DOMAIN }} → ${{ steps.launch-ec2.outputs.new_ip }}"
+
+          aws route53 change-resource-record-sets \
+            --hosted-zone-id ${{ env.ROUTE53_ZONE_ID }} \
+            --change-batch "{
+              \"Changes\": [{
+                \"Action\": \"UPSERT\",
+                \"ResourceRecordSet\": {
+                  \"Name\": \"${{ env.DOMAIN }}\",
+                  \"Type\": \"A\",
+                  \"TTL\": 60,
+                  \"ResourceRecords\": [{
+                    \"Value\": \"${{ steps.launch-ec2.outputs.new_ip }}\"
+                  }]
+                }
+              }]
+            }"
+
+          echo "✅ Domain đã trỏ vào EC2 mới"
+
+      # ────────────────────────────────
+      # 9. Stop EC2 prod cũ
+      # ────────────────────────────────
+      - name: Stop old Production EC2
+        run: |
+          # Tìm EC2 prod cũ (tag Role=prod, không phải instance mới)
+          OLD_INSTANCE_IDS=$(aws ec2 describe-instances \
+            --filters \
+              "Name=tag:Role,Values=prod" \
+              "Name=instance-state-name,Values=running" \
+            --query "Reservations[*].Instances[?InstanceId!='${{ steps.launch-ec2.outputs.new_instance_id }}'].InstanceId" \
+            --output text)
+
+          if [ -z "$OLD_INSTANCE_IDS" ]; then
+            echo "Không có EC2 prod cũ cần stop"
+            exit 0
+          fi
+
+          echo "🛑 Stop EC2 prod cũ: $OLD_INSTANCE_IDS"
+          aws ec2 stop-instances --instance-ids $OLD_INSTANCE_IDS
+          echo "✅ EC2 prod cũ đã stop (giữ lại 24h để rollback nếu cần)"
+
+      # ────────────────────────────────
+      # 10. Dọn AMI cũ (giữ 3 bản gần nhất)
+      # ────────────────────────────────
+      - name: Cleanup old AMIs
+        run: |
+          echo "🧹 Dọn AMI cũ, giữ ${{ env.AMI_KEEP_COUNT }} bản gần nhất..."
+
+          # Lấy danh sách AMI theo thứ tự cũ nhất trước
+          OLD_AMIS=$(aws ec2 describe-images \
+            --owners self \
+            --filters "Name=tag:Project,Values=sushi-tech" \
+            --query "sort_by(Images, &CreationDate)[*].ImageId" \
+            --output text)
+
+          TOTAL=$(echo $OLD_AMIS | wc -w)
+          DELETE_COUNT=$((TOTAL - ${{ env.AMI_KEEP_COUNT }}))
+
+          if [ $DELETE_COUNT -le 0 ]; then
+            echo "Chưa đủ ${{ env.AMI_KEEP_COUNT }} AMI, bỏ qua"
+            exit 0
+          fi
+
+          DELETE_AMIS=$(echo $OLD_AMIS | tr ' ' '\n' | head -$DELETE_COUNT)
+          for AMI_ID in $DELETE_AMIS; do
+            echo "❌ Xóa AMI: $AMI_ID"
+            # Lấy snapshot ID trước khi xóa AMI
+            SNAPSHOT_IDS=$(aws ec2 describe-images \
+              --image-ids $AMI_ID \
+              --query 'Images[0].BlockDeviceMappings[*].Ebs.SnapshotId' \
+              --output text)
+            # Deregister AMI
+            aws ec2 deregister-image --image-id $AMI_ID
+            # Xóa snapshot đi kèm
+            for SNAP_ID in $SNAPSHOT_IDS; do
+              aws ec2 delete-snapshot --snapshot-id $SNAP_ID
+            done
+          done
+          echo "✅ Đã dọn $DELETE_COUNT AMI cũ"
+
+      # ────────────────────────────────
+      # 11. Thông báo kết quả
+      # ────────────────────────────────
+      - name: Summary
+        run: |
+          echo ""
+          echo "🎉 Deploy thành công!"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "  AMI       : ${{ steps.create-ami.outputs.ami_name }}"
+          echo "  EC2 mới   : ${{ steps.launch-ec2.outputs.new_instance_id }}"
+          echo "  IP mới    : ${{ steps.launch-ec2.outputs.new_ip }}"
+          echo "  Domain    : ${{ env.DOMAIN }}"
+          echo "  Commit    : ${{ github.sha }}"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

@@ -1,0 +1,48 @@
+aws_region  = "ap-northeast-1"
+app_name    = "eventech"
+environment = "production"
+
+# Used to create a GitHub OIDC deploy role.
+# If you use GitHub Environment protection instead of branch-only trust,
+# set github_oidc_sub = "repo:ORG/REPO:environment:production".
+github_repository = "ORG/REPO"
+github_branch     = "main"
+# If your AWS account already has GitHub OIDC provider, set its ARN here.
+github_oidc_provider_arn = ""
+
+vpc_cidr = "10.40.0.0/16"
+az_count = 2
+
+enable_nat_gateway   = true
+nat_per_az           = false  # set true for AZ-resilient NAT (extra cost)
+enable_vpc_endpoints = false
+
+# Leave empty for HTTP-only ALB. Put ACM cert ARN here to enable HTTPS.
+certificate_arn = ""
+
+app_url = "https://app.example.com"
+app_key = "base64:CHANGE_ME_GENERATE_WITH_php_artisan_key_generate_show"
+
+# First ECS task definition image tag. Push this tag to ECR before full apply,
+# or temporarily set web_desired_count/queue_desired_count to 0 for first apply.
+image_tag = "bootstrap"
+
+web_desired_count   = 2
+web_min_count       = 1
+web_max_count       = 4
+queue_desired_count = 1
+
+db_name                = "eventech"
+db_username            = "eventech"
+db_instance_class      = "db.t4g.micro"
+db_allocated_storage   = 30
+db_multi_az            = false
+db_deletion_protection = true
+
+redis_node_type = "cache.t4g.micro"
+
+upload_bucket_name = ""
+sqs_queue_name     = ""
+
+# Set true only after updating Laravel Redis config to use scheme: tls
+redis_transit_encryption = false

@@ -1,0 +1,50 @@
+{
+  "family": "eventech-queue",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::<AWS_ACCOUNT_ID>:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::<AWS_ACCOUNT_ID>:role/eventechTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "app",
+      "image": "<AWS_ACCOUNT_ID>.dkr.ecr.<AWS_REGION>.amazonaws.com/eventech-app:latest",
+      "essential": true,
+      "command": ["queue"],
+      "environment": [
+        { "name": "APP_ENV", "value": "production" },
+        { "name": "APP_DEBUG", "value": "false" },
+        { "name": "LOG_CHANNEL", "value": "stderr" },
+        { "name": "CACHE_STORE", "value": "redis" },
+        { "name": "SESSION_DRIVER", "value": "redis" },
+        { "name": "QUEUE_CONNECTION", "value": "sqs" },
+        { "name": "FILESYSTEM_DISK", "value": "s3" },
+        { "name": "QUEUE_SLEEP", "value": "3" },
+        { "name": "QUEUE_TRIES", "value": "3" },
+        { "name": "QUEUE_TIMEOUT", "value": "90" }
+      ],
+      "secrets": [
+        { "name": "APP_KEY", "valueFrom": "arn:aws:ssm:<AWS_REGION>:<AWS_ACCOUNT_ID>:parameter/eventech/production/APP_KEY" },
+        { "name": "APP_URL", "valueFrom": "arn:aws:ssm:<AWS_REGION>:<AWS_ACCOUNT_ID>:parameter/eventech/production/APP_URL" },
+        { "name": "DB_HOST", "valueFrom": "arn:aws:ssm:<AWS_REGION>:<AWS_ACCOUNT_ID>:parameter/eventech/production/DB_HOST" },
+        { "name": "DB_DATABASE", "valueFrom": "arn:aws:ssm:<AWS_REGION>:<AWS_ACCOUNT_ID>:parameter/eventech/production/DB_DATABASE" },
+        { "name": "DB_USERNAME", "valueFrom": "arn:aws:ssm:<AWS_REGION>:<AWS_ACCOUNT_ID>:parameter/eventech/production/DB_USERNAME" },
+        { "name": "DB_PASSWORD", "valueFrom": "arn:aws:ssm:<AWS_REGION>:<AWS_ACCOUNT_ID>:parameter/eventech/production/DB_PASSWORD" },
+        { "name": "REDIS_HOST", "valueFrom": "arn:aws:ssm:<AWS_REGION>:<AWS_ACCOUNT_ID>:parameter/eventech/production/REDIS_HOST" },
+        { "name": "AWS_BUCKET", "valueFrom": "arn:aws:ssm:<AWS_REGION>:<AWS_ACCOUNT_ID>:parameter/eventech/production/AWS_BUCKET" },
+        { "name": "AWS_DEFAULT_REGION", "valueFrom": "arn:aws:ssm:<AWS_REGION>:<AWS_ACCOUNT_ID>:parameter/eventech/production/AWS_DEFAULT_REGION" },
+        { "name": "SQS_PREFIX", "valueFrom": "arn:aws:ssm:<AWS_REGION>:<AWS_ACCOUNT_ID>:parameter/eventech/production/SQS_PREFIX" },
+        { "name": "SQS_QUEUE", "valueFrom": "arn:aws:ssm:<AWS_REGION>:<AWS_ACCOUNT_ID>:parameter/eventech/production/SQS_QUEUE" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/eventech-queue",
+          "awslogs-region": "<AWS_REGION>",
+          "awslogs-stream-prefix": "worker"
+        }
+      }
+    }
+  ]
+}

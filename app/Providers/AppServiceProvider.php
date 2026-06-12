@@ -29,12 +29,20 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         RateLimiter::for('csv-download', function (Request $request) {
-            $s         = app(MatchingCsvDownloadSetting::class);
+            $s = app(MatchingCsvDownloadSetting::class);
             $perMinute = (int) ($s?->rate_limit_per_minute ?? 3);
-            $key       = (string) $request->header('access-token');
-            $tooMany   = fn () => response()->json(['message' => 'ダウンロードに失敗しました。'], 429);
+            $key = (string) $request->header('access-token');
+            $tooMany = fn () => response()->json(['message' => 'ダウンロードに失敗しました。'], 429);
 
             return Limit::perMinute($perMinute)->by($key)->response($tooMany);
+        });
+
+        DB::listen(function (QueryExecuted $query) {
+            Log::debug('SQL', [
+                'sql' => $query->sql,
+                'bindings' => $query->bindings,
+                'time_ms' => $query->time,
+            ]);
         });
     }
 }

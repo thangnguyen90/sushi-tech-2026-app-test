@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>AWS Setup Checklist — eventech-dev</title>
+<style>
+  body { font-family: 'Segoe UI', Arial, sans-serif; max-width: 960px; margin: 0 auto; padding: 24px; background: #f8fafc; color: #1e293b; }
+  h1 { color: #1e40af; border-bottom: 3px solid #1e40af; padding-bottom: 8px; }
+  h2 { margin-top: 28px; font-size: 1.05em; padding: 8px 14px; border-radius: 6px; }
+  h2.basic    { color: #14532d; background: #dcfce7; border-left: 5px solid #16a34a; }
+  h2.infra    { color: #5b21b6; background: #ede9fe; border-left: 5px solid #7c3aed; }
+  h2.edge     { color: #1e3a8a; background: #dbeafe; border-left: 5px solid #2563eb; }
+  h2.data     { color: #92400e; background: #fff7ed; border-left: 5px solid #f59e0b; }
+  h2.monitor  { color: #831843; background: #fdf2f8; border-left: 5px solid #db2777; }
+  .step { background: #fff; border-radius: 8px; margin: 10px 0; padding: 14px 18px; }
+  .step.basic   { border: 1px solid #86efac; border-left: 4px solid #16a34a; }
+  .step.infra   { border: 1px solid #c4b5fd; border-left: 4px solid #7c3aed; }
+  .step.edge    { border: 1px solid #93c5fd; border-left: 4px solid #2563eb; }
+  .step.data    { border: 1px solid #fcd34d; border-left: 4px solid #f59e0b; }
+  .step.monitor { border: 1px solid #f9a8d4; border-left: 4px solid #db2777; }
+  .menu { padding: 6px 12px; border-radius: 4px; font-size: 0.88em; font-weight: bold; margin-bottom: 10px; }
+  .menu.basic   { background: #f0fdf4; border-left: 4px solid #16a34a; color: #14532d; }
+  .menu.infra   { background: #f5f3ff; border-left: 4px solid #7c3aed; color: #5b21b6; }
+  .menu.edge    { background: #eff6ff; border-left: 4px solid #2563eb; color: #1e3a8a; }
+  .menu.data    { background: #fffbeb; border-left: 4px solid #f59e0b; color: #92400e; }
+  .menu.monitor { background: #fdf2f8; border-left: 4px solid #db2777; color: #831843; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 0.9em; }
+  th { color: #fff; padding: 7px 12px; text-align: left; }
+  th.basic   { background: #16a34a; }
+  th.infra   { background: #7c3aed; }
+  th.edge    { background: #2563eb; }
+  th.data    { background: #f59e0b; color: #1e293b; }
+  th.monitor { background: #db2777; }
+  td { padding: 6px 12px; border-bottom: 1px solid #e2e8f0; }
+  tr:nth-child(even) td { background: #f8fafc; }
+  code { background: #e0f2fe; color: #0369a1; padding: 1px 6px; border-radius: 3px; font-family: monospace; font-size: 0.92em; }
+  .warn  { background: #fff7ed; border: 1px solid #f59e0b; border-radius: 6px; padding: 7px 12px; margin: 6px 0; font-size: 0.87em; color: #92400e; }
+  .note  { background: #f0fdf4; border: 1px solid #86efac; border-radius: 6px; padding: 7px 12px; margin: 6px 0; font-size: 0.87em; color: #166534; }
+  .region { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.78em; font-weight: bold; margin-left: 8px; vertical-align: middle; }
+  .r-us  { background: #dbeafe; color: #1e40af; }
+  .r-ap  { background: #dcfce7; color: #14532d; }
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0; padding: 12px 16px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.88em; }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .dot { width: 13px; height: 13px; border-radius: 3px; flex-shrink: 0; }
+  hr { border: none; border-top: 2px dashed #cbd5e1; margin: 28px 0; }
+</style>
+</head>
+<body>
+<h1>AWS Setup Checklist — eventech-dev</h1>
+<p>Vào đúng menu → nhập đúng data → click Create/Save. Làm theo thứ tự từ trên xuống.</p>
+<div class="legend">
+  <div class="legend-item"><div class="dot" style="background:#16a34a"></div><strong style="color:#14532d">Bắt buộc</strong> — web chạy được</div>
+  <div class="legend-item"><div class="dot" style="background:#7c3aed"></div><strong style="color:#5b21b6">Infra mở rộng</strong> — ALB, NAT, Bastion, Auto Scaling</div>
+  <div class="legend-item"><div class="dot" style="background:#2563eb"></div><strong style="color:#1e3a8a">Edge / Security</strong> — CloudFront, WAF, ACM (us-east-1)</div>
+  <div class="legend-item"><div class="dot" style="background:#f59e0b"></div><strong style="color:#92400e">Data</strong> — Aurora, ElastiCache, S3</div>
+  <div class="legend-item"><div class="dot" style="background:#db2777"></div><strong style="color:#831843">Monitoring</strong> — CloudWatch, SNS, Slack, CloudTrail, Security Hub</div>
+</div>
+
+<!-- ===== NETWORK ===== -->
+<h2 class="basic">🟢 1. VPC <span class="region r-ap">ap-northeast-1</span></h2>
+<div class="step basic">
+  <div class="menu basic">☰ VPC → Your VPCs → Create VPC</div>
+  <table><tr><th class="basic">Field</th><th class="basic">Nhập vào</th></tr>
+  <tr><td>Name tag</td><td><code>eventech-dev-vpc</code></td></tr>
+  <tr><td>IPv4 CIDR</td><td><code>10.40.0.0/16</code></td></tr>
+  <tr><td>Tenancy</td><td><code>Default</code></td></tr>
+  </table>
+</div>
+
+<h2 class="basic">🟢 2. Subnets <span class="region r-ap">ap-northeast-1</span></h2>
+<div class="step basic">
+  <div class="menu basic">☰ VPC → Subnets → Create subnet</div>
+  <table><tr><th class="basic">Tên</th><th class="basic">AZ</th><th class="basic">CIDR</th><th class="basic">Loại</th></tr>
+  <tr><td><code>eventech-dev-public-1a</code></td><td>ap-northeast-1a</td><td><code>10.40.0.0/24</code></td><td>Public</td></tr>
+  <tr><td><code>eventech-dev-public-1c</code></td><td>ap-northeast-1c</td><td><code>10.40.1.0/24</code></td><td>Public (cho ALB)</td></tr>
+  <tr><td><code>eventech-dev-private-1a</code></td><td>ap-northeast-1a</td><td><code>10.40.2.0/24</code></td><td>Private (EC2, DB)</td></tr>
+  <tr><td><code>eventech-dev-private-1c</code></td><td>ap-northeast-1c</td><td><code>10.40.3.0/24</code></td><td>Private (DB multi-AZ)</td></tr>
+  </table>
+  <p style="margin-top:8px">✅ Sau khi tạo: chọn mỗi <strong>public subnet</strong> → Actions → <strong>Edit subnet settings → Enable auto-assign public IPv4</strong></p>
+</div>
+
+<h2 class="basic">🟢 3. Internet Gateway</h2>
+<div class="step basic">
+  <div class="menu basic">☰ VPC → Internet gateways → Create internet gateway</div>
+  <table><tr><th class="basic">Field</th><th class="basic">Nhập vào</th></tr>
+  <tr><td>Name tag</td><td><code>eventech-dev-igw</code></td></tr>
+  </table>
+  <p style="margin-top:8px">✅ Sau khi tạo → Actions → <strong>Attach to VPC</strong> → chọn <code>eventech-dev-vpc</code></p>
+</div>
+
+<h2 class="basic">🟢 4. Route Tables</h2>
+<div class="step basic">
+  <div class="menu basic">☰ VPC → Route tables → Create route table</div>
+  <table><tr><th class="basic">Name</th><th class="basic">VPC</th><th class="basic">Routes thêm vào</th><th class="basic">Gắn subnet</th></tr>
+  <tr><td><code>eventech-dev-public-rt</code></td><td>eventech-dev-vpc</td><td><code>0.0.0.0/0</code> → <code>eventech-dev-igw</code></td><td>public-1a, public-1c</td></tr>
+  <tr><td><code>eventech-dev-private-rt</code></td><td>eventech-dev-vpc</td><td><code>0.0.0.0/0</code> → <code>eventech-dev-nat-1a</code> <em>(sau khi tạo NAT GW)</em></td><td>private-1a, private-1c</td></tr>
+  </table>
+</div>
+
+<h2 class="basic">🟢 5. Security Groups</h2>
+<div class="step basic">
+  <div class="menu basic">☰ EC2 → Network & Security → Security Groups → Create security group</div>
+  <table><tr><th class="basic">Name</th><th class="basic">Inbound rules</th></tr>
+  <tr><td><code>eventech-dev-ec2-sg</code></td><td>HTTP 80 from <code>eventech-dev-alb-sg</code> | SSH 22 from <code>eventech-dev-bastion-sg</code></td></tr>
+  <tr><td><code>eventech-dev-alb-sg</code></td><td>HTTP 80 + HTTPS 443 from <code>0.0.0.0/0</code></td></tr>
+  <tr><td><code>eventech-dev-bastion-sg</code></td><td>SSH 22 from <code>YOUR_IP/32</code></td></tr>
+  <tr><td><code>eventech-dev-aurora-sg</code></td><td>MySQL 3306 from <code>eventech-dev-ec2-sg</code></td></tr>
+  <tr><td><code>eventech-dev-redis-sg</code></td><td>Redis 6379 from <code>eventech-dev-ec2-sg</code></td></tr>
+  </table>
+  <p style="margin-top:6px;font-size:0.85em;color:#64748b">💡 Chạy <code>curl ifconfig.me</code> để lấy YOUR_IP</p>
+</div>
+
+<h2 class="basic">🟢 6. EC2 App Server (tạm thời, thay bằng Auto Scaling sau)</h2>
+<div class="step basic">
+  <div class="menu basic">☰ EC2 → Instances → Launch instances</div>
+  <table><tr><th class="basic">Field</th><th class="basic">Nhập vào</th></tr>
+  <tr><td>Name</td><td><code>eventech-dev-app-01</code></td></tr>
+  <tr><td>AMI</td><td><code>Amazon Linux 2023</code></td></tr>
+  <tr><td>Instance type</td><td><code>t3.micro</code> (dev) / <code>t3.medium</code> (prod)</td></tr>
+  <tr><td>Key pair</td><td>Tạo mới hoặc chọn key sẵn có</td></tr>
+  <tr><td>Subnet</td><td><code>eventech-dev-private-1a</code></td></tr>
+  <tr><td>Auto-assign public IP</td><td><code>Disable</code> (private subnet)</td></tr>
+  <tr><td>Security group</td><td><code>eventech-dev-ec2-sg</code></td></tr>
+  <tr><td>Storage</td><td><code>20 GB gp3</code></td></tr>
+  </table>
+</div>
+
+<hr>
+<!-- ===== INFRA MỞ RỘNG ===== -->
+<h2 class="infra">🟣 7. NAT Gateway <span style="color:#f59e0b;font-size:0.8em">⚠️ ~$45/tháng</span></h2>
+<div class="step infra">
+  <div class="menu infra">☰ VPC → NAT gateways → Create NAT gateway</div>
+  <table><tr><th class="infra">Field</th><th class="infra">Nhập vào</th></tr>
+  <tr><td>Name</td><td><code>eventech-dev-nat-1a</code></td></tr>
+  <tr><td>Subnet</td><td><code>eventech-dev-public-1a</code></td></tr>
+  <tr><td>Connectivity type</td><td><code>Public</code></td></tr>
+  <tr><td>Elastic IP</td><td>Click <strong>Allocate Elastic IP</strong></td></tr>
+  </table>
+  <div class="warn">⏳ Chờ Status = Available (~3 phút) rồi mới gắn vào private-rt</div>
+</div>
+
+<h2 class="infra">🟣 8. Bastion EC2</h2>
+<div class="step infra">
+  <div class="menu infra">☰ EC2 → Instances → Launch instances</div>
+  <table><tr><th class="infra">Field</th><th class="infra">Nhập vào</th></tr>
+  <tr><td>Name</td><td><code>eventech-dev-bastion</code></td></tr>
+  <tr><td>AMI</td><td><code>Amazon Linux 2023</code></td></tr>
+  <tr><td>Instance type</td><td><code>t3.micro</code></td></tr>
+  <tr><td>Subnet</td><td><code>eventech-dev-public-1a</code></td></tr>
+  <tr><td>Auto-assign public IP</td><td><code>Enable</code></td></tr>
+  <tr><td>Security group</td><td><code>eventech-dev-bastion-sg</code></td></tr>
+  </table>
+</div>
+
+<h2 class="infra">🟣 9. Target Group</h2>
+<div class="step infra">
+  <div class="menu infra">☰ EC2 → Load Balancing → Target Groups → Create target group</div>
+  <table><tr><th class="infra">Field</th><th class="infra">Nhập vào</th></tr>
+  <tr><td>Target type</td><td><code>Instances</code></td></tr>
+  <tr><td>Name</td><td><code>eventech-dev-app-tg</code></td></tr>
+  <tr><td>Protocol / Port</td><td><code>HTTP / 80</code></td></tr>
+  <tr><td>VPC</td><td><code>eventech-dev-vpc</code></td></tr>
+  <tr><td>Health check path</td><td><code>/</code></td></tr>
+  </table>
+</div>
+
+<h2 class="infra">🟣 10. ALB <span style="color:#f59e0b;font-size:0.8em">⚠️ ~$17/tháng</span></h2>
+<div class="step infra">
+  <div class="menu infra">☰ EC2 → Load Balancing → Load Balancers → Create → Application Load Balancer</div>
+  <table><tr><th class="infra">Field</th><th class="infra">Nhập vào</th></tr>
+  <tr><td>Name</td><td><code>eventech-dev-alb</code></td></tr>
+  <tr><td>Scheme</td><td><code>Internet-facing</code></td></tr>
+  <tr><td>VPC</td><td><code>eventech-dev-vpc</code></td></tr>
+  <tr><td>AZ & Subnets</td><td>✅ ap-northeast-1a → <code>public-1a</code> &nbsp; ✅ ap-northeast-1c → <code>public-1c</code></td></tr>
+  <tr><td>Security group</td><td><code>eventech-dev-alb-sg</code></td></tr>
+  <tr><td>Listener HTTP:80</td><td>Forward to <code>eventech-dev-app-tg</code></td></tr>
+  </table>
+</div>
+
+<h2 class="infra">🟣 11. Auto Scaling Group</h2>
+<div class="step infra">
+  <div class="menu infra">☰ EC2 → Auto Scaling → Auto Scaling Groups → Create Auto Scaling group</div>
+  <table><tr><th class="infra">Field</th><th class="infra">Nhập vào</th></tr>
+  <tr><td>Name</td><td><code>eventech-dev-asg</code></td></tr>
+  <tr><td>Launch template</td><td>Tạo mới: AMI=Amazon Linux 2023, type=<code>t3.medium</code>, SG=<code>eventech-dev-ec2-sg</code></td></tr>
+  <tr><td>VPC</td><td><code>eventech-dev-vpc</code></td></tr>
+  <tr><td>Subnets</td><td><code>eventech-dev-private-1a</code>, <code>eventech-dev-private-1c</code></td></tr>
+  <tr><td>Attach to LB</td><td>Chọn <code>eventech-dev-app-tg</code></td></tr>
+  <tr><td>Desired / Min / Max</td><td><code>2 / 1 / 4</code></td></tr>
+  <tr><td>Scaling policy</td><td>Target tracking — CPU 60%</td></tr>
+  </table>
+</div>
+
+<hr>
+<!-- ===== EDGE / SECURITY ===== -->
+<h2 class="edge">🔵 12. ACM — SSL Certificate <span class="region r-us">us-east-1</span></h2>
+<div class="step edge">
+  <div class="menu edge">☰ Certificate Manager → Request certificate (chuyển sang region us-east-1 trước)</div>
+  <table><tr><th class="edge">Field</th><th class="edge">Nhập vào</th></tr>
+  <tr><td>Certificate type</td><td><code>Public</code></td></tr>
+  <tr><td>Domain names</td><td><code>*.eventech.example.com</code> và <code>eventech.example.com</code></td></tr>
+  <tr><td>Validation method</td><td><code>DNS validation</code></td></tr>
+  </table>
+  <p style="margin-top:8px">✅ Sau khi request → thêm CNAME record vào DNS → đợi Status = <strong>Issued</strong></p>
+</div>
+
+<h2 class="edge">🔵 13. CloudFront <span class="region r-us">us-east-1</span></h2>
+<div class="step edge">
+  <div class="menu edge">☰ CloudFront → Distributions → Create distribution</div>
+  <table><tr><th class="edge">Field</th><th class="edge">Nhập vào</th></tr>
+  <tr><td>Origin domain</td><td>DNS name của <code>eventech-dev-alb</code></td></tr>
+  <tr><td>Protocol</td><td><code>HTTP only</code> (ALB → CloudFront)</td></tr>
+  <tr><td>Viewer protocol policy</td><td><code>Redirect HTTP to HTTPS</code></td></tr>
+  <tr><td>Alternate domain name (CNAME)</td><td><code>eventech.example.com</code></td></tr>
+  <tr><td>Custom SSL certificate</td><td>Chọn cert từ ACM (bắt buộc us-east-1)</td></tr>
+  <tr><td>WAF</td><td>Enable Web Application Firewall</td></tr>
+  </table>
+</div>
+
+<h2 class="edge">🔵 14. WAF <span class="region r-us">us-east-1</span></h2>
+<div class="step edge">
+  <div class="menu edge">☰ WAF & Shield → Web ACLs → Create web ACL</div>
+  <table><tr><th class="edge">Field</th><th class="edge">Nhập vào</th></tr>
+  <tr><td>Name</td><td><code>eventech-dev-waf</code></td></tr>
+  <tr><td>Resource type</td><td><code>Amazon CloudFront distributions</code></td></tr>
+  <tr><td>Associated resources</td><td>Chọn CloudFront distribution vừa tạo</td></tr>
+  <tr><td>Rules</td><td>Add: <code>AWSManagedRulesCommonRuleSet</code> (free, bao gồm SQLi, XSS)</td></tr>
+  </table>
+</div>
+
+<hr>
+<!-- ===== DATA ===== -->
+<h2 class="data">🟠 15. Aurora MySQL <span style="color:#f59e0b;font-size:0.8em">⚠️ ~$50+/tháng</span></h2>
+<div class="step data">
+  <div class="menu data">☰ RDS → Databases → Create database</div>
+  <table><tr><th class="data">Field</th><th class="data">Nhập vào</th></tr>
+  <tr><td>Engine</td><td><code>Aurora (MySQL Compatible)</code></td></tr>
+  <tr><td>DB cluster identifier</td><td><code>eventech-dev-aurora</code></td></tr>
+  <tr><td>Master username</td><td><code>admin</code></td></tr>
+  <tr><td>Master password</td><td>Tạo password mạnh, lưu vào Secrets Manager</td></tr>
+  <tr><td>Instance class</td><td><code>db.t3.medium</code></td></tr>
+  <tr><td>Multi-AZ</td><td><code>Yes</code> (1 writer + 1 reader)</td></tr>
+  <tr><td>VPC</td><td><code>eventech-dev-vpc</code></td></tr>
+  <tr><td>Subnet group</td><td>Tạo mới: chọn <code>private-1a</code> + <code>private-1c</code></td></tr>
+  <tr><td>Security group</td><td><code>eventech-dev-aurora-sg</code></td></tr>
+  <tr><td>Public access</td><td><code>No</code></td></tr>
+  <tr><td>Initial database name</td><td><code>eventech</code></td></tr>
+  </table>
+</div>
+
+<h2 class="data">🟠 16. ElastiCache (Redis) <span style="color:#f59e0b;font-size:0.8em">⚠️ ~$25+/tháng</span></h2>
+<div class="step data">
+  <div class="menu data">☰ ElastiCache → Redis OSS caches → Create Redis OSS cache</div>
+  <table><tr><th class="data">Field</th><th class="data">Nhập vào</th></tr>
+  <tr><td>Name</td><td><code>eventech-dev-redis</code></td></tr>
+  <tr><td>Engine version</td><td><code>7.x</code></td></tr>
+  <tr><td>Node type</td><td><code>cache.t3.micro</code></td></tr>
+  <tr><td>Number of replicas</td><td><code>1</code></td></tr>
+  <tr><td>VPC</td><td><code>eventech-dev-vpc</code></td></tr>
+  <tr><td>Subnets</td><td><code>private-1a</code>, <code>private-1c</code></td></tr>
+  <tr><td>Security group</td><td><code>eventech-dev-redis-sg</code></td></tr>
+  </table>
+</div>
+
+<h2 class="data">🟠 17. S3 Bucket (Ticket Data)</h2>
+<div class="step data">
+  <div class="menu data">☰ S3 → Buckets → Create bucket</div>
+  <table><tr><th class="data">Field</th><th class="data">Nhập vào</th></tr>
+  <tr><td>Bucket name</td><td><code>eventech-dev-ticket-data</code></td></tr>
+  <tr><td>Region</td><td><code>ap-northeast-1</code></td></tr>
+  <tr><td>Block all public access</td><td><code>✅ On</code></td></tr>
+  <tr><td>Versioning</td><td><code>Enable</code></td></tr>
+  </table>
+</div>
+
+<hr>
+<!-- ===== MONITORING ===== -->
+<h2 class="monitor">🩷 18. CloudWatch — Error Alarm</h2>
+<div class="step monitor">
+  <div class="menu monitor">☰ CloudWatch → Alarms → Create alarm</div>
+  <table><tr><th class="monitor">Field</th><th class="monitor">Nhập vào</th></tr>
+  <tr><td>Metric</td><td>EC2 → Per-Instance → <code>StatusCheckFailed</code></td></tr>
+  <tr><td>Alarm name</td><td><code>eventech-dev-ec2-error</code></td></tr>
+  <tr><td>Condition</td><td>≥ 1 for 1 datapoint in 1 minute</td></tr>
+  <tr><td>Notification</td><td>Send to SNS topic (tạo ở bước 19)</td></tr>
+  </table>
+</div>
+
+<h2 class="monitor">🩷 19. SNS Topic → Slack</h2>
+<div class="step monitor">
+  <div class="menu monitor">☰ SNS → Topics → Create topic</div>
+  <table><tr><th class="monitor">Field</th><th class="monitor">Nhập vào</th></tr>
+  <tr><td>Type</td><td><code>Standard</code></td></tr>
+  <tr><td>Name</td><td><code>eventech-dev-alerts</code></td></tr>
+  </table>
+  <p style="margin-top:8px">✅ Sau khi tạo → <strong>Create subscription</strong>:</p>
+  <table><tr><th class="monitor">Field</th><th class="monitor">Nhập vào</th></tr>
+  <tr><td>Protocol</td><td><code>HTTPS</code></td></tr>
+  <tr><td>Endpoint</td><td>Slack Incoming Webhook URL của channel <code>#eventech-alerts</code></td></tr>
+  </table>
+</div>
+
+<h2 class="monitor">🩷 20. CloudTrail (audit log)</h2>
+<div class="step monitor">
+  <div class="menu monitor">☰ CloudTrail → Trails → Create trail</div>
+  <table><tr><th class="monitor">Field</th><th class="monitor">Nhập vào</th></tr>
+  <tr><td>Trail name</td><td><code>eventech-dev-trail</code></td></tr>
+  <tr><td>Storage location</td><td>S3 bucket: <code>eventech-dev-cloudtrail-logs</code> (tạo mới)</td></tr>
+  <tr><td>Log file validation</td><td><code>Enable</code></td></tr>
+  <tr><td>Management events</td><td>Read + Write</td></tr>
+  </table>
+</div>
+
+<h2 class="monitor">🩷 21. Security Hub</h2>
+<div class="step monitor">
+  <div class="menu monitor">☰ Security Hub → Go to Security Hub → Enable Security Hub</div>
+  <table><tr><th class="monitor">Field</th><th class="monitor">Nhập vào</th></tr>
+  <tr><td>Standards</td><td>✅ <code>AWS Foundational Security Best Practices</code></td></tr>
+  <tr><td>Integrations</td><td>✅ Enable GuardDuty (phát hiện threat tự động)</td></tr>
+  </table>
+</div>
+
+<hr>
+<!-- ===== CLEANUP ===== -->
+<h2 style="color:#1e293b;background:#f1f5f9;border-left:5px solid #64748b;padding:8px 14px;border-radius:6px">🗑️ Thứ tự xóa (bắt buộc đúng thứ tự)</h2>
+<div class="step" style="border:1px solid #e2e8f0">
+  <table><tr><th style="background:#475569">#</th><th style="background:#475569">Xóa</th><th style="background:#475569">Menu</th></tr>
+  <tr><td>1</td><td>CloudFront distribution</td><td>CloudFront → Disable trước → Delete</td></tr>
+  <tr><td>2</td><td>WAF Web ACL</td><td>WAF → Web ACLs → Delete</td></tr>
+  <tr><td>3</td><td>ALB</td><td>EC2 → Load Balancers → Delete</td></tr>
+  <tr><td>4</td><td>Auto Scaling Group</td><td>EC2 → Auto Scaling Groups → Delete</td></tr>
+  <tr><td>5</td><td>Target Group</td><td>EC2 → Target Groups → Delete</td></tr>
+  <tr><td>6</td><td>EC2 Instances (app + bastion)</td><td>EC2 → Instances → Terminate</td></tr>
+  <tr><td>7</td><td>Aurora cluster</td><td>RDS → Databases → Delete (bỏ chọn final snapshot nếu dev)</td></tr>
+  <tr><td>8</td><td>ElastiCache</td><td>ElastiCache → Delete cluster</td></tr>
+  <tr><td>9</td><td>NAT Gateway ⚠️</td><td>VPC → NAT gateways → Delete → chờ Deleted</td></tr>
+  <tr><td>10</td><td>Elastic IP</td><td>VPC → Elastic IPs → Release</td></tr>
+  <tr><td>11</td><td>Security Groups (5 cái)</td><td>EC2 → Security Groups → Delete từng cái</td></tr>
+  <tr><td>12</td><td>Subnets + Route Tables + IGW</td><td>VPC → xóa theo thứ tự: Subnets → Route tables → Detach + Delete IGW</td></tr>
+  <tr><td>13</td><td>VPC</td><td>VPC → Your VPCs → Delete</td></tr>
+  <tr><td>14</td><td>S3 Buckets</td><td>S3 → Empty bucket → Delete</td></tr>
+  </table>
+  <div class="warn">⚠️ NAT Gateway + Aurora + ElastiCache tính phí kể cả khi idle. Xóa ngay sau khi không dùng!</div>
+</div>
+
+<p style="color:#94a3b8;font-size:0.78em;margin-top:32px;text-align:center">eventech-dev | Region: ap-northeast-1 (Tokyo) | us-east-1 (CloudFront/WAF/ACM) | 2026</p>
+</body>
+</html>
