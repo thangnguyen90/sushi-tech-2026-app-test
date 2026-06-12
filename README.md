@@ -52,19 +52,38 @@ terraform output master_instance_id  # lưu lại
 # 2. SSH vào master
 ssh -i ~/.ssh/eventech-key.pem ubuntu@<MASTER_PUBLIC_IP>
 
-# 3. Clone repo (dùng GitHub Personal Access Token)
-#    Lấy token: GitHub → Settings → Developer settings → Fine-grained tokens
-#    Permission: Contents = Read-only
-git clone https://<GITHUB_TOKEN>@github.com/bravesoft-inc/sushi-tech-2026-app.git \
+# 3. Tạo SSH key trên EC2 để kết nối GitHub
+ssh-keygen -t ed25519 -C "ec2-master" -f ~/.ssh/id_ed25519 -N ""
+cat ~/.ssh/id_ed25519.pub
+# → Copy toàn bộ dòng in ra
+
+# 4. Thêm public key vào GitHub
+#    GitHub → Settings → SSH and GPG keys → New SSH key
+#    Title: "ec2-master" → Paste → Add SSH key
+
+# 5. Kiểm tra kết nối
+ssh-keyscan github.com >> ~/.ssh/known_hosts
+ssh -T git@github.com
+# → "Hi username! You've successfully authenticated..."
+
+# 6. Clone repo
+git clone git@github.com:thangnguyen90/sushi-tech-2026-app-test.git \
   ~/apps/sushi-tech-2026-app
 cd ~/apps/sushi-tech-2026-app
 git remote set-url origin https://github.com/bravesoft-inc/sushi-tech-2026-app.git
 
-# 4. Cài PHP, Nginx, Node, build...
+# 4. Thêm swap 2GB trước khi chạy setup (t3.micro chỉ có 1GB RAM, build Vite dễ chết)
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+
+# 5. Cài PHP, Nginx, Node, build...
 bash scripts/setup-ec2.sh
 
 # 5. Cấu hình .env + migrate
-cp .env.example .env && nano .env
+cp .env.example .env && vi .env
 php artisan key:generate
 sudo chown -R ubuntu:www-data storage bootstrap/cache
 sudo chmod -R 775 storage bootstrap/cache
@@ -160,3 +179,67 @@ DEPLOY_MANUAL.md    # Hướng dẫn chi tiết Cách A
 **Server (Master EC2):**
 - Ubuntu 24.04 LTS
 - PHP 8.3, Composer, Node.js 22, Nginx (cài qua `setup-ec2.sh`)
+
+---
+
+## Troubleshooting
+
+### setup-ec2.sh bị dừng giữa chừng (hết RAM)
+
+**Nguyên nhân:** t3.micro chỉ có 1GB RAM, `npm run build` (Vite) cần ~1.5GB → EC2 bị OOM, SSH mất kết nối.
+
+**Giải quyết:**
+
+```bash
+# Bước 1 — Reboot EC2 từ máy local
+export AWS_PROFILE=eventech-terraform
+aws ec2 reboot-instances --instance-ids <INSTANCE_ID> --region ap-northeast-1
+# Chờ 1-2 phút rồi SSH lại
+```
+
+```bash
+# Bước 2 — Thêm swap 2GB TRƯỚC KHI chạy setup
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+free -h  # kiểm tra — phải thấy Swap: 2.0G
+```
+
+```bash
+# Bước 3 — Chạy lại setup (script idempotent, bỏ qua bước đã xong)
+cd ~/apps/sushi-tech-2026-app
+bash scripts/setup-ec2.sh
+```
+
+> Nếu vẫn chậm khi build, giới hạn memory Node:
+> ```bash
+> NODE_OPTIONS="--max-old-space-size=512" npm run build
+> ```
+
+---
+
+### SSH không vào được EC2
+
+```bash
+# Reboot từ máy local
+aws ec2 reboot-instances --instance-ids <INSTANCE_ID> --region ap-northeast-1
+
+# Hoặc từ AWS Console: EC2 → Instances → Instance state → Reboot
+```
+
+---
+
+### git clone lỗi "Permission denied (publickey)"
+
+EC2 chưa có SSH key được thêm vào GitHub.
+
+```bash
+# Tạo key trên EC2
+ssh-keygen -t ed25519 -C "ec2-master" -f ~/.ssh/id_ed25519 -N ""
+cat ~/.ssh/id_ed25519.pub
+# → Copy public key → GitHub → Settings → SSH keys → New SSH key
+ssh-keyscan github.com >> ~/.ssh/known_hosts
+ssh -T git@github.com  # kiểm tra
+```
