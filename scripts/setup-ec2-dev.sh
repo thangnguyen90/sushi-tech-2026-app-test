@@ -3,13 +3,13 @@
 # Setup EC2 cho môi trường DEV — cài MySQL local
 #
 # Cách dùng:
-#   1. SSH vào EC2
-#   2. Clone repo:
-#      git clone git@github.com:thangnguyen90/sushi-tech-2026-app-test.git \
-#        ~/apps/sushi-tech-2026-app
-#   3. Chạy script:
-#      cd ~/apps/sushi-tech-2026-app
-#      bash scripts/setup-ec2-dev.sh
+#   bash scripts/setup-ec2-dev.sh [db_password] [db_user] [db_name]
+#
+# Ví dụ:
+#   bash scripts/setup-ec2-dev.sh                        # dùng mặc định
+#   bash scripts/setup-ec2-dev.sh my_password            # đổi password
+#   bash scripts/setup-ec2-dev.sh my_password myuser     # đổi password + user
+#   bash scripts/setup-ec2-dev.sh my_password myuser mydb  # đổi tất cả
 #
 # Khác với setup-ec2.sh:
 #   - Cài MySQL 8.0 local (stg/prod dùng RDS)
@@ -20,9 +20,9 @@ set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 PHP_VERSION="8.3"
-DB_NAME="sushi_tech"
-DB_USER="admin"
-DB_PASS="${1:-secret}"   # bash scripts/setup-ec2-dev.sh my_password
+DB_PASS="${1:-secret}"
+DB_USER="${2:-admin}"
+DB_NAME="${3:-sushi_tech}"
 
 echo "🚀 Bắt đầu setup EC2 (DEV — MySQL local)..."
 echo "   PHP: $PHP_VERSION"

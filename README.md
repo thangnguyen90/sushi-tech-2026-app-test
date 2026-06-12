@@ -81,13 +81,21 @@ sudo swapon /swapfile
 echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 
 # 5. Cài PHP, Nginx, Node, build...
-#    Dev (MySQL local):
-bash scripts/setup-ec2-dev.sh my_password
+#    Dev (MySQL local) — [password] [user] [db_name] đều optional
+bash scripts/setup-ec2-dev.sh                          # dùng mặc định
+bash scripts/setup-ec2-dev.sh my_password              # đổi password
+bash scripts/setup-ec2-dev.sh my_password myuser       # đổi password + user
+bash scripts/setup-ec2-dev.sh my_password myuser mydb  # đổi tất cả
 #    Stg/Prod (dùng RDS):
 bash scripts/setup-ec2.sh
 
 # 5. Cấu hình .env + migrate
 cp .env.example .env && vi .env
+# Dev: điền đúng giá trị đã truyền vào setup-ec2-dev.sh
+#   DB_HOST=127.0.0.1
+#   DB_DATABASE=<db_name>   # mặc định: sushi_tech
+#   DB_USERNAME=<db_user>   # mặc định: admin
+#   DB_PASSWORD=<password>  # mặc định: secret
 php artisan key:generate
 sudo chown -R ubuntu:www-data storage bootstrap/cache
 sudo chmod -R 775 storage bootstrap/cache
