@@ -24,14 +24,14 @@ echo ""
 # ────────────────────────────────
 # 1. Cập nhật hệ thống
 # ────────────────────────────────
-echo "📦 [1/7] Cập nhật hệ thống..."
+echo "📦 [1/8] Cập nhật hệ thống..."
 sudo apt update -y && sudo apt upgrade -y
 sudo apt install -y git curl unzip software-properties-common
 
 # ────────────────────────────────
 # 2. Cài PHP 8.3 + extensions
 # ────────────────────────────────
-echo "🐘 [2/7] Cài PHP $PHP_VERSION..."
+echo "🐘 [2/8] Cài PHP $PHP_VERSION..."
 sudo add-apt-repository ppa:ondrej/php -y
 sudo apt update -y
 sudo apt install -y \
@@ -48,7 +48,7 @@ echo "✅ PHP $(php -r 'echo PHP_VERSION;') đã cài"
 # ────────────────────────────────
 # 3. Cài Composer
 # ────────────────────────────────
-echo "📦 [3/7] Cài Composer..."
+echo "📦 [3/8] Cài Composer..."
 curl -sS https://getcomposer.org/installer | php
 sudo mv composer.phar /usr/local/bin/composer
 sudo chmod +x /usr/local/bin/composer
@@ -57,7 +57,7 @@ echo "✅ Composer $(composer --version --no-ansi | cut -d' ' -f3) đã cài"
 # ────────────────────────────────
 # 4. Cài Node.js 22
 # ────────────────────────────────
-echo "🟩 [4/7] Cài Node.js 22..."
+echo "🟩 [4/8] Cài Node.js 22..."
 curl -fsSL https://deb.nodesource.com/setup_22.x | sudo bash -
 sudo apt install -y nodejs
 echo "✅ Node.js $(node -v) đã cài"
@@ -65,7 +65,7 @@ echo "✅ Node.js $(node -v) đã cài"
 # ────────────────────────────────
 # 5. Cài Nginx
 # ────────────────────────────────
-echo "🌐 [5/7] Cài Nginx..."
+echo "🌐 [5/8] Cài Nginx..."
 sudo apt install -y nginx
 sudo systemctl enable nginx
 sudo systemctl start nginx
@@ -74,7 +74,7 @@ echo "✅ Nginx đã cài"
 # ────────────────────────────────
 # 6. Cài dependencies + build assets
 # ────────────────────────────────
-echo "📦 [6/7] Cài dependencies + build..."
+echo "📦 [6/8] Cài dependencies + build..."
 cd "$APP_DIR"
 
 composer install --no-dev --optimize-autoloader --no-interaction
@@ -84,7 +84,59 @@ echo "✅ Dependencies + assets đã xong"
 # ────────────────────────────────
 # 7. Cấu hình Nginx
 # ────────────────────────────────
-echo "🌐 [7/7] Cấu hình Nginx..."
+echo "📊 [7/8] Cài CloudWatch Agent..."
+
+# Cài agent
+wget -q https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
+sudo dpkg -i amazon-cloudwatch-agent.deb
+rm amazon-cloudwatch-agent.deb
+
+# Config gửi log lên CloudWatch
+sudo tee /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json > /dev/null << 'CWA'
+{
+  "logs": {
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "/home/ubuntu/apps/sushi-tech-2026-app/storage/logs/laravel.log",
+            "log_group_name": "/app/laravel",
+            "log_stream_name": "{instance_id}",
+            "timezone": "UTC"
+          },
+          {
+            "file_path": "/var/log/nginx/access.log",
+            "log_group_name": "/app/nginx/access",
+            "log_stream_name": "{instance_id}",
+            "timezone": "UTC"
+          },
+          {
+            "file_path": "/var/log/nginx/error.log",
+            "log_group_name": "/app/nginx/error",
+            "log_stream_name": "{instance_id}",
+            "timezone": "UTC"
+          },
+          {
+            "file_path": "/var/log/php8.3-fpm.log",
+            "log_group_name": "/app/php-fpm",
+            "log_stream_name": "{instance_id}",
+            "timezone": "UTC"
+          }
+        ]
+      }
+    }
+  }
+}
+CWA
+
+sudo systemctl enable amazon-cloudwatch-agent
+sudo systemctl start amazon-cloudwatch-agent
+echo "✅ CloudWatch Agent đã cài và chạy"
+
+# ────────────────────────────────
+# 8. Cấu hình Nginx
+# ────────────────────────────────
+echo "🌐 [8/8] Cấu hình Nginx..."
 
 # Cấp quyền home dir để Nginx đọc được
 sudo chmod 755 /home/ubuntu

@@ -45,43 +45,47 @@ Bake AMI từ máy local → Launch EC2 prod → Swap Route53 → Stop EC2 cũ
 ### Lần đầu setup Master EC2
 
 ```bash
-# 1. Tạo infrastructure
-cd eventech-terraform/envs/stg   # hoặc prod
-terraform apply
-terraform output master_public_ip    # lưu lại
-terraform output master_instance_id  # lưu lại
+# 1. Tạo infrastructure (dùng ./tf.sh, không dùng terraform trực tiếp)
+cd eventech-terraform
+./tf.sh stg apply
 
-# 2. SSH vào master
+# Lấy thông tin cần thiết
+./tf.sh stg output master_public_ip    # → <MASTER_PUBLIC_IP>
+./tf.sh stg output master_instance_id # → điền vào bake-ami.sh
+./tf.sh stg output launch_template_id # → điền vào bake-ami.sh
+./tf.sh stg output asg_name           # → điền vào bake-ami.sh
+./tf.sh stg output alb_dns            # → dùng cho APP_URL trong .env
+./tf.sh stg output aurora_endpoint    # → dùng cho DB_HOST trong .env (nếu enable_rds = true)
+./tf.sh stg output db_name            # → dùng cho DB_DATABASE trong .env
+./tf.sh stg output db_username        # → dùng cho DB_USERNAME trong .env
+
+# 2. SSH vào master (master ở public subnet — SSH thẳng, không qua Bastion)
 ssh -i ~/.ssh/eventech-key.pem ubuntu@<MASTER_PUBLIC_IP>
 
-# 3. Tạo SSH key trên EC2 để kết nối GitHub
+# 3. Tạo SSH key trên EC2 và thêm vào GitHub
 ssh-keygen -t ed25519 -C "ec2-master" -f ~/.ssh/id_ed25519 -N ""
 cat ~/.ssh/id_ed25519.pub
 # → Copy toàn bộ dòng in ra
+# → GitHub → Settings → SSH and GPG keys → New SSH key → Paste → Add SSH key
 
-# 4. Thêm public key vào GitHub
-#    GitHub → Settings → SSH and GPG keys → New SSH key
-#    Title: "ec2-master" → Paste → Add SSH key
-
-# 5. Kiểm tra kết nối
+# Kiểm tra kết nối
 ssh-keyscan github.com >> ~/.ssh/known_hosts
 ssh -T git@github.com
-# → "Hi username! You've successfully authenticated..."
+# → "Hi <username>! You've successfully authenticated..."
 
-# 6. Clone repo
-git clone git@github.com:thangnguyen90/sushi-tech-2026-app-test.git \
-  ~/apps/sushi-tech-2026-app
+# 4. Clone repo
+mkdir -p ~/apps
+git clone git@github.com:thangnguyen90/sushi-tech-2026-app-test.git ~/apps/sushi-tech-2026-app
 cd ~/apps/sushi-tech-2026-app
-git remote set-url origin https://github.com/bravesoft-inc/sushi-tech-2026-app.git
 
-# 4. Thêm swap 2GB trước khi chạy setup (t3.micro chỉ có 1GB RAM, build Vite dễ chết)
+# 5. Thêm swap 2GB trước khi chạy setup (t3.micro chỉ có 1GB RAM, build Vite dễ chết)
 sudo fallocate -l 2G /swapfile
 sudo chmod 600 /swapfile
 sudo mkswap /swapfile
 sudo swapon /swapfile
 echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 
-# 5. Cài PHP, Nginx, Node, build...
+# 6. Cài PHP, Nginx, Node, build...
 #    Dev (MySQL local) — [password] [user] [db_name] đều optional
 bash scripts/setup-ec2-dev.sh                          # dùng mặc định
 bash scripts/setup-ec2-dev.sh my_password              # đổi password
@@ -90,20 +94,25 @@ bash scripts/setup-ec2-dev.sh my_password myuser mydb  # đổi tất cả
 #    Stg/Prod (dùng RDS):
 bash scripts/setup-ec2.sh
 
-# 5. Cấu hình .env + migrate
+# 7. Cấu hình .env + migrate
 cp .env.example .env && vi .env
-# Dev: điền đúng giá trị đã truyền vào setup-ec2-dev.sh
-#   DB_HOST=127.0.0.1
-#   DB_DATABASE=<db_name>   # mặc định: sushi_tech
-#   DB_USERNAME=<db_user>   # mặc định: admin
-#   DB_PASSWORD=<password>  # mặc định: secret
+# APP_URL phải dùng ALB DNS — không dùng IP (AMI bake cứng giá trị này)
+#   APP_URL=http://<ALB_DNS>     ← lấy từ: ./tf.sh stg output alb_dns
+#   DB_HOST=<AURORA_ENDPOINT>    ← lấy từ: ./tf.sh stg output aurora_endpoint  (nếu dùng RDS)
+#   DB_DATABASE=<DB_NAME>        ← lấy từ: ./tf.sh stg output db_name
+#   DB_USERNAME=<DB_USERNAME>    ← lấy từ: ./tf.sh stg output db_username
+#   DB_HOST=127.0.0.1            (nếu dev dùng MySQL local)
+#   DB_DATABASE=<db_name>        # mặc định: sushi_tech
+#   DB_USERNAME=<db_user>        # mặc định: admin
+#   DB_PASSWORD=<password>       # mặc định: secret
+#   REDIS_HOST=127.0.0.1         (nếu dùng Redis local)
 php artisan key:generate
 sudo chown -R ubuntu:www-data storage bootstrap/cache
 sudo chmod -R 775 storage bootstrap/cache
 php artisan migrate --force
 php artisan config:cache && php artisan route:cache && php artisan view:cache
 
-# 6. Kiểm tra
+# 8. Kiểm tra
 curl -s -o /dev/null -w "%{http_code}" http://localhost
 # → phải ra 200 hoặc 302
 ```
@@ -143,30 +152,57 @@ Script tự động:
 Mở `scripts/bake-ami.sh` và điền:
 
 ```bash
-MASTER_INSTANCE_ID="i-0xxxxxxxxxxxxxxxxx"   # terraform output master_instance_id
-DOMAIN="your-domain.com"
-ROUTE53_ZONE_ID="Z0XXXXXXXXXX"              # Route53 → Hosted zones
+MASTER_INSTANCE_ID="i-0xxxxxxxxxxxxxxxxx"  # ./tf.sh stg output master_instance_id
+LAUNCH_TEMPLATE_ID="lt-0xxxxxxxxxxxxxxxxx" # ./tf.sh stg output launch_template_id
+ASG_NAME="eventech-stg-asg"                # ./tf.sh stg output asg_name
+CLOUDFRONT_DISTRIBUTION_ID=""              # để trống nếu chưa có CloudFront
+PROJECT_TAG="sushi-tech"
 ```
 
 ### Quy trình deploy (mỗi lần có code mới)
 
 ```bash
-# Bước 1 — Trên server: update code
-ssh -i ~/.ssh/eventech-key.pem ubuntu@<MASTER_PUBLIC_IP>
+# Bước 1 — SSH vào master qua Bastion
+BASTION_IP=$(cd eventech-terraform && ./tf.sh stg output -raw bastion_public_ip 2>/dev/null || echo "<BASTION_IP>")
+MASTER_IP=$(cd eventech-terraform && ./tf.sh stg output -raw master_public_ip)
+
+ssh-add ~/.ssh/test-infra-key.pem                        # add key vào agent (1 lần)
+ssh -A -i ~/.ssh/test-infra-key.pem ubuntu@$BASTION_IP  # vào Bastion với agent forwarding
+ssh -i ~/.ssh/test-infra-key.pem ubuntu@$MASTER_IP      # từ Bastion vào Master (cần -i)
 cd ~/apps/sushi-tech-2026-app
 bash scripts/deploy.sh
 # → thấy "✅ App healthy" → exit
 
-# Bước 2 — Máy local: bake AMI + launch prod
+# Bước 2 — Máy local: bake AMI + update Launch Template + ASG refresh
 export AWS_PROFILE=eventech-terraform
 bash scripts/bake-ami.sh
+# → ASG tự rolling update, theo dõi:
+#    Console → EC2 → Auto Scaling Groups → Instance refresh
 ```
+
+### Scale số lượng EC2 (không cần terraform)
+
+```bash
+# Tăng/giảm số EC2 đang chạy — ASG tự launch/terminate ngay lập tức
+aws autoscaling set-desired-capacity \
+  --auto-scaling-group-name eventech-stg-asg \
+  --desired-capacity 4 \
+  --region ap-northeast-1
+```
+
+> Lưu ý: `desired-capacity` không được vượt quá `max_size` đã cấu hình trong tfvars.
+> Nếu cần tăng max, chạy `./tf.sh stg apply` trước.
 
 ### Rollback
 
 ```bash
-# Instance ID của EC2 prod cũ in ra ở cuối bake-ami.sh
-bash scripts/rollback.sh i-0abc123456789
+# 1. AWS Console → EC2 → Launch Templates → chọn template
+# 2. Tab Versions → chọn version cũ → Actions → Set as default version
+# 3. Trigger ASG refresh:
+aws autoscaling start-instance-refresh \
+  --auto-scaling-group-name <ASG_NAME> \
+  --preferences '{"MinHealthyPercentage":50,"InstanceWarmup":120}' \
+  --region ap-northeast-1
 ```
 
 ---

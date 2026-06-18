@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================
-# Bake AMI từ Master EC2 → Launch EC2 prod mới → Swap Route53
+# Bake AMI từ Master EC2 → Update Launch Template → ASG Refresh → CloudFront Invalidation
 # Chạy trên máy local sau khi deploy.sh chạy OK trên master
 #
 # Cách dùng:
@@ -16,43 +16,67 @@ set -euo pipefail
 # ============================================================
 # CONFIG — điền 1 lần, giữ nguyên cho các lần sau
 # ============================================================
-MASTER_INSTANCE_ID="i-0xxxxxxxxxxxxxxxxx"   # terraform output master_instance_id
-PROD_INSTANCE_TYPE="t3.micro"
-DOMAIN="your-domain.com"                    # ví dụ: app.sushitech.jp
-ROUTE53_ZONE_ID="Z0XXXXXXXXXX"             # AWS Console → Route53 → Hosted zones
+MASTER_INSTANCE_ID="i-075dd4a590b1eef8d"   # terraform output master_instance_id
+LAUNCH_TEMPLATE_ID="lt-0b386e8a7c9046c53"  # EC2 → Launch Templates → ID
+ASG_NAME="eventech-stg-asg"                 # EC2 → Auto Scaling Groups → Name
+CLOUDFRONT_DISTRIBUTION_ID=""               # CloudFront → Distributions → ID (để trống nếu chưa có)
 AWS_REGION="ap-northeast-1"
 PROJECT_TAG="sushi-tech"                    # tag Project dùng để tìm AMI cũ
-AMI_KEEP_COUNT=3                            # số AMI giữ lại, xóa cũ hơn
+AMI_KEEP_COUNT="${AMI_KEEP_COUNT:-3}"        # đọc từ env var hoặc dùng mặc định 3
 # ============================================================
 
 export AWS_DEFAULT_REGION="$AWS_REGION"
 
 # Kiểm tra config chưa điền
-if [[ "$MASTER_INSTANCE_ID" == i-0xxx* ]] || [[ "$DOMAIN" == "your-domain.com" ]]; then
-  echo "❌ Chưa điền config!"
-  echo "   Mở file scripts/bake-ami.sh và điền MASTER_INSTANCE_ID, DOMAIN, ROUTE53_ZONE_ID"
+if [[ "$MASTER_INSTANCE_ID" == i-0xxx* ]]; then
+  echo "❌ Chưa điền MASTER_INSTANCE_ID!"
+  echo "   Mở file scripts/bake-ami.sh và điền MASTER_INSTANCE_ID, LAUNCH_TEMPLATE_ID, ASG_NAME"
   exit 1
 fi
 
 echo "=================================================="
-echo "  AMI Baking + Deploy Production"
-echo "  Master : $MASTER_INSTANCE_ID"
-echo "  Domain : $DOMAIN"
+echo "  AMI Baking + ASG Rolling Deploy"
+echo "  Master  : $MASTER_INSTANCE_ID"
+echo "  Template: $LAUNCH_TEMPLATE_ID"
+echo "  ASG     : $ASG_NAME"
+echo "  CF      : ${CLOUDFRONT_DISTRIBUTION_ID:-<chưa có>}"
 echo "=================================================="
+echo ""
+
+# ────────────────────────────────
+# 0. Kiểm tra master đã setup xong chưa
+# ────────────────────────────────
+echo "🔍 [0/5] Kiểm tra master EC2..."
+
+MASTER_PUBLIC_IP=$(aws ec2 describe-instances \
+  --instance-ids "$MASTER_INSTANCE_ID" \
+  --query "Reservations[0].Instances[0].PublicIpAddress" \
+  --output text)
+
+echo "  Master IP: $MASTER_PUBLIC_IP"
+
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 --max-time 10 "http://$MASTER_PUBLIC_IP" || echo "000")
+
+if [ "$HTTP_CODE" != "200" ] && [ "$HTTP_CODE" != "302" ]; then
+  echo "❌ Master EC2 chưa sẵn sàng (HTTP $HTTP_CODE)"
+  echo "   Cần SSH vào master và chạy setup-ec2.sh + cấu hình .env trước khi bake AMI"
+  exit 1
+fi
+
+echo "✅ Master OK (HTTP $HTTP_CODE) — tiến hành bake"
 echo ""
 
 # ────────────────────────────────
 # 1. Bake AMI từ Master
 # ────────────────────────────────
-echo "📸 [1/6] Bake AMI từ master..."
+echo "📸 [1/5] Bake AMI từ master..."
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-AMI_NAME="${PROJECT_TAG}-prod-${TIMESTAMP}"
+AMI_NAME="${PROJECT_TAG}-master-ami-${TIMESTAMP}"
 
 AMI_ID=$(aws ec2 create-image \
   --instance-id "$MASTER_INSTANCE_ID" \
   --name "$AMI_NAME" \
   --description "Production AMI - $TIMESTAMP" \
-  --no-reboot \
   --tag-specifications "ResourceType=image,Tags=[{Key=Name,Value=$AMI_NAME},{Key=Project,Value=$PROJECT_TAG}]" \
   --query 'ImageId' \
   --output text)
@@ -65,140 +89,116 @@ aws ec2 wait image-available --image-ids "$AMI_ID"
 echo "✅ AMI sẵn sàng: $AMI_ID"
 
 # ────────────────────────────────
-# 2. Lấy config từ Master
+# 2. Tạo version mới cho Launch Template với AMI mới
 # ────────────────────────────────
 echo ""
-echo "🔍 [2/6] Lấy config từ master..."
+echo "📋 [2/5] Cập nhật Launch Template với AMI mới..."
 
-SUBNET_ID=$(aws ec2 describe-instances \
-  --instance-ids "$MASTER_INSTANCE_ID" \
-  --query 'Reservations[0].Instances[0].SubnetId' \
+NEW_LT_VERSION=$(aws ec2 create-launch-template-version \
+  --launch-template-id "$LAUNCH_TEMPLATE_ID" \
+  --source-version '$Latest' \
+  --launch-template-data "{\"ImageId\":\"$AMI_ID\"}" \
+  --query 'LaunchTemplateVersion.VersionNumber' \
   --output text)
 
-SG_IDS=$(aws ec2 describe-instances \
-  --instance-ids "$MASTER_INSTANCE_ID" \
-  --query 'Reservations[0].Instances[0].SecurityGroups[*].GroupId' \
-  --output text | tr '\t' ' ')
+# Tạo version mới với tag Name cho EC2 instance (dùng version vừa lấy được)
+INSTANCE_NAME="${ASG_NAME}-v${NEW_LT_VERSION}-${TIMESTAMP}"
+aws ec2 create-launch-template-version \
+  --launch-template-id "$LAUNCH_TEMPLATE_ID" \
+  --source-version "$NEW_LT_VERSION" \
+  --launch-template-data "{\"TagSpecifications\":[{\"ResourceType\":\"instance\",\"Tags\":[{\"Key\":\"Name\",\"Value\":\"$INSTANCE_NAME\"}]}]}" \
+  --query 'LaunchTemplateVersion.VersionNumber' \
+  --output text > /dev/null
 
-KEY_NAME=$(aws ec2 describe-instances \
-  --instance-ids "$MASTER_INSTANCE_ID" \
-  --query 'Reservations[0].Instances[0].KeyName' \
-  --output text)
+NEW_LT_VERSION=$((NEW_LT_VERSION + 1))
 
-IAM_PROFILE=$(aws ec2 describe-instances \
-  --instance-ids "$MASTER_INSTANCE_ID" \
-  --query 'Reservations[0].Instances[0].IamInstanceProfile.Arn' \
-  --output text | awk -F'/' '{print $NF}')
+echo "  Launch Template version mới: $NEW_LT_VERSION"
 
-echo "  Subnet : $SUBNET_ID"
-echo "  SG     : $SG_IDS"
-echo "  Key    : $KEY_NAME"
-echo "  IAM    : $IAM_PROFILE"
+# Set version mới làm default
+aws ec2 modify-launch-template \
+  --launch-template-id "$LAUNCH_TEMPLATE_ID" \
+  --default-version "$NEW_LT_VERSION"
+
+echo "✅ Launch Template default → version $NEW_LT_VERSION"
 
 # ────────────────────────────────
-# 3. Launch EC2 prod mới
-# ────────────────────────────────
-echo ""
-echo "🚀 [3/6] Launch EC2 prod mới..."
-
-NEW_INSTANCE_ID=$(aws ec2 run-instances \
-  --image-id "$AMI_ID" \
-  --instance-type "$PROD_INSTANCE_TYPE" \
-  --subnet-id "$SUBNET_ID" \
-  --security-group-ids $SG_IDS \
-  --key-name "$KEY_NAME" \
-  --iam-instance-profile Name="$IAM_PROFILE" \
-  --associate-public-ip-address \
-  --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=${PROJECT_TAG}-prod},{Key=Role,Value=prod},{Key=AMI,Value=$AMI_NAME}]" \
-  --query 'Instances[0].InstanceId' \
-  --output text)
-
-echo "  Chờ EC2 running: $NEW_INSTANCE_ID"
-aws ec2 wait instance-running --instance-ids "$NEW_INSTANCE_ID"
-
-NEW_IP=$(aws ec2 describe-instances \
-  --instance-ids "$NEW_INSTANCE_ID" \
-  --query 'Reservations[0].Instances[0].PublicIpAddress' \
-  --output text)
-
-echo "✅ EC2 prod mới: $NEW_INSTANCE_ID ($NEW_IP)"
-
-# ────────────────────────────────
-# 4. Health check EC2 mới
+# 3. ASG Instance Refresh (rolling update)
 # ────────────────────────────────
 echo ""
-echo "🧪 [4/6] Health check EC2 mới (chờ app khởi động)..."
-sleep 30
+echo "🔄 [3/5] Bắt đầu ASG Instance Refresh..."
 
-HEALTHY=false
-for i in {1..10}; do
-  STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://$NEW_IP" 2>/dev/null || echo "000")
-  if [ "$STATUS" = "200" ] || [ "$STATUS" = "302" ]; then
-    echo "✅ EC2 mới healthy (HTTP $STATUS)"
-    HEALTHY=true
+REFRESH_ID=$(aws autoscaling start-instance-refresh \
+  --auto-scaling-group-name "$ASG_NAME" \
+  --preferences '{
+    "MinHealthyPercentage": 50,
+    "InstanceWarmup": 120,
+    "SkipMatching": false
+  }' \
+  --query 'InstanceRefreshId' \
+  --output text)
+
+echo "  Refresh ID: $REFRESH_ID"
+echo "  Đang chờ instance refresh hoàn thành..."
+echo "  (Theo dõi: AWS Console → EC2 → Auto Scaling Groups → $ASG_NAME → Instance refresh)"
+
+# Chờ refresh hoàn thành
+while true; do
+  STATUS=$(aws autoscaling describe-instance-refreshes \
+    --auto-scaling-group-name "$ASG_NAME" \
+    --instance-refresh-ids "$REFRESH_ID" \
+    --query 'InstanceRefreshes[0].Status' \
+    --output text)
+
+  PCT=$(aws autoscaling describe-instance-refreshes \
+    --auto-scaling-group-name "$ASG_NAME" \
+    --instance-refresh-ids "$REFRESH_ID" \
+    --query 'InstanceRefreshes[0].PercentageComplete' \
+    --output text 2>/dev/null || echo "0")
+
+  echo "  Status: $STATUS ($PCT%)"
+
+  if [ "$STATUS" = "Successful" ]; then
+    echo "✅ Instance refresh hoàn thành!"
     break
+  elif [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Cancelled" ]; then
+    echo "❌ Instance refresh thất bại (Status: $STATUS)"
+    echo "   Kiểm tra: AWS Console → EC2 → Auto Scaling Groups → Instance refresh"
+    exit 1
   fi
-  echo "  Thử $i/10... (HTTP $STATUS)"
-  sleep 15
+
+  sleep 30
 done
 
-if [ "$HEALTHY" = "false" ]; then
-  echo ""
-  echo "❌ EC2 mới không healthy — rollback!"
-  echo "   Terminate EC2 mới: $NEW_INSTANCE_ID"
-  aws ec2 terminate-instances --instance-ids "$NEW_INSTANCE_ID"
-  echo "   AMI vẫn còn: $AMI_ID (xóa thủ công nếu không cần)"
-  exit 1
-fi
-
 # ────────────────────────────────
-# 5. Swap Route53 → EC2 mới
+# 4. CloudFront Invalidation
 # ────────────────────────────────
 echo ""
-echo "🌐 [5/6] Trỏ domain $DOMAIN → $NEW_IP..."
+if [ -n "$CLOUDFRONT_DISTRIBUTION_ID" ]; then
+  echo "🌐 [4/5] CloudFront Invalidation..."
 
-aws route53 change-resource-record-sets \
-  --hosted-zone-id "$ROUTE53_ZONE_ID" \
-  --change-batch "{
-    \"Changes\": [{
-      \"Action\": \"UPSERT\",
-      \"ResourceRecordSet\": {
-        \"Name\": \"$DOMAIN\",
-        \"Type\": \"A\",
-        \"TTL\": 60,
-        \"ResourceRecords\": [{\"Value\": \"$NEW_IP\"}]
-      }
-    }]
-  }"
+  INVALIDATION_ID=$(aws cloudfront create-invalidation \
+    --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+    --paths "/*" \
+    --query 'Invalidation.Id' \
+    --output text)
 
-echo "✅ Domain đã trỏ vào EC2 mới"
+  echo "  Invalidation ID: $INVALIDATION_ID"
+  echo "  Chờ invalidation hoàn thành..."
 
-# ────────────────────────────────
-# 6. Stop EC2 prod cũ
-# ────────────────────────────────
-echo ""
-echo "🛑 [6/6] Stop EC2 prod cũ..."
+  aws cloudfront wait invalidation-completed \
+    --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+    --id "$INVALIDATION_ID"
 
-OLD_INSTANCE_IDS=$(aws ec2 describe-instances \
-  --filters \
-    "Name=tag:Role,Values=prod" \
-    "Name=instance-state-name,Values=running" \
-  --query "Reservations[*].Instances[?InstanceId!='$NEW_INSTANCE_ID'].InstanceId" \
-  --output text | tr '\t' ' ')
-
-if [ -z "$OLD_INSTANCE_IDS" ] || [ "$OLD_INSTANCE_IDS" = "None" ]; then
-  echo "  Không có EC2 prod cũ cần stop"
+  echo "✅ CloudFront cache đã được xóa"
 else
-  aws ec2 stop-instances --instance-ids $OLD_INSTANCE_IDS
-  echo "✅ Đã stop: $OLD_INSTANCE_IDS"
-  echo "   (Giữ lại 24h để rollback nếu cần, sau đó terminate)"
+  echo "⏭️  [4/5] Bỏ qua CloudFront (chưa có distribution ID)"
 fi
 
 # ────────────────────────────────
-# Dọn AMI cũ
+# 5. Dọn AMI cũ
 # ────────────────────────────────
 echo ""
-echo "🧹 Dọn AMI cũ (giữ $AMI_KEEP_COUNT bản)..."
+echo "🧹 [5/5] Dọn AMI cũ (giữ $AMI_KEEP_COUNT bản)..."
 
 OLD_AMIS=$(aws ec2 describe-images \
   --owners self \
@@ -234,13 +234,15 @@ echo ""
 echo "=================================================="
 echo "✅ Deploy Production thành công!"
 echo ""
-echo "  AMI       : $AMI_NAME ($AMI_ID)"
-echo "  EC2 mới   : $NEW_INSTANCE_ID ($NEW_IP)"
-echo "  Domain    : http://$DOMAIN"
-if [ ! -z "$OLD_INSTANCE_IDS" ] && [ "$OLD_INSTANCE_IDS" != "None" ]; then
-echo ""
-echo "  EC2 cũ đã stop: $OLD_INSTANCE_IDS"
-echo "  → Rollback: bash scripts/rollback.sh $OLD_INSTANCE_IDS"
-echo "  → Terminate sau 24h nếu ổn: aws ec2 terminate-instances --instance-ids $OLD_INSTANCE_IDS"
+echo "  AMI              : $AMI_NAME ($AMI_ID)"
+echo "  Launch Template  : $LAUNCH_TEMPLATE_ID (version $NEW_LT_VERSION)"
+echo "  ASG              : $ASG_NAME → rolling update xong"
+if [ -n "$CLOUDFRONT_DISTRIBUTION_ID" ]; then
+  echo "  CloudFront       : cache đã invalidate"
 fi
+echo ""
+echo "Rollback:"
+echo "  1. Vào EC2 → Launch Templates → $LAUNCH_TEMPLATE_ID"
+echo "  2. Chọn version cũ → Actions → Set as default version"
+echo "  3. Chạy lại: bash scripts/bake-ami.sh (hoặc trigger ASG refresh thủ công)"
 echo "=================================================="
