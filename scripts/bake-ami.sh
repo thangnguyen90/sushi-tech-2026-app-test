@@ -94,23 +94,21 @@ echo "✅ AMI sẵn sàng: $AMI_ID"
 echo ""
 echo "📋 [2/5] Cập nhật Launch Template với AMI mới..."
 
-NEW_LT_VERSION=$(aws ec2 create-launch-template-version \
+LATEST_VERSION=$(aws ec2 describe-launch-template-versions \
   --launch-template-id "$LAUNCH_TEMPLATE_ID" \
-  --source-version '$Latest' \
-  --launch-template-data "{\"ImageId\":\"$AMI_ID\"}" \
-  --query 'LaunchTemplateVersion.VersionNumber' \
+  --versions '$Latest' \
+  --query 'LaunchTemplateVersions[0].VersionNumber' \
   --output text)
 
-# Tạo version mới với tag Name cho EC2 instance (dùng version vừa lấy được)
+NEW_LT_VERSION=$((LATEST_VERSION + 1))
 INSTANCE_NAME="${ASG_NAME}-v${NEW_LT_VERSION}-${TIMESTAMP}"
+
 aws ec2 create-launch-template-version \
   --launch-template-id "$LAUNCH_TEMPLATE_ID" \
-  --source-version "$NEW_LT_VERSION" \
-  --launch-template-data "{\"TagSpecifications\":[{\"ResourceType\":\"instance\",\"Tags\":[{\"Key\":\"Name\",\"Value\":\"$INSTANCE_NAME\"}]}]}" \
+  --source-version '$Latest' \
+  --launch-template-data "{\"ImageId\":\"$AMI_ID\",\"TagSpecifications\":[{\"ResourceType\":\"instance\",\"Tags\":[{\"Key\":\"Name\",\"Value\":\"$INSTANCE_NAME\"}]}]}" \
   --query 'LaunchTemplateVersion.VersionNumber' \
   --output text > /dev/null
-
-NEW_LT_VERSION=$((NEW_LT_VERSION + 1))
 
 echo "  Launch Template version mới: $NEW_LT_VERSION"
 
@@ -130,8 +128,8 @@ echo "🔄 [3/5] Bắt đầu ASG Instance Refresh..."
 REFRESH_ID=$(aws autoscaling start-instance-refresh \
   --auto-scaling-group-name "$ASG_NAME" \
   --preferences '{
-    "MinHealthyPercentage": 50,
-    "InstanceWarmup": 120,
+    "MinHealthyPercentage": 100,
+    "InstanceWarmup": 180,
     "SkipMatching": false
   }' \
   --query 'InstanceRefreshId' \

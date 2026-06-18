@@ -53,7 +53,7 @@
         },
         "menu": {
             "qr": {
-                "label": "QR名刺交換 v2",
+                "label": "QR名刺交換 v3",
                 "note": "QRを読み取って名刺交換を行えます。",
                 "details": {
                     "view": "表示",

@@ -22,7 +22,10 @@ echo ""
 # 1. Pull code mới nhất
 # ────────────────────────────────
 echo "📥 [1/5] Pull code..."
-git pull origin main
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+git fetch origin
+git checkout -- .
+git reset --hard origin/$BRANCH
 echo "✅ Code mới nhất: $(git log -1 --format='%h %s')"
 
 # ────────────────────────────────
