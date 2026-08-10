@@ -28,6 +28,19 @@ echo "📦 [1/8] Cập nhật hệ thống..."
 sudo apt update -y && sudo apt upgrade -y
 sudo apt install -y git curl unzip software-properties-common
 
+# AWS CLI v2 — cần để đọc password Aurora từ Secrets Manager ngay trên máy
+# (IAM role của EC2 đã có quyền, không cần access key). Cũng tiện khi debug.
+# Dùng bản chính thức của AWS, KHÔNG dùng `apt install awscli` vì đó là v1 cũ.
+if ! command -v aws > /dev/null 2>&1; then
+  ARCH_SUFFIX="x86_64"
+  [ "$(uname -m)" = "aarch64" ] && ARCH_SUFFIX="aarch64"
+  curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-${ARCH_SUFFIX}.zip" -o /tmp/awscliv2.zip
+  unzip -q -o /tmp/awscliv2.zip -d /tmp
+  sudo /tmp/aws/install --update
+  rm -rf /tmp/aws /tmp/awscliv2.zip
+fi
+aws --version
+
 # ────────────────────────────────
 # 2. Cài PHP 8.3 + extensions
 # ────────────────────────────────
