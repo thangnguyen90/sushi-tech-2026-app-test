@@ -56,6 +56,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Force HTTPS
+    |--------------------------------------------------------------------------
+    |
+    | Bật khi app chạy sau CloudFront/proxy terminate TLS nhưng chặng
+    | proxy -> origin lại là HTTP. Lúc đó ALB gửi X-Forwarded-Proto: http,
+    | Laravel sinh URL http:// và browser chặn asset vì Mixed Content.
+    |
+    | Chỉ cần thiết khi ALB CHƯA có cert. Có cert rồi thì CloudFront gọi
+    | origin bằng HTTPS, X-Forwarded-Proto thành https và cờ này thành vô nghĩa.
+    |
+    */
+
+    'force_https' => (bool) env('FORCE_HTTPS', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |
