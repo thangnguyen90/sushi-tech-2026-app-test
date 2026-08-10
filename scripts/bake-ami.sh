@@ -14,30 +14,85 @@
 set -euo pipefail
 
 # ============================================================
-# CONFIG — điền 1 lần, giữ nguyên cho các lần sau
+# CONFIG — tự đọc từ Terraform, không cần điền tay
+#
+# Script gọi `tf.sh <env> output -json` một lần rồi lấy hết giá trị ra, nên
+# không bao giờ lỗi thời khi destroy/apply lại (ID thay đổi mỗi lần dựng).
+#
+# Ghi đè khi cần:
+#   TF_ENV=stg bash scripts/bake-ami.sh
+#   TF_DIR=/duong/dan/khac bash scripts/bake-ami.sh
+#   MASTER_INSTANCE_ID=i-xxx bash scripts/bake-ami.sh    # bỏ qua Terraform
 # ============================================================
-MASTER_INSTANCE_ID="i-075dd4a590b1eef8d"   # terraform output master_instance_id
-LAUNCH_TEMPLATE_ID="lt-0b386e8a7c9046c53"  # EC2 → Launch Templates → ID
-ASG_NAME="eventech-stg-asg"                 # EC2 → Auto Scaling Groups → Name
-CLOUDFRONT_DISTRIBUTION_ID=""               # CloudFront → Distributions → ID (để trống nếu chưa có)
-AWS_REGION="ap-northeast-1"
-PROJECT_TAG="${PROJECT_TAG:-eventech-dev}"   # tag Project để tìm AMI. Khớp var.project của Terraform
-                                             # → lấy bằng: ./tf.sh <env> output -raw project | tail -1
-                                             # đổi env: export PROJECT_TAG=eventech-stg
-AMI_KEEP_COUNT="${AMI_KEEP_COUNT:-3}"        # đọc từ env var hoặc dùng mặc định 3
-# ============================================================
+TF_ENV="${TF_ENV:-dev}"
+TF_DIR="${TF_DIR:-$HOME/Documents/RESOURCE/eventech-terraform}"
+AWS_REGION="${AWS_REGION:-ap-northeast-1}"
+AMI_KEEP_COUNT="${AMI_KEEP_COUNT:-3}"
 
-export AWS_DEFAULT_REGION="$AWS_REGION"
+# Đọc toàn bộ output một lần. tf.sh in header ra stdout nên cắt từ dấu { đầu tiên.
+# Gộp stderr để nếu tf.sh lỗi thì in được lý do thật, thay vì chết im lặng.
 
-# Kiểm tra config chưa điền
-if [[ "$MASTER_INSTANCE_ID" == i-0xxx* ]]; then
-  echo "❌ Chưa điền MASTER_INSTANCE_ID!"
-  echo "   Mở file scripts/bake-ami.sh và điền MASTER_INSTANCE_ID, LAUNCH_TEMPLATE_ID, ASG_NAME"
+# Lấy 1 output. Output của repo trả về câu tiếng Việt khi dịch vụ chưa bật
+# (vd "CloudFront chưa bật...") — coi những giá trị đó là rỗng.
+tf_get() {
+  echo "$TF_JSON" | python3 -c "
+import json,sys
+try: d=json.load(sys.stdin)
+except Exception: sys.exit(0)
+v=str(d.get('$1',{}).get('value','') or '')
+print('' if ('chưa' in v or 'Dùng ' in v) else v)
+"
+}
+
+echo "🔍 Đọc thông tin từ Terraform (env: $TF_ENV)..."
+
+[ -d "$TF_DIR" ] || { echo "❌ Không thấy thư mục Terraform: $TF_DIR"; exit 1; }
+
+# || true là bắt buộc: có set -e, phép gán từ command substitution thất bại sẽ
+# giết script ngay, không kịp in thông báo nào.
+TF_RAW="$( ( cd "$TF_DIR" && ./tf.sh "$TF_ENV" output -json ) 2>&1 || true )"
+TF_JSON="$(printf '%s' "$TF_RAW" | sed -n '/^{/,$p')"
+
+if [ -z "$TF_JSON" ]; then
+  echo "❌ Không đọc được output Terraform (thư mục: $TF_DIR, env: $TF_ENV)"
+  echo "   tf.sh báo:"
+  printf '%s\n' "$TF_RAW" | sed 's/^/     /' | head -12
+  echo ""
+  echo "   Thường do một trong các nguyên nhân:"
+  echo "     - Terraform sai kiến trúc CPU (Intel trên Mac ARM)"
+  echo "     - Chưa đăng nhập AWS: aws login --profile <profile>"
+  echo "     - Thiếu file envs/$TF_ENV.s3.tfbackend"
   exit 1
 fi
 
+MASTER_INSTANCE_ID="${MASTER_INSTANCE_ID:-$(tf_get master_instance_id)}"
+LAUNCH_TEMPLATE_ID="${LAUNCH_TEMPLATE_ID:-$(tf_get launch_template_id)}"
+ASG_NAME="${ASG_NAME:-$(tf_get asg_name)}"
+CLOUDFRONT_DISTRIBUTION_ID="${CLOUDFRONT_DISTRIBUTION_ID:-$(tf_get cloudfront_distribution_id)}"
+PROJECT_TAG="${PROJECT_TAG:-$(tf_get project)}"
+# Fallback: output "project" chỉ có sau khi apply. Đọc thẳng tfvars thì luôn được.
+[ -n "$PROJECT_TAG" ] || PROJECT_TAG="$(sed -n 's/^project[[:space:]]*=[[:space:]]*"\(.*\)".*/\1/p' "$TF_DIR/envs/$TF_ENV.tfvars" 2>/dev/null | head -1)"
+
+# ── Kiểm tra giá trị đọc được có đúng dạng ──────────────────
+case "$MASTER_INSTANCE_ID" in
+  i-*) ;;
+  *) echo "❌ master_instance_id không hợp lệ: '${MASTER_INSTANCE_ID:-<rỗng>}'"
+     echo "   Env '$TF_ENV' có bật enable_master = true chưa?"; exit 1 ;;
+esac
+case "$LAUNCH_TEMPLATE_ID" in
+  lt-*) ;;
+  *) echo "❌ launch_template_id không hợp lệ: '${LAUNCH_TEMPLATE_ID:-<rỗng>}'"
+     echo "   Env '$TF_ENV' có bật enable_infra = true chưa?"; exit 1 ;;
+esac
+[ -n "$ASG_NAME" ] || { echo "❌ Không lấy được asg_name"; exit 1; }
+[ -n "$PROJECT_TAG" ] || { echo "❌ Không lấy được project (dùng làm tag Project)"; exit 1; }
+
+export AWS_DEFAULT_REGION="$AWS_REGION"
+
 echo "=================================================="
 echo "  AMI Baking + ASG Rolling Deploy"
+echo "  Env     : $TF_ENV"
+echo "  Project : $PROJECT_TAG  (tag Project của AMI)"
 echo "  Master  : $MASTER_INSTANCE_ID"
 echo "  Template: $LAUNCH_TEMPLATE_ID"
 echo "  ASG     : $ASG_NAME"
