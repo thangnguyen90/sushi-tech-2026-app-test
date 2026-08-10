@@ -11,7 +11,9 @@
 set -euo pipefail
 
 AWS_REGION="ap-northeast-1"
-PROJECT_TAG="sushi-tech"
+PROJECT_TAG="${PROJECT_TAG:-eventech-dev}"   # tag Project để tìm AMI. Khớp var.project của Terraform
+                                             # → lấy bằng: ./tf.sh <env> output -raw project | tail -1
+                                             # đổi env: export PROJECT_TAG=eventech-stg
 DRY_RUN=false
 
 if [[ "${1:-}" == "--dry-run" ]]; then

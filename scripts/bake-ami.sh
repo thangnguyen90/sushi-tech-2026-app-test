@@ -21,7 +21,9 @@ LAUNCH_TEMPLATE_ID="lt-0b386e8a7c9046c53"  # EC2 → Launch Templates → ID
 ASG_NAME="eventech-stg-asg"                 # EC2 → Auto Scaling Groups → Name
 CLOUDFRONT_DISTRIBUTION_ID=""               # CloudFront → Distributions → ID (để trống nếu chưa có)
 AWS_REGION="ap-northeast-1"
-PROJECT_TAG="sushi-tech"                    # tag Project dùng để tìm AMI cũ
+PROJECT_TAG="${PROJECT_TAG:-eventech-dev}"   # tag Project để tìm AMI. Khớp var.project của Terraform
+                                             # → lấy bằng: ./tf.sh <env> output -raw project | tail -1
+                                             # đổi env: export PROJECT_TAG=eventech-stg
 AMI_KEEP_COUNT="${AMI_KEEP_COUNT:-3}"        # đọc từ env var hoặc dùng mặc định 3
 # ============================================================
 
