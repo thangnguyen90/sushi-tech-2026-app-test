@@ -132,7 +132,7 @@ sudo tee /etc/nginx/sites-available/sushi-tech > /dev/null << NGINX
 server {
     listen 80;
     server_name _;
-    root /home/ubuntu/apps/sushi-tech-2026-app/public;
+    root ${APP_DIR}/public;
     index index.php index.html;
 
     client_max_body_size 20m;

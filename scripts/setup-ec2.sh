@@ -99,7 +99,7 @@ sudo tee /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json > /de
       "files": {
         "collect_list": [
           {
-            "file_path": "/home/ubuntu/apps/sushi-tech-2026-app/storage/logs/laravel.log",
+            "file_path": "${APP_DIR}/storage/logs/laravel.log",
             "log_group_name": "/app/laravel",
             "log_stream_name": "{instance_id}",
             "timezone": "UTC"
@@ -138,14 +138,21 @@ echo "✅ CloudWatch Agent đã cài và chạy"
 # ────────────────────────────────
 echo "🌐 [8/8] Cấu hình Nginx..."
 
-# Cấp quyền home dir để Nginx đọc được
-sudo chmod 755 /home/ubuntu
+# Nginx (user www-data) phải đi xuyên được mọi thư mục cha tới APP_DIR.
+# Thiếu quyền x ở một cấp là nginx trả 403 dù file public/ đúng quyền.
+DIR="$APP_DIR"
+while [ "$DIR" != "/" ]; do
+  sudo chmod o+x "$DIR" 2>/dev/null || true
+  DIR="$(dirname "$DIR")"
+done
 
+# root lấy từ $APP_DIR, KHÔNG hardcode — nhờ vậy clone vào /var/www,
+# /home/ubuntu/apps hay chỗ nào cũng chạy đúng.
 sudo tee /etc/nginx/sites-available/sushi-tech > /dev/null << NGINX
 server {
     listen 80;
     server_name _;
-    root /home/ubuntu/apps/sushi-tech-2026-app/public;
+    root ${APP_DIR}/public;
     index index.php index.html;
 
     client_max_body_size 20m;

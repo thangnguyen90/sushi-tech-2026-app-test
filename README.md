@@ -193,17 +193,29 @@ aws autoscaling set-desired-capacity \
 > Lưu ý: `desired-capacity` không được vượt quá `max_size` đã cấu hình trong tfvars.
 > Nếu cần tăng max, chạy `./tf.sh stg apply` trước.
 
-### Rollback
+### Rollback về version cũ
 
 ```bash
-# 1. AWS Console → EC2 → Launch Templates → chọn template
-# 2. Tab Versions → chọn version cũ → Actions → Set as default version
-# 3. Trigger ASG refresh:
+# Bước 1 — Đổi default Launch Template về version muốn rollback (ví dụ: version 6)
+aws ec2 modify-launch-template \
+  --launch-template-id lt-0b386e8a7c9046c53 \
+  --default-version 6 \
+  --region ap-northeast-1
+
+# Kiểm tra đã đổi đúng chưa
+aws ec2 describe-launch-templates \
+  --launch-template-ids lt-0b386e8a7c9046c53 \
+  --query 'LaunchTemplates[0].DefaultVersionNumber' \
+  --region ap-northeast-1
+
+# Bước 2 — Trigger ASG Instance Refresh (launch instance mới từ version cũ, terminate instance hiện tại)
 aws autoscaling start-instance-refresh \
-  --auto-scaling-group-name <ASG_NAME> \
-  --preferences '{"MinHealthyPercentage":50,"InstanceWarmup":120}' \
+  --auto-scaling-group-name eventech-stg-asg \
+  --preferences '{"MinHealthyPercentage":100,"InstanceWarmup":180}' \
   --region ap-northeast-1
 ```
+
+> ASG sẽ launch instance mới từ version đã chọn trước, chờ healthy rồi mới terminate instance hiện tại.
 
 ---
 
